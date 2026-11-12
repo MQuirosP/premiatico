@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: premiatico-api
+    runtime: node
+    plan: free
+    region: ohio
+    rootDir: backend
+    buildCommand: npm ci && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && npm run start
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
+      - key: CORS_ORIGIN
+        value: https://premiatico.com,https://www.premiatico.com
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SESSION_COOKIE_NAME
+        value: premiatico_admin_session
+      - key: SESSION_TTL_HOURS
+        value: "12"
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        value: premiatico-storage
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: notificaciones@premiatico.com
+      - key: TURNSTILE_SECRET_KEY
+        sync: false

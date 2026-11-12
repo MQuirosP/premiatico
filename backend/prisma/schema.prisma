@@ -1,0 +1,332 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  OPERATOR
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  CLOSED
+  COMPLETED
+  CANCELLED
+}
+
+enum LegalApprovalStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReservationStatus {
+  ACTIVE
+  CONVERTED
+  EXPIRED
+  CANCELLED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  UNDER_REVIEW
+  CONFIRMED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  SINPE_MOVIL
+}
+
+enum PaymentStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum ParticipationStatus {
+  RESERVED
+  CONFIRMED
+  RELEASED
+}
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  name         String
+  username     String?   @unique
+  email        String    @unique
+  passwordHash String
+  role         AdminRole @default(OPERATOR)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  reviewedPayments Payment[]
+  auditLogs        AuditLog[]
+}
+
+model Campaign {
+  id                     String              @id @default(cuid())
+  slug                   String              @unique
+  title                  String
+  description            String
+  category               String
+  status                 CampaignStatus      @default(DRAFT)
+  startAt                DateTime
+  endAt                  DateTime
+  publishedAt            DateTime?
+  totalChances           Int
+  maxNumberChanges       Int                 @default(5)
+  reservationMinutes     Int                 @default(15)
+  paymentWindowMinutes   Int                 @default(60)
+  reviewSlaHours         Int                 @default(24)
+  requiresLegalApproval  Boolean             @default(true)
+  legalApprovalStatus    LegalApprovalStatus @default(PENDING)
+  legalApprovalReference String?
+  terms                  String
+  coverImageKey          String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  prizes              CampaignPrize[]
+  combos              CampaignCombo[]
+  orders              Order[]
+  participations      Participation[]
+  reservationSessions ReservationSession[]
+
+  @@index([status, startAt, endAt])
+}
+
+model CampaignPrize {
+  id             String  @id @default(cuid())
+  campaignId     String
+  name           String
+  description    String
+  estimatedValue Int?
+  imageKey       String?
+  position       Int     @default(0)
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, position])
+}
+
+model DigitalPass {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  fileKey     String
+  mimeType    String
+  fileSize    Int
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  comboItems ComboPassItem[]
+}
+
+model CampaignCombo {
+  id             String   @id @default(cuid())
+  campaignId     String
+  name           String
+  description    String?
+  price          Int
+  passQuantity   Int
+  chanceQuantity Int
+  badgeLabel     String?
+  sortOrder      Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  campaign            Campaign             @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  passItems           ComboPassItem[]
+  orderItems          OrderItem[]
+  reservationSessions ReservationSession[]
+
+  @@index([campaignId, isActive, sortOrder])
+}
+
+model ComboPassItem {
+  id            String @id @default(cuid())
+  comboId       String
+  digitalPassId String
+  quantity      Int    @default(1)
+
+  combo       CampaignCombo @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  digitalPass DigitalPass   @relation(fields: [digitalPassId], references: [id], onDelete: Restrict)
+
+  @@unique([comboId, digitalPassId])
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  fullName  String
+  email     String
+  phone     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+
+  @@index([email])
+  @@index([phone])
+}
+
+model ReservationSession {
+  id                String            @id @default(cuid())
+  campaignId        String
+  comboId           String
+  sessionTokenHash  String            @unique
+  regenerationCount Int               @default(0)
+  expiresAt         DateTime
+  status            ReservationStatus @default(ACTIVE)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  campaign       Campaign        @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  combo          CampaignCombo   @relation(fields: [comboId], references: [id], onDelete: Restrict)
+  order          Order?
+  participations Participation[]
+
+  @@index([campaignId, status, expiresAt])
+}
+
+model Order {
+  id                   String      @id @default(cuid())
+  publicReference      String      @unique
+  accessTokenHash      String
+  customerId           String
+  campaignId           String
+  reservationSessionId String?     @unique
+  status               OrderStatus @default(PENDING_PAYMENT)
+  totalAmount          Int
+  expiresAt            DateTime
+  confirmedAt          DateTime?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  customer           Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  campaign           Campaign            @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  reservationSession ReservationSession? @relation(fields: [reservationSessionId], references: [id], onDelete: SetNull)
+  items              OrderItem[]
+  participations     Participation[]
+  payments           Payment[]
+  notifications      NotificationLog[]
+
+  @@index([campaignId, status])
+  @@index([customerId])
+  @@index([status, expiresAt])
+}
+
+model OrderItem {
+  id                     String @id @default(cuid())
+  orderId                String
+  comboId                String
+  comboNameSnapshot      String
+  quantity               Int
+  unitPrice              Int
+  passQuantitySnapshot   Int
+  chanceQuantitySnapshot Int
+  totalPrice             Int
+  passesSnapshotJson     Json
+
+  order Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  combo CampaignCombo @relation(fields: [comboId], references: [id], onDelete: Restrict)
+}
+
+model Participation {
+  id                   String              @id @default(cuid())
+  campaignId           String
+  orderId              String?
+  reservationSessionId String?
+  number               String              @db.VarChar(5)
+  status               ParticipationStatus @default(RESERVED)
+  reservedUntil        DateTime?
+  confirmedAt          DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  campaign           Campaign            @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  order              Order?              @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  reservationSession ReservationSession? @relation(fields: [reservationSessionId], references: [id], onDelete: SetNull)
+
+  // PostgreSQL partial unique index added in SQL migration:
+  // CREATE UNIQUE INDEX "Participation_active_number_unique"
+  // ON "Participation" ("campaignId", "number")
+  // WHERE "status" IN ('RESERVED', 'CONFIRMED');
+  @@index([campaignId, status])
+  @@index([orderId])
+  @@index([reservationSessionId])
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  orderId         String
+  method          PaymentMethod @default(SINPE_MOVIL)
+  amount          Int
+  status          PaymentStatus @default(PENDING)
+  reviewedById    String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+  reviewNotes     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  order      Order          @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  reviewedBy AdminUser?     @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
+  proofs     PaymentProof[]
+
+  @@index([status, createdAt])
+  @@index([orderId])
+}
+
+model PaymentProof {
+  id         String   @id @default(cuid())
+  paymentId  String
+  storageKey String
+  mimeType   String
+  fileSize   Int
+  uploadedAt DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  actor AdminUser? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model NotificationLog {
+  id             String   @id @default(cuid())
+  orderId        String
+  type           String
+  idempotencyKey String   @unique
+  recipientEmail String
+  providerId     String?
+  status         String
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
