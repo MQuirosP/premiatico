@@ -240,6 +240,12 @@ adminPaymentsRouter.get('/', async (req: Request, res: Response, next: NextFunct
           include: {
             customer: { select: { fullName: true, email: true, phone: true } },
             campaign: { select: { title: true, slug: true } },
+            items: { select: { comboNameSnapshot: true, chanceQuantitySnapshot: true } },
+            participations: {
+              where: { status: { in: ['RESERVED', 'CONFIRMED'] } },
+              orderBy: { number: 'asc' },
+              select: { number: true, status: true },
+            },
           },
         },
         proofs: true,
