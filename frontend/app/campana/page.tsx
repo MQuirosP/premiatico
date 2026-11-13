@@ -96,7 +96,8 @@ function CampaignDetailContent() {
                 <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
                   <span className="inline-flex items-center gap-1.5">
                     <Calendar className="h-4 w-4" />
-                    Vigente hasta el {new Date(campaign.endAt).toLocaleDateString('es-CR')}
+                    Vigente hasta el{' '}
+                    {new Date(campaign.drawAt ?? campaign.endAt).toLocaleDateString('es-CR')}
                   </span>
                 </div>
               </div>

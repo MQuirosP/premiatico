@@ -62,6 +62,7 @@ export async function listPublicCampaigns() {
     where: {
       status: CampaignStatus.ACTIVE,
       endAt: { gt: now },
+      OR: [{ drawAt: null }, { drawAt: { gt: now } }],
     },
     orderBy: { startAt: 'asc' },
     include: {

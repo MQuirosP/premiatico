@@ -28,6 +28,7 @@ export default function AdminCampaignsPage() {
   const [category, setCategory] = useState('Vehículos');
   const [description, setDescription] = useState('');
   const [totalChances, setTotalChances] = useState(10000);
+  const [endAt, setEndAt] = useState('');
   const [drawAt, setDrawAt] = useState('');
   const [drawReference, setDrawReference] = useState('');
   const [coverImageKey, setCoverImageKey] = useState<string | null>(null);
@@ -77,6 +78,7 @@ export default function AdminCampaignsPage() {
       setSlug('');
       setTitle('');
       setDescription('');
+      setEndAt('');
       setDrawAt('');
       setDrawReference('');
       setCoverImageKey(null);
@@ -193,15 +195,18 @@ export default function AdminCampaignsPage() {
           onSubmit={(e) => {
             e.preventDefault();
             const now = new Date();
-            const nextMonth = new Date(now.getTime() + 30 * 24 * 3600 * 1000);
+            const drawIso = drawAt ? new Date(drawAt).toISOString() : null;
+            const resolvedEndAt = endAt
+              ? new Date(endAt).toISOString()
+              : (drawIso ?? new Date(now.getTime() + 30 * 24 * 3600 * 1000).toISOString());
             createMutation.mutate({
               slug,
               title,
               description,
               category,
               startAt: now.toISOString(),
-              endAt: nextMonth.toISOString(),
-              drawAt: drawAt ? new Date(drawAt).toISOString() : null,
+              endAt: resolvedEndAt,
+              drawAt: drawIso,
               drawReference: drawReference.trim() || null,
               coverImageKey,
               totalChances,
@@ -252,6 +257,17 @@ export default function AdminCampaignsPage() {
                 required
                 value={totalChances}
                 onChange={(e) => setTotalChances(Number(e.target.value))}
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Cierre de ventas (opcional, usa fecha del sorteo si se omite)
+              </label>
+              <input
+                type="datetime-local"
+                value={endAt}
+                onChange={(e) => setEndAt(e.target.value)}
                 className="w-full rounded-lg border px-3 py-2 text-sm"
               />
             </div>

@@ -37,15 +37,16 @@ export function CampaignCountdown({
   drawAt?: string | null;
   drawReference?: string | null;
 }) {
+  const targetAt = drawAt || endAt;
   const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(null);
 
   useEffect(() => {
-    setTimeLeft(computeTimeLeft(endAt));
+    setTimeLeft(computeTimeLeft(targetAt));
     const timer = window.setInterval(() => {
-      setTimeLeft(computeTimeLeft(endAt));
+      setTimeLeft(computeTimeLeft(targetAt));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [endAt]);
+  }, [targetAt]);
 
   const units = [
     { label: 'Días', value: timeLeft ? pad2(timeLeft.days) : '--' },
