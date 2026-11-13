@@ -71,7 +71,7 @@ export default function AdminLoginPage() {
               type="text"
               autoComplete="username"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              placeholder="admin.sys.root"
+              placeholder="usuario o correo@premiatico.com"
               {...register('identifier')}
             />
             {errors.identifier ? (
