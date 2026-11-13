@@ -81,10 +81,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  const currentSection =
-    navItems.find((item) => pathname === item.href || pathname === `${item.href}/`)?.label ??
-    'Panel';
-
   const renderNavLinks = (onNavigate?: () => void) =>
     navItems.map((item) => {
       const Icon = item.icon;
@@ -112,12 +108,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="h-screen overflow-hidden flex flex-col md:flex-row bg-slate-50">
       <header className="md:hidden flex items-center justify-between border-b bg-white px-4 py-3 shrink-0 z-30">
-        <Link href="/admin" className="flex items-center gap-2 font-bold text-base text-blue-600">
+        <Link href="/admin" className="flex items-center gap-2 font-bold text-lg text-blue-600">
           <Sparkles className="h-5 w-5 text-amber-500" />
           <span>Premiático</span>
-          <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-            {currentSection}
-          </span>
         </Link>
 
         <button
