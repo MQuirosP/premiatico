@@ -83,6 +83,22 @@ adminDashboardRouter.get('/customers', async (_req: Request, res: Response, next
       take: 100,
       include: {
         _count: { select: { orders: true } },
+        orders: {
+          orderBy: { createdAt: 'desc' },
+          take: 25,
+          select: {
+            id: true,
+            publicReference: true,
+            status: true,
+            campaign: { select: { title: true } },
+            items: { select: { comboNameSnapshot: true } },
+            participations: {
+              where: { status: { in: ['RESERVED', 'CONFIRMED'] } },
+              orderBy: { number: 'asc' },
+              select: { number: true, status: true },
+            },
+          },
+        },
       },
     });
     res.status(200).json({ success: true, data: { customers } });

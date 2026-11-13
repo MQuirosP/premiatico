@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Eye, Search, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { ChancesModal, type ChancesModalEntry } from '@/components/chances-modal';
 import { apiRequest, ApiError } from '@/lib/api';
 import { formatCRC } from '@/lib/utils';
 
@@ -39,6 +40,11 @@ export default function AdminPedidosPage() {
     payment: AdminPaymentRow;
     url: string;
     mimeType: string;
+  } | null>(null);
+  const [selectedChances, setSelectedChances] = useState<{
+    title: string;
+    subtitle: string;
+    entries: ChancesModalEntry[];
   } | null>(null);
   const [rejectReason, setRejectReason] = useState('Comprobante rechazado en revisión manual');
 
@@ -216,24 +222,38 @@ export default function AdminPedidosPage() {
                         {p.order.customer.phone} · {p.order.customer.email}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="text-xs font-semibold text-slate-800 whitespace-nowrap">
-                        {p.order.items?.map((item) => item.comboNameSnapshot).join(', ') || 'Combo'}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-slate-800">
+                          {p.order.items?.map((item) => item.comboNameSnapshot).join(', ') || 'Combo'}
+                        </span>
+                        {p.order.participations && p.order.participations.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSelectedChances({
+                                title: `${p.order.publicReference} · ${p.order.customer.fullName}`,
+                                subtitle: p.order.campaign.title,
+                                entries: [
+                                  {
+                                    label:
+                                      p.order.items?.map((item) => item.comboNameSnapshot).join(', ') ||
+                                      'Combo',
+                                    sublabel: `${p.order.participations!.length} chances`,
+                                    numbers: p.order.participations!,
+                                  },
+                                ],
+                              })
+                            }
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Ver ({p.order.participations.length})
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-400">Sin números</span>
+                        )}
                       </div>
-                      {p.order.participations && p.order.participations.length > 0 ? (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {p.order.participations.map((ch) => (
-                            <span
-                              key={ch.number}
-                              className="rounded border bg-amber-50 px-1.5 py-0.5 font-mono text-[11px] font-bold text-slate-800"
-                            >
-                              {ch.number}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-400">Sin números activos</span>
-                      )}
                     </td>
                     <td className="px-4 py-3 font-semibold whitespace-nowrap">
                       {formatCRC(p.amount)}
@@ -398,6 +418,14 @@ export default function AdminPedidosPage() {
           </div>
         </div>
       ) : null}
+
+      <ChancesModal
+        open={Boolean(selectedChances)}
+        onClose={() => setSelectedChances(null)}
+        title={selectedChances?.title ?? ''}
+        subtitle={selectedChances?.subtitle}
+        entries={selectedChances?.entries ?? []}
+      />
     </div>
   );
 }

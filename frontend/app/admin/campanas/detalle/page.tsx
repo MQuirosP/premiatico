@@ -1,11 +1,12 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Award, Calendar, CheckCircle2, ExternalLink, ShieldCheck, Ticket, Trophy, Users, XCircle } from 'lucide-react';
+import { ArrowLeft, Award, Calendar, CheckCircle2, ExternalLink, Eye, ShieldCheck, Ticket, Trophy, Users, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { CampaignProgressBar } from '@/components/campaign-progress';
+import { ChancesModal, type ChancesModalEntry } from '@/components/chances-modal';
 import { ApiError } from '@/lib/api';
 import { formatCRC } from '@/lib/utils';
 import { evaluateAdminCampaignWinner, getAdminCampaignDetail, type CampaignWinnerResult } from '@/services/campaigns';
@@ -27,6 +28,11 @@ function CampaignDetailInner() {
   const [winnerNotes, setWinnerNotes] = useState('');
   const [evalError, setEvalError] = useState<string | null>(null);
   const [latestResult, setLatestResult] = useState<CampaignWinnerResult | null>(null);
+  const [selectedChances, setSelectedChances] = useState<{
+    title: string;
+    subtitle: string;
+    entries: ChancesModalEntry[];
+  } | null>(null);
 
   const { data: campaign, isLoading, isError } = useQuery({
     queryKey: ['admin-campaign-detail', id],
@@ -396,20 +402,30 @@ function CampaignDetailInner() {
                       <td className="px-4 py-3 text-xs text-slate-700 whitespace-nowrap">
                         {items.map((i) => i.comboNameSnapshot).join(', ') || '—'}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         {participations.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {participations.map((p) => (
-                              <span
-                                key={p.number}
-                                className="rounded border bg-amber-50 px-1.5 py-0.5 font-mono text-[11px] font-bold text-slate-800"
-                              >
-                                {p.number}
-                              </span>
-                            ))}
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSelectedChances({
+                                title: `${order.publicReference} · ${order.customer?.fullName ?? 'Cliente'}`,
+                                subtitle: campaign.title,
+                                entries: [
+                                  {
+                                    label: items.map((i) => i.comboNameSnapshot).join(', ') || 'Combo',
+                                    sublabel: `${participations.length} chances`,
+                                    numbers: participations,
+                                  },
+                                ],
+                              })
+                            }
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Ver ({participations.length})
+                          </button>
                         ) : (
-                          <span className="text-xs text-slate-400">Sin números activos</span>
+                          <span className="text-xs text-slate-400">Sin números</span>
                         )}
                       </td>
                       <td className="px-4 py-3 font-semibold whitespace-nowrap">
@@ -426,6 +442,14 @@ function CampaignDetailInner() {
           </div>
         )}
       </section>
+
+      <ChancesModal
+        open={Boolean(selectedChances)}
+        onClose={() => setSelectedChances(null)}
+        title={selectedChances?.title ?? ''}
+        subtitle={selectedChances?.subtitle}
+        entries={selectedChances?.entries ?? []}
+      />
     </div>
   );
 }
