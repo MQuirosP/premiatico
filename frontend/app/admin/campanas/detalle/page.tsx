@@ -62,6 +62,9 @@ function CampaignDetailInner() {
     );
   }
 
+  const combos = campaign.combos ?? [];
+  const orders = campaign.orders ?? [];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -142,14 +145,14 @@ function CampaignDetailInner() {
       <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
           <Ticket className="h-4 w-4 text-amber-500" />
-          Combos y pases digitales ({campaign.combos.length})
+          Combos y pases digitales ({combos.length})
         </h2>
 
-        {campaign.combos.length === 0 ? (
+        {combos.length === 0 ? (
           <p className="text-sm text-slate-500">Esta campaña no tiene combos activos.</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {campaign.combos.map((combo) => (
+            {combos.map((combo) => (
               <div key={combo.id} className="rounded-xl border bg-slate-50/70 p-4 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-900 text-sm">{combo.name}</span>
@@ -181,11 +184,11 @@ function CampaignDetailInner() {
         <div className="border-b px-6 py-4 flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <Users className="h-4 w-4 text-blue-600" />
-            Órdenes y clientes participantes ({campaign.orders.length})
+            Órdenes y clientes participantes ({orders.length})
           </h2>
         </div>
 
-        {campaign.orders.length === 0 ? (
+        {orders.length === 0 ? (
           <div className="p-6 text-sm text-slate-500">
             Aún no hay órdenes registradas en esta campaña.
           </div>
@@ -203,46 +206,50 @@ function CampaignDetailInner() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {campaign.orders.map((order) => (
-                  <tr key={order.id}>
-                    <td className="px-4 py-3 font-mono font-bold text-slate-900 whitespace-nowrap">
-                      {order.publicReference}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-slate-900 whitespace-nowrap">
-                        {order.customer.fullName}
-                      </div>
-                      <div className="text-xs text-slate-500 whitespace-nowrap">
-                        {order.customer.phone} · {order.customer.email}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-700 whitespace-nowrap">
-                      {order.items.map((i) => i.comboNameSnapshot).join(', ') || '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      {order.participations.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {order.participations.map((p) => (
-                            <span
-                              key={p.number}
-                              className="rounded border bg-amber-50 px-1.5 py-0.5 font-mono text-[11px] font-bold text-slate-800"
-                            >
-                              {p.number}
-                            </span>
-                          ))}
+                {orders.map((order) => {
+                  const items = order.items ?? [];
+                  const participations = order.participations ?? [];
+                  return (
+                    <tr key={order.id}>
+                      <td className="px-4 py-3 font-mono font-bold text-slate-900 whitespace-nowrap">
+                        {order.publicReference}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-slate-900 whitespace-nowrap">
+                          {order.customer?.fullName ?? '—'}
                         </div>
-                      ) : (
-                        <span className="text-xs text-slate-400">Sin números activos</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 font-semibold whitespace-nowrap">
-                      {formatCRC(order.totalAmount)}
-                    </td>
-                    <td className="px-4 py-3 text-xs font-semibold whitespace-nowrap">
-                      {ORDER_STATUS_LABEL[order.status] ?? order.status}
-                    </td>
-                  </tr>
-                ))}
+                        <div className="text-xs text-slate-500 whitespace-nowrap">
+                          {order.customer?.phone ?? '—'} · {order.customer?.email ?? '—'}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-700 whitespace-nowrap">
+                        {items.map((i) => i.comboNameSnapshot).join(', ') || '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        {participations.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {participations.map((p) => (
+                              <span
+                                key={p.number}
+                                className="rounded border bg-amber-50 px-1.5 py-0.5 font-mono text-[11px] font-bold text-slate-800"
+                              >
+                                {p.number}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">Sin números activos</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-semibold whitespace-nowrap">
+                        {formatCRC(order.totalAmount)}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-semibold whitespace-nowrap">
+                        {ORDER_STATUS_LABEL[order.status] ?? order.status}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
