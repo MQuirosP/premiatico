@@ -1,8 +1,8 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Eye, X } from 'lucide-react';
-import { useState } from 'react';
+import { Check, Eye, Search, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { apiRequest, ApiError } from '@/lib/api';
 import { formatCRC } from '@/lib/utils';
 
@@ -32,7 +32,9 @@ const STATUS_BADGES: Record<string, { label: string; className: string }> = {
 export default function AdminPedidosPage() {
   const queryClient = useQueryClient();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>('UNDER_REVIEW');
+  const [campaignFilter, setCampaignFilter] = useState<string>('ALL');
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedProof, setSelectedProof] = useState<{
     payment: AdminPaymentRow;
     url: string;
@@ -47,6 +49,29 @@ export default function AdminPedidosPage() {
         statusFilter === 'ALL' ? '/admin/payments' : `/admin/payments?status=${statusFilter}`,
       ),
   });
+
+  const campaignOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of data?.payments ?? []) {
+      map.set(p.order.campaign.slug, p.order.campaign.title);
+    }
+    return Array.from(map.entries());
+  }, [data?.payments]);
+
+  const filteredPayments = useMemo(() => {
+    const list = data?.payments ?? [];
+    const q = searchTerm.trim().toLowerCase();
+    return list.filter((p) => {
+      if (campaignFilter !== 'ALL' && p.order.campaign.slug !== campaignFilter) return false;
+      if (!q) return true;
+      return (
+        p.order.publicReference.toLowerCase().includes(q) ||
+        p.order.customer.fullName.toLowerCase().includes(q) ||
+        p.order.customer.phone.toLowerCase().includes(q) ||
+        p.order.customer.email.toLowerCase().includes(q)
+      );
+    });
+  }, [data?.payments, campaignFilter, searchTerm]);
 
   const approveMutation = useMutation({
     mutationFn: (paymentId: string) =>
@@ -84,26 +109,57 @@ export default function AdminPedidosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Pedidos y revisión SINPE</h1>
-          <p className="text-sm text-slate-500">
-            Verificá comprobantes bancarios antes de confirmar los chances del cliente.
-          </p>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Pedidos y revisión SINPE</h1>
+        <p className="text-sm text-slate-500">
+          Verificá comprobantes bancarios antes de confirmar los chances del cliente.
+        </p>
+      </div>
+
+      {errorMsg ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {errorMsg}
         </div>
+      ) : null}
+
+      <div className="rounded-xl border bg-white p-4 shadow-sm flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar ref, cliente, tel o correo..."
+              className="w-full rounded-lg border pl-9 pr-3 py-1.5 text-xs"
+            />
+          </div>
+          <select
+            value={campaignFilter}
+            onChange={(e) => setCampaignFilter(e.target.value)}
+            className="rounded-lg border bg-white px-3 py-1.5 text-xs text-slate-700"
+          >
+            <option value="ALL">Todas las campañas</option>
+            {campaignOptions.map(([slug, title]) => (
+              <option key={slug} value={slug}>
+                {title}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="flex flex-wrap gap-1.5">
           {[
-            { key: 'ALL', label: 'Todos' },
             { key: 'UNDER_REVIEW', label: 'En revisión' },
             { key: 'PENDING', label: 'Pendientes' },
             { key: 'APPROVED', label: 'Aprobados' },
             { key: 'REJECTED', label: 'Rechazados' },
+            { key: 'ALL', label: 'Todos' },
           ].map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => setStatusFilter(tab.key)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition whitespace-nowrap ${
                 statusFilter === tab.key
                   ? 'bg-blue-600 text-white'
                   : 'border bg-white text-slate-600 hover:bg-slate-50'
@@ -115,22 +171,16 @@ export default function AdminPedidosPage() {
         </div>
       </div>
 
-      {errorMsg ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMsg}
-        </div>
-      ) : null}
-
-      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+      <div className="rounded-xl border bg-white shadow-sm overflow-x-auto">
         {isLoading ? (
           <div className="p-6 text-sm text-slate-500">Cargando pagos...</div>
-        ) : !data || data.payments.length === 0 ? (
+        ) : filteredPayments.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-500">
-            No hay pagos registrados aún.
+            No hay pagos que coincidan con los filtros seleccionados.
           </div>
         ) : (
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 border-b text-xs uppercase text-slate-500">
+            <thead className="bg-slate-50 border-b text-xs uppercase text-slate-500 whitespace-nowrap">
               <tr>
                 <th className="px-4 py-3">Pedido y campaña</th>
                 <th className="px-4 py-3">Cliente</th>
@@ -142,30 +192,32 @@ export default function AdminPedidosPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {data.payments.map((p) => {
+              {filteredPayments.map((p) => {
                 const badge = STATUS_BADGES[p.status] ?? {
                   label: p.status,
                   className: 'bg-slate-100 text-slate-700',
                 };
                 const proof = p.proofs[0];
                 return (
-                  <tr key={p.id}>
-                    <td className="px-4 py-3">
+                  <tr key={p.id} className="hover:bg-slate-50/60">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <div className="font-mono font-bold text-slate-900">
                         {p.order.publicReference}
                       </div>
-                      <div className="mt-0.5 inline-block rounded bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                      <div className="mt-0.5 inline-block rounded bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
                         {p.order.campaign.title}
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-slate-900">{p.order.customer.fullName}</div>
-                      <div className="text-xs text-slate-500">
+                      <div className="font-medium text-slate-900 whitespace-nowrap">
+                        {p.order.customer.fullName}
+                      </div>
+                      <div className="text-xs text-slate-500 whitespace-nowrap">
                         {p.order.customer.phone} · {p.order.customer.email}
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-xs font-semibold text-slate-800">
+                      <div className="text-xs font-semibold text-slate-800 whitespace-nowrap">
                         {p.order.items?.map((item) => item.comboNameSnapshot).join(', ') || 'Combo'}
                       </div>
                       {p.order.participations && p.order.participations.length > 0 ? (
@@ -183,8 +235,10 @@ export default function AdminPedidosPage() {
                         <span className="text-xs text-slate-400">Sin números activos</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 font-semibold">{formatCRC(p.amount)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 font-semibold whitespace-nowrap">
+                      {formatCRC(p.amount)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
                       {proof?.signedUrl ? (
                         <button
                           type="button"
@@ -195,34 +249,37 @@ export default function AdminPedidosPage() {
                               mimeType: proof.mimeType,
                             })
                           }
-                          className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
                         >
-                          <Eye className="h-3.5 w-3.5" /> Ver comprobante
+                          <Eye className="h-3.5 w-3.5" />
+                          Ver
                         </button>
                       ) : (
-                        <span className="text-xs text-slate-400">Sin comprobante</span>
+                        <span className="text-xs text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <span
-                        className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge.className}`}
+                        className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${badge.className}`}
                       >
                         {badge.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right space-x-2">
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
                       {p.status === 'UNDER_REVIEW' ? (
-                        <>
+                        <div className="inline-flex items-center gap-1.5">
                           <button
                             type="button"
+                            title="Aprobar pago"
                             disabled={approveMutation.isPending}
                             onClick={() => approveMutation.mutate(p.id)}
-                            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
+                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
                           >
                             <Check className="h-3.5 w-3.5" /> Aprobar
                           </button>
                           <button
                             type="button"
+                            title="Rechazar pago"
                             disabled={rejectMutation.isPending}
                             onClick={() =>
                               rejectMutation.mutate({
@@ -230,11 +287,11 @@ export default function AdminPedidosPage() {
                                 reason: rejectReason,
                               })
                             }
-                            className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-700"
+                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
                           >
                             <X className="h-3.5 w-3.5" /> Rechazar
                           </button>
-                        </>
+                        </div>
                       ) : null}
                     </td>
                   </tr>
