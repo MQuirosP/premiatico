@@ -1,10 +1,15 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Ticket, Trash2 } from 'lucide-react';
+import { Eye, Plus, Ticket, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { ApiError } from '@/lib/api';
-import { deleteAdminPass, listAdminPasses, uploadAdminPass } from '@/services/campaigns';
+import {
+  deleteAdminPass,
+  getAdminPassPreviewUrl,
+  listAdminPasses,
+  uploadAdminPass,
+} from '@/services/campaigns';
 
 export default function AdminPassesPage() {
   const queryClient = useQueryClient();
@@ -167,15 +172,36 @@ export default function AdminPassesPage() {
                     {pass.isActive ? 'Activo' : 'Inactivo'}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      disabled={deleteMutation.isPending}
-                      onClick={() => deleteMutation.mutate(pass.id)}
-                      className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Eliminar
-                    </button>
+                    <div className="inline-flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const preview = await getAdminPassPreviewUrl(pass.id);
+                            window.open(preview.url, '_blank', 'noopener,noreferrer');
+                          } catch (err) {
+                            setFeedback(
+                              err instanceof ApiError
+                                ? err.message
+                                : 'No se pudo abrir la vista previa del pase',
+                            );
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        Ver
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deleteMutation.isPending}
+                        onClick={() => deleteMutation.mutate(pass.id)}
+                        className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Eliminar
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

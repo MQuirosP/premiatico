@@ -148,6 +148,7 @@ export async function approvePayment(params: {
   const passSnapshots = orderItems.flatMap((item) =>
     Array.isArray(item.passesSnapshotJson)
       ? (item.passesSnapshotJson as Array<{
+          digitalPassId?: string;
           name?: string;
           fileKey?: string;
           mimeType?: string;
@@ -155,20 +156,41 @@ export async function approvePayment(params: {
       : [],
   );
 
+  const digitalPassIds = [
+    ...new Set(
+      passSnapshots
+        .map((p) => p.digitalPassId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const dbPasses =
+    digitalPassIds.length > 0 && typeof prisma.digitalPass?.findMany === 'function'
+      ? await prisma.digitalPass.findMany({
+          where: { id: { in: digitalPassIds } },
+          select: { id: true, name: true, fileKey: true, mimeType: true },
+        })
+      : [];
+
   const passLabel =
+    dbPasses.map((p) => p.name).join(', ') ||
     passSnapshots
       .map((p) => p.name)
       .filter((name): name is string => Boolean(name))
-      .join(', ') || 'tu pase digital';
+      .join(', ') ||
+    'tu pase digital';
   const totalPasses = orderItems.reduce(
     (sum, item) => sum + item.passQuantitySnapshot * item.quantity,
     0,
   );
-  const imagePass = passSnapshots.find(
-    (p) =>
-      p.fileKey &&
-      (p.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(p.fileKey)),
-  );
+
+  const imagePass =
+    dbPasses.find((p) => p.mimeType.startsWith('image/')) ??
+    passSnapshots.find(
+      (p) =>
+        p.fileKey &&
+        (p.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(p.fileKey)),
+    );
 
   let cards: StampedChanceCard[] = [];
   if (env.RESEND_API_KEY && imagePass?.fileKey && allNumbers.length > 0) {
@@ -187,7 +209,14 @@ export async function approvePayment(params: {
     }
   }
 
-  const frontendBaseUrl = env.CORS_ORIGIN.split(',')[0]?.trim().replace(/\/+$/, '') || 'http://localhost:3000';
+  const corsOrigins = env.CORS_ORIGIN.split(',')
+    .map((o) => o.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+  const frontendBaseUrl =
+    env.FRONTEND_URL?.replace(/\/+$/, '') ||
+    corsOrigins.find((o) => o.includes('workers.dev')) ||
+    corsOrigins[0] ||
+    'http://localhost:3000';
   const orderLookupUrl = `${frontendBaseUrl}/pedido?ref=${encodeURIComponent(result.order.publicReference)}`;
 
   await sendOrderNotification({

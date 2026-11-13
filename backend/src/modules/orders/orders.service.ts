@@ -178,6 +178,7 @@ export async function createOrderFromSession(input: z.infer<typeof createOrderSc
       digitalPassId: item.digitalPass.id,
       name: item.digitalPass.name,
       fileKey: item.digitalPass.fileKey,
+      mimeType: item.digitalPass.mimeType,
       quantity: item.quantity,
     }));
 

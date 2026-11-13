@@ -176,8 +176,11 @@ export function buildPaymentConfirmedEmailHtml(input: PaymentConfirmedEmailInput
                   <p style="margin: 0 0 6px 0; color: #fb923c; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;">
                     TU COMPRA
                   </p>
-                  <p style="margin: 0 0 16px 0; color: #ffffff; font-size: 18px; font-weight: 800;">
-                    Tu compra incluye ${safePassLabel}
+                  <p style="margin: 0 0 4px 0; color: #ffffff; font-size: 18px; font-weight: 800;">
+                    Tu compra incluye ${input.totalPasses === 1 ? 'tu pase digital' : `${input.totalPasses} pases digitales`}
+                  </p>
+                  <p style="margin: 0 0 16px 0; color: #cbd5e1; font-size: 13px;">
+                    ${safePassLabel}
                   </p>
                   <a
                     href="${safeUrl}"
@@ -185,7 +188,7 @@ export function buildPaymentConfirmedEmailHtml(input: PaymentConfirmedEmailInput
                     rel="noopener noreferrer"
                     style="display: inline-block; background-color: #ea580c; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 11px 18px; border-radius: 8px;"
                   >
-                    Descargar ${safePassLabel}
+                    ${input.totalPasses === 1 ? 'Descargar pase' : 'Descargar pases'}
                   </a>
                 </td>
               </tr>

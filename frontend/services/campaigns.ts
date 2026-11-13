@@ -333,3 +333,17 @@ export async function notifyAdminPrizeWinnerEmail(
     },
   );
 }
+
+export async function getAdminPassPreviewUrl(passId: string): Promise<{
+  url: string;
+  expiresInSeconds: number;
+  name: string;
+  mimeType: string;
+}> {
+  return apiRequest<{
+    url: string;
+    expiresInSeconds: number;
+    name: string;
+    mimeType: string;
+  }>(`/admin/passes/${encodeURIComponent(passId)}/preview`);
+}

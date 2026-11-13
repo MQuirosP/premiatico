@@ -8,6 +8,7 @@ import { validate } from '../../middlewares/validate.js';
 import { recordAuditLog } from '../audit/audit.service.js';
 import {
   deleteObject,
+  getSignedDownloadUrl,
   getSignedUploadUrl,
   r2KeyBuilders,
   uploadObject,
@@ -163,6 +164,37 @@ adminPassesRouter.patch(
       });
 
       res.status(200).json({ success: true, data: { pass } });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+adminPassesRouter.get(
+  '/:id/preview',
+  validate({ params: passIdSchema }),
+  async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+    try {
+      const existing = await prisma.digitalPass.findUnique({
+        where: { id: req.params.id },
+        select: { id: true, name: true, fileKey: true, mimeType: true },
+      });
+      if (!existing) throw new NotFoundError('Pase digital no encontrado');
+
+      const { downloadUrl, expiresInSeconds } = await getSignedDownloadUrl({
+        key: existing.fileKey,
+        expiresInSeconds: 300,
+      });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          url: downloadUrl,
+          expiresInSeconds,
+          name: existing.name,
+          mimeType: existing.mimeType,
+        },
+      });
     } catch (error) {
       next(error);
     }
