@@ -125,6 +125,14 @@ export async function deleteCampaignPrize(id: string, actorId: string) {
   });
 }
 
+function assertPrizeDrawTimeReached(drawAt: Date | null): void {
+  if (drawAt && drawAt > new Date()) {
+    throw new ConflictError(
+      `Este sorteo está programado para el ${drawAt.toLocaleString('es-CR')} y aún no se puede evaluar.`,
+    );
+  }
+}
+
 export async function evaluatePrizeWinner(
   prizeId: string,
   input: z.infer<typeof evaluatePrizeWinnerSchema>,
@@ -142,6 +150,8 @@ export async function evaluatePrizeWinner(
   if (!prize) {
     throw new NotFoundError('Premio o sorteo no encontrado');
   }
+
+  assertPrizeDrawTimeReached(prize.drawAt);
 
   const digits = getCampaignNumberDigits(prize.campaign.totalChances);
   const rawNumber = input.winningNumber.trim();
@@ -266,6 +276,8 @@ export async function drawRandomPrizeWinner(
   if (!prize) {
     throw new NotFoundError('Premio o sorteo no encontrado');
   }
+
+  assertPrizeDrawTimeReached(prize.drawAt);
 
   let excludedOrderIds: string[] = [];
   if (!input.allowDuplicateOrder) {

@@ -275,6 +275,9 @@ export function CampaignPrizesPanel({
           {prizes.map((prize) => {
             const isEvaluating = activePrizeId === prize.id;
             const isEvaluated = Boolean(prize.winningNumber && prize.winnerEvaluatedAt);
+            const isBeforeDrawAt = Boolean(
+              prize.drawAt && new Date(prize.drawAt).getTime() > Date.now(),
+            );
 
             return (
               <div
@@ -437,18 +440,25 @@ export function CampaignPrizesPanel({
                   </form>
                 ) : (
                   <div className="flex items-center justify-between gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActivePrizeId(prize.id);
-                        setWinningNumber(prize.winningNumber ?? '');
-                        setNotes(prize.winnerNotes ?? '');
-                      }}
-                      className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200"
-                    >
-                      <Trophy className="h-3.5 w-3.5" />
-                      {isEvaluated ? 'Re-evaluar' : 'Evaluar ganador'}
-                    </button>
+                    {isBeforeDrawAt ? (
+                      <span className="text-[11px] font-medium text-slate-500">
+                        Evaluación habilitada el{' '}
+                        {new Date(prize.drawAt!).toLocaleString('es-CR')}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActivePrizeId(prize.id);
+                          setWinningNumber(prize.winningNumber ?? '');
+                          setNotes(prize.winnerNotes ?? '');
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200"
+                      >
+                        <Trophy className="h-3.5 w-3.5" />
+                        {isEvaluated ? 'Re-evaluar' : 'Evaluar ganador'}
+                      </button>
+                    )}
                     {canDelete && !isEvaluated ? (
                       <button
                         type="button"
