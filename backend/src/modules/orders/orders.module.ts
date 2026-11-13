@@ -26,6 +26,14 @@ const orderLookupQuerySchema = z.object({
   token: z.string().min(16),
 });
 
+const customerOrderLookupSchema = z.object({
+  email: z.string().trim().email('Correo electrónico inválido').toLowerCase(),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^[0-9+\-\s]{8,20}$/, 'Teléfono inválido (formato Costa Rica: 8 dígitos)'),
+});
+
 function generatePublicReference(): string {
   const code = crypto.randomBytes(4).toString('hex').toUpperCase();
   return `PRM-${code}`;
@@ -182,38 +190,50 @@ export async function createOrderFromSession(input: z.infer<typeof createOrderSc
   });
 }
 
-export async function getPublicOrderByReference(publicReference: string, accessToken: string) {
-  const tokenHash = hashToken(accessToken);
-
-  const order = await prisma.order.findUnique({
-    where: { publicReference },
-    include: {
-      campaign: { select: { id: true, title: true, slug: true } },
-      items: true,
-      participations: {
-        where: { status: { in: ['RESERVED', 'CONFIRMED'] } },
-        orderBy: { number: 'asc' },
-        select: { number: true, status: true },
-      },
-      payments: {
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          method: true,
-          amount: true,
-          status: true,
-          rejectionReason: true,
-        },
-      },
+const publicOrderInclude = {
+  campaign: { select: { id: true, title: true, slug: true } },
+  items: true,
+  participations: {
+    where: { status: { in: ['RESERVED' as const, 'CONFIRMED' as const] } },
+    orderBy: { number: 'asc' as const },
+    select: { number: true, status: true },
+  },
+  payments: {
+    orderBy: { createdAt: 'desc' as const },
+    select: {
+      id: true,
+      method: true,
+      amount: true,
+      status: true,
+      rejectionReason: true,
     },
-  });
+  },
+};
 
-  if (!order || order.accessTokenHash !== tokenHash) {
-    // Anti-enumeration: identical error for missing order or invalid token
-    throw new NotFoundError('Pedido no encontrado');
-  }
-
-  let passDownloads: Array<{ name: string; downloadUrl: string }> = [];
+async function formatPublicOrder(order: {
+  publicReference: string;
+  status: string;
+  totalAmount: number;
+  expiresAt: Date;
+  confirmedAt: Date | null;
+  campaign: { id: string; title: string; slug: string };
+  items: Array<{
+    comboNameSnapshot: string;
+    passQuantitySnapshot: number;
+    chanceQuantitySnapshot: number;
+    totalPrice: number;
+    passesSnapshotJson: unknown;
+  }>;
+  participations: Array<{ number: string; status: string }>;
+  payments: Array<{
+    id: string;
+    method: string;
+    amount: number;
+    status: string;
+    rejectionReason: string | null;
+  }>;
+}) {
+  const passDownloads: Array<{ name: string; downloadUrl: string }> = [];
   if (order.status === 'CONFIRMED') {
     for (const item of order.items) {
       const snapshot = item.passesSnapshotJson as Array<{
@@ -254,6 +274,35 @@ export async function getPublicOrderByReference(publicReference: string, accessT
   };
 }
 
+export async function getPublicOrderByReference(publicReference: string, accessToken: string) {
+  const tokenHash = hashToken(accessToken);
+
+  const order = await prisma.order.findUnique({
+    where: { publicReference },
+    include: publicOrderInclude,
+  });
+
+  if (!order || order.accessTokenHash !== tokenHash) {
+    // Anti-enumeration: identical error for missing order or invalid token
+    throw new NotFoundError('Pedido no encontrado');
+  }
+
+  return formatPublicOrder(order);
+}
+
+export async function lookupPublicOrdersByCustomer(email: string, phone: string) {
+  const orders = await prisma.order.findMany({
+    where: {
+      customer: { email, phone },
+      campaign: { status: 'ACTIVE' },
+    },
+    orderBy: { createdAt: 'desc' },
+    include: publicOrderInclude,
+  });
+
+  return Promise.all(orders.map((order) => formatPublicOrder(order)));
+}
+
 export const publicOrdersRouter = Router();
 
 publicOrdersRouter.post(
@@ -264,6 +313,20 @@ publicOrdersRouter.post(
       const data = req.body as z.infer<typeof createOrderSchema>;
       const result = await createOrderFromSession(data);
       res.status(201).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+publicOrdersRouter.post(
+  '/lookup',
+  validate({ body: customerOrderLookupSchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, phone } = req.body as z.infer<typeof customerOrderLookupSchema>;
+      const orders = await lookupPublicOrdersByCustomer(email, phone);
+      res.status(200).json({ success: true, data: { orders } });
     } catch (error) {
       next(error);
     }

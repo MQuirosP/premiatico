@@ -84,6 +84,8 @@ model Campaign {
   status                 CampaignStatus      @default(DRAFT)
   startAt                DateTime
   endAt                  DateTime
+  drawAt                 DateTime?
+  drawReference          String?
   publishedAt            DateTime?
   totalChances           Int
   maxNumberChanges       Int                 @default(5)

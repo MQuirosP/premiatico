@@ -76,10 +76,22 @@ function CampaignDetailContent() {
             <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
               {campaign.category}
             </span>
-            <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
-              <Calendar className="h-4 w-4" />
-              Vigente hasta el {new Date(campaign.endAt).toLocaleDateString('es-CR')}
-            </span>
+            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar className="h-4 w-4" />
+                Vigente hasta el {new Date(campaign.endAt).toLocaleDateString('es-CR')}
+              </span>
+              {campaign.drawAt ? (
+                <span className="rounded-full bg-amber-50 px-2.5 py-0.5 font-medium text-amber-800">
+                  Juega: {new Date(campaign.drawAt).toLocaleDateString('es-CR')}
+                  {campaign.drawReference ? ` · ${campaign.drawReference}` : ''}
+                </span>
+              ) : campaign.drawReference ? (
+                <span className="rounded-full bg-amber-50 px-2.5 py-0.5 font-medium text-amber-800">
+                  {campaign.drawReference}
+                </span>
+              ) : null}
+            </div>
           </div>
 
           <h1 className="text-3xl font-extrabold text-slate-900">{campaign.title}</h1>

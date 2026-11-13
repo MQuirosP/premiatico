@@ -62,6 +62,8 @@ export interface PublicCampaign {
   status: CampaignStatus;
   startAt: string;
   endAt: string;
+  drawAt: string | null;
+  drawReference: string | null;
   totalChances: number;
   maxNumberChanges: number;
   reservationMinutes: number;

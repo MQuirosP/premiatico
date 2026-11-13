@@ -109,6 +109,14 @@ export default function HomePage() {
                         <p className="mt-1 line-clamp-2 text-sm text-slate-600">
                           {campaign.description}
                         </p>
+                        {campaign.drawAt || campaign.drawReference ? (
+                          <p className="mt-2 text-xs font-medium text-amber-700">
+                            {campaign.drawAt
+                              ? `Juega ${new Date(campaign.drawAt).toLocaleDateString('es-CR')}`
+                              : 'Sorteo'}
+                            {campaign.drawReference ? ` · ${campaign.drawReference}` : ''}
+                          </p>
+                        ) : null}
                       </div>
 
                       <CampaignProgressBar progress={campaign.progress} />

@@ -23,6 +23,8 @@ export async function createAdminCampaign(payload: {
   category: string;
   startAt: string;
   endAt: string;
+  drawAt?: string | null;
+  drawReference?: string | null;
   totalChances: number;
   maxNumberChanges: number;
   requiresLegalApproval: boolean;
@@ -43,6 +45,8 @@ export async function updateAdminCampaign(
     legalApprovalStatus?: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED';
     legalApprovalReference?: string | null;
     requiresLegalApproval?: boolean;
+    drawAt?: string | null;
+    drawReference?: string | null;
   },
 ): Promise<AdminCampaign> {
   const res = await apiRequest<{ campaign: AdminCampaign }>(`/admin/campaigns/${id}`, {

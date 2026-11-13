@@ -180,6 +180,8 @@ export async function createCampaign(input: CreateCampaignInput, actorId: string
       category: input.category,
       startAt: input.startAt,
       endAt: input.endAt,
+      drawAt: input.drawAt ?? null,
+      drawReference: input.drawReference ?? null,
       totalChances: input.totalChances,
       maxNumberChanges: input.maxNumberChanges,
       reservationMinutes: input.reservationMinutes,

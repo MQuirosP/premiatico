@@ -24,6 +24,8 @@ export default function AdminCampaignsPage() {
   const [category, setCategory] = useState('Vehículos');
   const [description, setDescription] = useState('');
   const [totalChances, setTotalChances] = useState(10000);
+  const [drawAt, setDrawAt] = useState('');
+  const [drawReference, setDrawReference] = useState('');
   const [terms, setTerms] = useState('Aplican restricciones. Promoción válida en Costa Rica.');
 
   const [legalCampaignId, setLegalCampaignId] = useState<string | null>(null);
@@ -49,6 +51,8 @@ export default function AdminCampaignsPage() {
       setSlug('');
       setTitle('');
       setDescription('');
+      setDrawAt('');
+      setDrawReference('');
       setActionError(null);
       void refresh();
     },
@@ -139,6 +143,8 @@ export default function AdminCampaignsPage() {
               category,
               startAt: now.toISOString(),
               endAt: nextMonth.toISOString(),
+              drawAt: drawAt ? new Date(drawAt).toISOString() : null,
+              drawReference: drawReference.trim() || null,
               totalChances,
               maxNumberChanges: 5,
               requiresLegalApproval: true,
@@ -188,6 +194,28 @@ export default function AdminCampaignsPage() {
                 value={totalChances}
                 onChange={(e) => setTotalChances(Number(e.target.value))}
                 className="w-full rounded-lg border px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Fecha y hora del sorteo
+              </label>
+              <input
+                type="datetime-local"
+                value={drawAt}
+                onChange={(e) => setDrawAt(e.target.value)}
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Sorteo de referencia
+              </label>
+              <input
+                value={drawReference}
+                onChange={(e) => setDrawReference(e.target.value)}
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+                placeholder="Ej. Lotería Nacional JPS — Sorteo #4820"
               />
             </div>
           </div>

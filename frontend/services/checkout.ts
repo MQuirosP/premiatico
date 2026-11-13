@@ -129,3 +129,14 @@ export async function getPublicOrderRequest(
   );
   return res.order;
 }
+
+export async function lookupPublicOrdersByCustomerRequest(
+  email: string,
+  phone: string,
+): Promise<PublicOrderDetail[]> {
+  const res = await apiRequest<{ orders: PublicOrderDetail[] }>('/orders/lookup', {
+    method: 'POST',
+    body: JSON.stringify({ email, phone }),
+  });
+  return res.orders;
+}
