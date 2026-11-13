@@ -161,12 +161,32 @@ export async function getAdminCampaignById(id: string) {
     include: {
       prizes: { orderBy: { position: 'asc' } },
       combos: {
-        orderBy: { sortOrder: 'asc' },
+        where: { isActive: true },
+        orderBy: [{ sortOrder: 'asc' }, { price: 'asc' }],
         include: {
           passItems: {
             include: {
               digitalPass: true,
             },
+          },
+        },
+      },
+      orders: {
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+        include: {
+          customer: { select: { id: true, fullName: true, email: true, phone: true } },
+          items: {
+            select: {
+              comboNameSnapshot: true,
+              passQuantitySnapshot: true,
+              chanceQuantitySnapshot: true,
+            },
+          },
+          participations: {
+            where: { status: { in: ['RESERVED', 'CONFIRMED'] } },
+            orderBy: { number: 'asc' },
+            select: { number: true, status: true },
           },
         },
       },
@@ -177,8 +197,11 @@ export async function getAdminCampaignById(id: string) {
     throw new NotFoundError('Campaña no encontrada');
   }
 
-  const progress = await getCampaignProgress(campaign.id, campaign.totalChances);
-  return { ...campaign, progress };
+  const [progress, coverImageUrl] = await Promise.all([
+    getCampaignProgress(campaign.id, campaign.totalChances),
+    resolveCoverImageUrl(campaign.coverImageKey),
+  ]);
+  return { ...campaign, coverImageUrl, progress };
 }
 
 export async function createCampaign(input: CreateCampaignInput, actorId: string) {

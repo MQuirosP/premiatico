@@ -16,6 +16,39 @@ export async function listAdminCampaigns(): Promise<AdminCampaign[]> {
   return res.campaigns;
 }
 
+export interface AdminCampaignDetail extends AdminCampaign {
+  combos: Array<
+    AdminCampaign['combos'][number] & {
+      passItems?: Array<{
+        id: string;
+        quantity: number;
+        digitalPass: DigitalPass;
+      }>;
+    }
+  >;
+  orders: Array<{
+    id: string;
+    publicReference: string;
+    status: string;
+    totalAmount: number;
+    createdAt: string;
+    customer: { id: string; fullName: string; email: string; phone: string };
+    items: Array<{
+      comboNameSnapshot: string;
+      passQuantitySnapshot: number;
+      chanceQuantitySnapshot: number;
+    }>;
+    participations: Array<{ number: string; status: string }>;
+  }>;
+}
+
+export async function getAdminCampaignDetail(id: string): Promise<AdminCampaignDetail> {
+  const res = await apiRequest<{ campaign: AdminCampaignDetail }>(
+    `/admin/campaigns/${encodeURIComponent(id)}`,
+  );
+  return res.campaign;
+}
+
 export async function createAdminCampaign(payload: {
   slug: string;
   title: string;

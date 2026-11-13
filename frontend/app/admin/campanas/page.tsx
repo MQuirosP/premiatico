@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, PauseCircle, Plus, ShieldCheck, Ticket, Trash2, XCircle } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 import { ApiError } from '@/lib/api';
 import {
@@ -380,7 +381,12 @@ export default function AdminCampaignsPage() {
               {campaigns.map((c) => (
                 <tr key={c.id}>
                   <td className="px-4 py-3">
-                    <div className="font-semibold text-slate-900">{c.title}</div>
+                    <Link
+                      href={`/admin/campanas/detalle?id=${encodeURIComponent(c.id)}`}
+                      className="font-semibold text-blue-700 hover:underline"
+                    >
+                      {c.title}
+                    </Link>
                     <div className="text-xs text-slate-500">/{c.slug}</div>
                   </td>
                   <td className="px-4 py-3">
