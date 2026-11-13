@@ -145,3 +145,20 @@ export async function getObjectMetadata(key: string): Promise<{
     eTag: head.ETag,
   };
 }
+
+export async function getObjectBuffer(key: string): Promise<Buffer> {
+  const { client, bucket } = getS3Client();
+  const response = await client.send(
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    }),
+  );
+
+  if (!response.Body) {
+    throw new AppError('El archivo en R2 no tiene contenido', 502, 'R2_EMPTY_OBJECT');
+  }
+
+  const bytes = await response.Body.transformToByteArray();
+  return Buffer.from(bytes);
+}

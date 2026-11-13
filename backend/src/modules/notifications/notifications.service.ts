@@ -15,6 +15,12 @@ export interface EmailDeliveryResult {
   errorMessage?: string;
 }
 
+export interface EmailAttachment {
+  filename: string;
+  content: string;
+  content_id?: string;
+}
+
 interface SendEmailParams {
   orderId: string;
   type: NotificationType;
@@ -22,6 +28,7 @@ interface SendEmailParams {
   subject: string;
   html: string;
   idempotencyKey?: string;
+  attachments?: EmailAttachment[];
 }
 
 async function sendEmailWithLog(params: SendEmailParams): Promise<EmailDeliveryResult> {
@@ -59,6 +66,9 @@ async function sendEmailWithLog(params: SendEmailParams): Promise<EmailDeliveryR
           to: [params.recipientEmail],
           subject: params.subject,
           html: params.html,
+          ...(params.attachments && params.attachments.length > 0
+            ? { attachments: params.attachments }
+            : {}),
         }),
       });
 

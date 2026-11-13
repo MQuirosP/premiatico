@@ -1,8 +1,15 @@
+import { env } from '../../core/env.js';
 import { ConflictError, NotFoundError } from '../../core/errors.js';
+import { logger } from '../../core/logger.js';
 import { prisma } from '../../core/prisma.js';
 import { recordAuditLog } from '../audit/audit.service.js';
+import {
+  buildPaymentConfirmedEmailHtml,
+  generateStampedChanceCards,
+  type StampedChanceCard,
+} from '../notifications/chance-card.service.js';
 import { sendOrderNotification } from '../notifications/notifications.service.js';
-import { getSignedDownloadUrl } from '../storage/storage.service.js';
+import { getObjectBuffer, getSignedDownloadUrl } from '../storage/storage.service.js';
 
 export async function listAdminPayments(statusFilter?: string) {
   const payments = await prisma.payment.findMany({
@@ -60,6 +67,7 @@ export async function approvePayment(params: {
           include: {
             customer: true,
             campaign: true,
+            items: true,
             participations: {
               where: { status: 'RESERVED' },
               orderBy: { number: 'asc' },
@@ -131,20 +139,79 @@ export async function approvePayment(params: {
     return {
       payment: updatedPayment,
       order: payment.order,
+      confirmedAt: now,
     };
   });
 
-  const numbersList = result.order.participations.map((p) => p.number).join(', ');
+  const allNumbers = (result.order.participations ?? []).map((p) => p.number);
+  const orderItems = result.order.items ?? [];
+  const passSnapshots = orderItems.flatMap((item) =>
+    Array.isArray(item.passesSnapshotJson)
+      ? (item.passesSnapshotJson as Array<{
+          name?: string;
+          fileKey?: string;
+          mimeType?: string;
+        }>)
+      : [],
+  );
+
+  const passLabel =
+    passSnapshots
+      .map((p) => p.name)
+      .filter((name): name is string => Boolean(name))
+      .join(', ') || 'tu pase digital';
+  const totalPasses = orderItems.reduce(
+    (sum, item) => sum + item.passQuantitySnapshot * item.quantity,
+    0,
+  );
+  const imagePass = passSnapshots.find(
+    (p) =>
+      p.fileKey &&
+      (p.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(p.fileKey)),
+  );
+
+  let cards: StampedChanceCard[] = [];
+  if (env.RESEND_API_KEY && imagePass?.fileKey && allNumbers.length > 0) {
+    try {
+      const templateBuffer = await getObjectBuffer(imagePass.fileKey);
+      cards = await generateStampedChanceCards({
+        templateBuffer,
+        numbers: allNumbers,
+        maxCards: 25,
+      });
+    } catch (error) {
+      logger.warn(
+        { err: error, orderId: result.order.id, fileKey: imagePass.fileKey },
+        'Could not generate stamped chance images from R2 template; using text badges fallback',
+      );
+    }
+  }
+
+  const frontendBaseUrl = env.CORS_ORIGIN.split(',')[0]?.trim().replace(/\/+$/, '') || 'http://localhost:3000';
+  const orderLookupUrl = `${frontendBaseUrl}/pedido?ref=${encodeURIComponent(result.order.publicReference)}`;
+
   await sendOrderNotification({
     orderId: result.order.id,
     type: 'PAYMENT_CONFIRMED',
     recipientEmail: result.order.customer.email,
-    subject: `¡Tu compra fue confirmada! — Pedido ${result.order.publicReference}`,
-    html: `<p>¡Hola ${result.order.customer.fullName}!</p>
-      <p>Tu pago para la campaña <strong>${result.order.campaign.title}</strong> fue confirmado.</p>
-      <p><strong>Referencia:</strong> ${result.order.publicReference}</p>
-      <p><strong>Tus chances confirmados:</strong> ${numbersList}</p>
-      <p>Podés descargar tus pases digitales desde el enlace de consulta de tu pedido en Premiático.</p>`,
+    subject: `Tus pases están listos — Pedido ${result.order.publicReference}`,
+    html: buildPaymentConfirmedEmailHtml({
+      customerName: result.order.customer.fullName,
+      campaignTitle: result.order.campaign.title,
+      publicReference: result.order.publicReference,
+      confirmedAt: result.confirmedAt,
+      passLabel,
+      totalPasses,
+      totalChances: allNumbers.length,
+      orderLookupUrl,
+      cards,
+      allNumbers,
+    }),
+    attachments: cards.map((card) => ({
+      filename: card.filename,
+      content: card.base64,
+      content_id: card.contentId,
+    })),
   });
 
   return result.payment;
