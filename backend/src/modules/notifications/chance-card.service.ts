@@ -136,10 +136,17 @@ export async function generateStampedPassImage(params: {
   text: string;
   resizeTo?: number;
 }): Promise<Buffer> {
-  const baseImage = sharp(params.templateBuffer);
-  const metadata = await baseImage.metadata();
-  const width = metadata.width && metadata.width > 0 ? metadata.width : 1000;
-  const height = metadata.height && metadata.height > 0 ? metadata.height : 1000;
+  let basePipeline = sharp(params.templateBuffer).rotate();
+  if (params.resizeTo) {
+    basePipeline = basePipeline.resize(params.resizeTo, params.resizeTo, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    });
+  }
+
+  const normalized = await basePipeline.png().toBuffer({ resolveWithObject: true });
+  const width = normalized.info.width;
+  const height = normalized.info.height;
 
   const svgOverlay = buildVectorTextSvg({
     width,
@@ -152,18 +159,15 @@ export async function generateStampedPassImage(params: {
     color: '#1e1b4b',
   });
 
-  let pipeline = sharp(params.templateBuffer).composite([
-    { input: svgOverlay, top: 0, left: 0 },
-  ]);
+  const overlayPng = await sharp(svgOverlay)
+    .resize(width, height, { fit: 'fill' })
+    .png()
+    .toBuffer();
 
-  if (params.resizeTo) {
-    pipeline = pipeline.resize(params.resizeTo, params.resizeTo, {
-      fit: 'inside',
-      withoutEnlargement: true,
-    });
-  }
-
-  return pipeline.png({ compressionLevel: 9 }).toBuffer();
+  return sharp(normalized.data)
+    .composite([{ input: overlayPng, top: 0, left: 0 }])
+    .png({ compressionLevel: 9 })
+    .toBuffer();
 }
 
 /**
