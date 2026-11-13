@@ -27,11 +27,7 @@ const orderLookupQuerySchema = z.object({
 });
 
 const customerOrderLookupSchema = z.object({
-  email: z.string().trim().email('Correo electrónico inválido').toLowerCase(),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^[0-9+\-\s]{8,20}$/, 'Teléfono inválido (formato Costa Rica: 8 dígitos)'),
+  identifier: z.string().trim().min(5, 'Ingresá tu correo electrónico o número de teléfono').max(120),
 });
 
 function generatePublicReference(): string {
@@ -290,11 +286,28 @@ export async function getPublicOrderByReference(publicReference: string, accessT
   return formatPublicOrder(order);
 }
 
-export async function lookupPublicOrdersByCustomer(email: string, phone: string) {
+export async function lookupPublicOrdersByCustomer(identifier: string) {
+  const trimmed = identifier.trim();
+  const isEmail = trimmed.includes('@');
+  const now = new Date();
+
+  const customerWhere = isEmail
+    ? { email: z.string().email('Correo electrónico inválido').toLowerCase().parse(trimmed) }
+    : {
+        phone: z
+          .string()
+          .regex(/^[0-9+\-\s]{8,20}$/, 'Teléfono inválido (formato Costa Rica: 8 dígitos)')
+          .parse(trimmed),
+      };
+
   const orders = await prisma.order.findMany({
     where: {
-      customer: { email, phone },
-      campaign: { status: 'ACTIVE' },
+      customer: customerWhere,
+      campaign: {
+        status: 'ACTIVE',
+        endAt: { gt: now },
+        OR: [{ drawAt: null }, { drawAt: { gt: now } }],
+      },
     },
     orderBy: { createdAt: 'desc' },
     include: publicOrderInclude,
@@ -324,8 +337,8 @@ publicOrdersRouter.post(
   validate({ body: customerOrderLookupSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { email, phone } = req.body as z.infer<typeof customerOrderLookupSchema>;
-      const orders = await lookupPublicOrdersByCustomer(email, phone);
+      const { identifier } = req.body as z.infer<typeof customerOrderLookupSchema>;
+      const orders = await lookupPublicOrdersByCustomer(identifier);
       res.status(200).json({ success: true, data: { orders } });
     } catch (error) {
       next(error);

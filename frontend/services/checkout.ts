@@ -131,12 +131,11 @@ export async function getPublicOrderRequest(
 }
 
 export async function lookupPublicOrdersByCustomerRequest(
-  email: string,
-  phone: string,
+  identifier: string,
 ): Promise<PublicOrderDetail[]> {
   const res = await apiRequest<{ orders: PublicOrderDetail[] }>('/orders/lookup', {
     method: 'POST',
-    body: JSON.stringify({ email, phone }),
+    body: JSON.stringify({ identifier }),
   });
   return res.orders;
 }

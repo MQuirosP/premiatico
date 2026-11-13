@@ -78,9 +78,8 @@ function OrderLookupContent() {
   const initialRef = searchParams.get('ref') ?? '';
   const initialToken = searchParams.get('token') ?? '';
 
-  const [emailInput, setEmailInput] = useState('');
-  const [phoneInput, setPhoneInput] = useState('');
-  const [customerQuery, setCustomerQuery] = useState<{ email: string; phone: string } | null>(null);
+  const [identifierInput, setIdentifierInput] = useState('');
+  const [customerQuery, setCustomerQuery] = useState<string | null>(null);
 
   const directQuery = useQuery({
     queryKey: ['public-order', initialRef, initialToken],
@@ -90,8 +89,8 @@ function OrderLookupContent() {
   });
 
   const customerOrdersQuery = useQuery({
-    queryKey: ['public-orders-customer', customerQuery?.email, customerQuery?.phone],
-    queryFn: () => lookupPublicOrdersByCustomerRequest(customerQuery!.email, customerQuery!.phone),
+    queryKey: ['public-orders-customer', customerQuery],
+    queryFn: () => lookupPublicOrdersByCustomerRequest(customerQuery!),
     enabled: Boolean(customerQuery),
     retry: false,
   });
@@ -112,11 +111,8 @@ function OrderLookupContent() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (emailInput.trim() && phoneInput.trim()) {
-              setCustomerQuery({
-                email: emailInput.trim().toLowerCase(),
-                phone: phoneInput.trim(),
-              });
+            if (identifierInput.trim()) {
+              setCustomerQuery(identifierInput.trim());
             }
           }}
           className="rounded-2xl border bg-white p-6 shadow-sm space-y-4"
@@ -124,45 +120,36 @@ function OrderLookupContent() {
           <div>
             <h1 className="text-xl font-bold text-slate-900">Consultá tus pedidos</h1>
             <p className="text-sm text-slate-500 mt-1">
-              Ingresá el correo electrónico y número de teléfono con los que realizaste tu compra en campañas activas.
+              Ingresá tu correo electrónico o número de teléfono registrado para ver tus pedidos de sorteos vigentes.
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex flex-col sm:flex-row gap-3">
             <input
-              type="email"
               required
-              value={emailInput}
-              onChange={(e) => setEmailInput(e.target.value)}
-              placeholder="Correo electrónico registrado"
-              className="rounded-lg border px-3 py-2 text-sm"
+              value={identifierInput}
+              onChange={(e) => setIdentifierInput(e.target.value)}
+              placeholder="Correo electrónico o teléfono (ej. 88887777)"
+              className="flex-1 rounded-lg border px-3 py-2.5 text-sm"
             />
-            <input
-              type="tel"
-              required
-              value={phoneInput}
-              onChange={(e) => setPhoneInput(e.target.value)}
-              placeholder="Teléfono registrado (ej. 88887777)"
-              className="rounded-lg border px-3 py-2 text-sm"
-            />
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              <Search className="h-4 w-4" />
+              Consultar estado
+            </button>
           </div>
-          <button
-            type="submit"
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            <Search className="h-4 w-4" />
-            Consultar estado
-          </button>
         </form>
 
         {isLoading ? (
           <div className="text-center text-sm text-slate-500 py-6">Buscando pedidos...</div>
         ) : isError ? (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            No pudimos consultar tus pedidos. Verificá que el correo y teléfono tengan el formato correcto.
+            No pudimos consultar tus pedidos. Verificá que el correo o teléfono tenga el formato correcto.
           </div>
         ) : customerQuery && orders.length === 0 ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-            No encontramos pedidos en campañas activas con ese correo y teléfono.
+            No encontramos pedidos en sorteos vigentes con ese dato.
           </div>
         ) : orders.length > 0 ? (
           <div className="space-y-4">
