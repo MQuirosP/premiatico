@@ -2,7 +2,17 @@ import { CampaignStatus, LegalApprovalStatus } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
 import { recordAuditLog } from '../audit/audit.service.js';
+import { getSignedDownloadUrl } from '../storage/storage.service.js';
 import type { CreateCampaignInput, UpdateCampaignInput } from './campaigns.schema.js';
+
+async function resolveCoverImageUrl(coverImageKey: string | null): Promise<string | null> {
+  if (!coverImageKey) return null;
+  const signed = await getSignedDownloadUrl({
+    key: coverImageKey,
+    expiresInSeconds: 3600,
+  }).catch(() => null);
+  return signed?.downloadUrl ?? null;
+}
 
 export interface CampaignProgress {
   totalChances: number;
@@ -65,9 +75,13 @@ export async function listPublicCampaigns() {
 
   return Promise.all(
     campaigns.map(async (campaign) => {
-      const progress = await getCampaignProgress(campaign.id, campaign.totalChances);
+      const [progress, coverImageUrl] = await Promise.all([
+        getCampaignProgress(campaign.id, campaign.totalChances),
+        resolveCoverImageUrl(campaign.coverImageKey),
+      ]);
       return {
         ...campaign,
+        coverImageUrl,
         progress,
       };
     }),
@@ -103,9 +117,13 @@ export async function getPublicCampaignBySlug(slug: string) {
     throw new NotFoundError('Campaña no encontrada o no disponible');
   }
 
-  const progress = await getCampaignProgress(campaign.id, campaign.totalChances);
+  const [progress, coverImageUrl] = await Promise.all([
+    getCampaignProgress(campaign.id, campaign.totalChances),
+    resolveCoverImageUrl(campaign.coverImageKey),
+  ]);
   return {
     ...campaign,
+    coverImageUrl,
     progress,
   };
 }

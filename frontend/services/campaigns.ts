@@ -31,6 +31,7 @@ export async function createAdminCampaign(payload: {
   legalApprovalStatus: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED';
   legalApprovalReference?: string;
   terms: string;
+  coverImageKey?: string | null;
 }): Promise<AdminCampaign> {
   const res = await apiRequest<{ campaign: AdminCampaign }>('/admin/campaigns', {
     method: 'POST',
@@ -47,6 +48,7 @@ export async function updateAdminCampaign(
     requiresLegalApproval?: boolean;
     drawAt?: string | null;
     drawReference?: string | null;
+    coverImageKey?: string | null;
   },
 ): Promise<AdminCampaign> {
   const res = await apiRequest<{ campaign: AdminCampaign }>(`/admin/campaigns/${id}`, {
@@ -96,6 +98,33 @@ export async function createAdminPass(payload: {
   return res.pass;
 }
 
+export async function uploadAdminCampaignCover(
+  file: File,
+): Promise<{ key: string; url: string | null }> {
+  const formData = new FormData();
+  formData.append('image', file);
+  return apiRequest('/admin/campaigns/cover-upload', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+export async function uploadAdminPass(payload: {
+  name: string;
+  description: string;
+  file: File;
+}): Promise<DigitalPass> {
+  const formData = new FormData();
+  formData.append('name', payload.name);
+  formData.append('description', payload.description);
+  formData.append('file', payload.file);
+  const res = await apiRequest<{ pass: DigitalPass }>('/admin/passes/upload', {
+    method: 'POST',
+    body: formData,
+  });
+  return res.pass;
+}
+
 export async function createAdminCombo(payload: {
   campaignId: string;
   name: string;
@@ -103,6 +132,7 @@ export async function createAdminCombo(payload: {
   passQuantity: number;
   chanceQuantity: number;
   badgeLabel?: string;
+  passItems?: Array<{ digitalPassId: string; quantity: number }>;
 }): Promise<unknown> {
   return apiRequest('/admin/combos', {
     method: 'POST',

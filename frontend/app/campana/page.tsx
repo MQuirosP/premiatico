@@ -1,13 +1,15 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Award, Calendar, Sparkles } from 'lucide-react';
+import { ArrowLeft, Award, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { CampaignCountdown } from '@/components/campaign-countdown';
 import { CampaignProgressBar } from '@/components/campaign-progress';
 import { ComboSelector } from '@/components/combo-selector';
+import { SiteFooter } from '@/components/site-footer';
+import { SiteHeader } from '@/components/site-header';
 import { formatCRC } from '@/lib/utils';
 import { getPublicCampaignBySlug } from '@/services/campaigns';
 import type { CampaignCombo } from '@/types/campaign';
@@ -54,57 +56,68 @@ function CampaignDetailContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-16">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      <SiteHeader />
+
+      <main className="flex-1 mx-auto w-full max-w-5xl px-4 py-8 space-y-8">
+        <div>
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-blue-600"
           >
             <ArrowLeft className="h-4 w-4" />
             Volver a campañas
           </Link>
-          <span className="font-bold text-blue-600 flex items-center gap-1.5">
-            <Sparkles className="h-4 w-4 text-amber-500" />
-            Premiático
-          </span>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-8 space-y-8">
-        <section className="rounded-2xl border bg-white p-6 sm:p-8 shadow-sm space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-              {campaign.category}
-            </span>
-            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-              <span className="inline-flex items-center gap-1.5">
-                <Calendar className="h-4 w-4" />
-                Vigente hasta el {new Date(campaign.endAt).toLocaleDateString('es-CR')}
-              </span>
-              {campaign.drawAt ? (
-                <span className="rounded-full bg-amber-50 px-2.5 py-0.5 font-medium text-amber-800">
-                  Juega: {new Date(campaign.drawAt).toLocaleDateString('es-CR')}
-                  {campaign.drawReference ? ` · ${campaign.drawReference}` : ''}
+        <section className="rounded-3xl border bg-white p-6 sm:p-8 shadow-sm">
+          <div
+            className={
+              campaign.coverImageUrl
+                ? 'grid gap-8 lg:grid-cols-[380px_1fr] items-start'
+                : 'space-y-5'
+            }
+          >
+            {campaign.coverImageUrl ? (
+              <div className="overflow-hidden rounded-2xl border bg-slate-900 shadow-md aspect-square">
+                <img
+                  src={campaign.coverImageUrl}
+                  alt={campaign.title}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : null}
+
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                  {campaign.category}
                 </span>
-              ) : campaign.drawReference ? (
-                <span className="rounded-full bg-amber-50 px-2.5 py-0.5 font-medium text-amber-800">
-                  {campaign.drawReference}
-                </span>
-              ) : null}
+                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4" />
+                    Vigente hasta el {new Date(campaign.endAt).toLocaleDateString('es-CR')}
+                  </span>
+                </div>
+              </div>
+
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+                {campaign.title}
+              </h1>
+
+              <div className="rounded-2xl bg-slate-50/80 border border-slate-100 p-4 text-sm sm:text-base text-slate-700 leading-relaxed whitespace-pre-line">
+                {campaign.description}
+              </div>
+
+              <CampaignCountdown
+                endAt={campaign.endAt}
+                drawAt={campaign.drawAt}
+                drawReference={campaign.drawReference}
+              />
+
+              <CampaignProgressBar progress={campaign.progress} />
             </div>
           </div>
-
-          <h1 className="text-3xl font-extrabold text-slate-900">{campaign.title}</h1>
-          <p className="text-slate-600 whitespace-pre-line">{campaign.description}</p>
-
-          <CampaignCountdown
-            endAt={campaign.endAt}
-            drawAt={campaign.drawAt}
-            drawReference={campaign.drawReference}
-          />
-
-          <CampaignProgressBar progress={campaign.progress} />
         </section>
 
         {campaign.prizes.length > 0 ? (
@@ -168,6 +181,7 @@ function CampaignDetailContent() {
           <p className="text-xs text-slate-600 whitespace-pre-line">{campaign.terms}</p>
         </section>
       </main>
+      <SiteFooter />
     </div>
   );
 }

@@ -1,17 +1,37 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Ticket, Trash2 } from 'lucide-react';
+import { Plus, Ticket, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { ApiError } from '@/lib/api';
-import { deleteAdminPass, listAdminPasses } from '@/services/campaigns';
+import { deleteAdminPass, listAdminPasses, uploadAdminPass } from '@/services/campaigns';
 
 export default function AdminPassesPage() {
   const queryClient = useQueryClient();
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+
   const { data: passes, isLoading } = useQuery({
     queryKey: ['admin-passes'],
     queryFn: listAdminPasses,
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: uploadAdminPass,
+    onSuccess: () => {
+      setShowForm(false);
+      setName('');
+      setDescription('');
+      setFile(null);
+      setFeedback('Pase digital subido a Cloudflare R2 correctamente.');
+      void queryClient.invalidateQueries({ queryKey: ['admin-passes'] });
+    },
+    onError: (err) => {
+      setFeedback(err instanceof ApiError ? err.message : 'Error al subir pase digital');
+    },
   });
 
   const deleteMutation = useMutation({
@@ -31,12 +51,88 @@ export default function AdminPassesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Pases digitales</h1>
-        <p className="text-sm text-slate-500">
-          Catálogo de pases digitales activos alojados en Cloudflare R2 y asignables a combos.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Pases digitales</h1>
+          <p className="text-sm text-slate-500">
+            Catálogo de pases digitales activos alojados en Cloudflare R2 y asignables a combos.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowForm((v) => !v)}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+        >
+          <Plus className="h-4 w-4" />
+          Nuevo pase
+        </button>
       </div>
+
+      {showForm ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!file) return;
+            uploadMutation.mutate({ name, description, file });
+          }}
+          className="rounded-xl border bg-white p-6 shadow-sm space-y-4"
+        >
+          <h2 className="text-sm font-bold text-slate-900">Subir nuevo pase digital</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Nombre del pase
+              </label>
+              <input
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ej. Wallpaper Combo Flash 4K"
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Archivo (JPG, PNG, WEBP o PDF)
+              </label>
+              <input
+                type="file"
+                required
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className="w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-blue-700"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Descripción</label>
+            <input
+              required
+              minLength={5}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Ej. Fondo de pantalla digital exclusivo en alta resolución"
+              className="w-full rounded-lg border px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="rounded-lg border px-4 py-2 text-xs font-medium text-slate-600"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={!file || uploadMutation.isPending}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {uploadMutation.isPending ? 'Subiendo...' : 'Guardar pase'}
+            </button>
+          </div>
+        </form>
+      ) : null}
 
       {feedback ? (
         <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-800">

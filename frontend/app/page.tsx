@@ -1,9 +1,11 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Calendar, ShieldCheck, Sparkles, Ticket } from 'lucide-react';
+import { ArrowRight, Calendar, Ticket } from 'lucide-react';
 import Link from 'next/link';
 import { CampaignProgressBar } from '@/components/campaign-progress';
+import { SiteFooter } from '@/components/site-footer';
+import { SiteHeader } from '@/components/site-header';
 import { formatCRC } from '@/lib/utils';
 import { listPublicCampaigns } from '@/services/campaigns';
 
@@ -15,31 +17,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
-      <header className="border-b bg-white sticky top-0 z-20">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl text-blue-600">
-            <Sparkles className="h-6 w-6 text-amber-500" />
-            <span>Premiático</span>
-          </Link>
-          <nav className="flex items-center gap-4 text-sm font-medium">
-            <Link href="#campanas" className="text-slate-600 hover:text-slate-900">
-              Campañas
-            </Link>
-            <Link
-              href="/pedido"
-              className="text-slate-600 hover:text-slate-900"
-            >
-              Consultar pedido
-            </Link>
-            <Link
-              href="/admin"
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-700 hover:bg-slate-100"
-            >
-              Administración
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="flex-1">
         <section className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white py-16 px-4">
@@ -91,38 +69,49 @@ export default function HomePage() {
                 return (
                   <article
                     key={campaign.id}
-                    className="flex flex-col justify-between rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
+                    className="flex flex-col justify-between overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:shadow-lg"
                   >
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-                          {campaign.category}
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-                          <Calendar className="h-3.5 w-3.5" />
-                          Cierra {new Date(campaign.endAt).toLocaleDateString('es-CR')}
-                        </span>
-                      </div>
+                    <div>
+                      {campaign.coverImageUrl ? (
+                        <div className="aspect-[16/10] w-full overflow-hidden bg-slate-900">
+                          <img
+                            src={campaign.coverImageUrl}
+                            alt={campaign.title}
+                            className="h-full w-full object-cover transition duration-300 hover:scale-105"
+                          />
+                        </div>
+                      ) : null}
+                      <div className="p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                            {campaign.category}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                            <Calendar className="h-3.5 w-3.5" />
+                            Cierra {new Date(campaign.endAt).toLocaleDateString('es-CR')}
+                          </span>
+                        </div>
 
-                      <div>
-                        <h3 className="text-xl font-bold text-slate-900">{campaign.title}</h3>
-                        <p className="mt-1 line-clamp-2 text-sm text-slate-600">
-                          {campaign.description}
-                        </p>
-                        {campaign.drawAt || campaign.drawReference ? (
-                          <p className="mt-2 text-xs font-medium text-amber-700">
-                            {campaign.drawAt
-                              ? `Juega ${new Date(campaign.drawAt).toLocaleDateString('es-CR')}`
-                              : 'Sorteo'}
-                            {campaign.drawReference ? ` · ${campaign.drawReference}` : ''}
+                        <div>
+                          <h3 className="text-xl font-bold text-slate-900">{campaign.title}</h3>
+                          <p className="mt-1 line-clamp-3 text-sm text-slate-600 whitespace-pre-line">
+                            {campaign.description}
                           </p>
-                        ) : null}
-                      </div>
+                          {campaign.drawAt || campaign.drawReference ? (
+                            <p className="mt-2 text-xs font-medium text-amber-700">
+                              {campaign.drawAt
+                                ? `Juega ${new Date(campaign.drawAt).toLocaleDateString('es-CR')}`
+                                : 'Sorteo'}
+                              {campaign.drawReference ? ` · ${campaign.drawReference}` : ''}
+                            </p>
+                          ) : null}
+                        </div>
 
-                      <CampaignProgressBar progress={campaign.progress} />
+                        <CampaignProgressBar progress={campaign.progress} />
+                      </div>
                     </div>
 
-                    <div className="mt-6 pt-4 border-t flex items-center justify-between">
+                    <div className="px-6 pb-6 pt-4 border-t flex items-center justify-between">
                       <div>
                         <p className="text-[11px] uppercase tracking-wider text-slate-500">
                           Combos desde
@@ -147,15 +136,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="border-t bg-white py-6 text-center text-xs text-slate-500">
-        <div className="mx-auto max-w-6xl px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>© {new Date().getFullYear()} Premiático Costa Rica. ¡Más chances, más emoción!</span>
-          <span className="inline-flex items-center gap-1">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-            Pagos verificados manualmente vía SINPE Móvil
-          </span>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

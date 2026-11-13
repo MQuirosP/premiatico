@@ -2,12 +2,14 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle2, RefreshCw, Sparkles, Upload } from 'lucide-react';
+import { CheckCircle2, RefreshCw, Sparkles, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { SiteFooter } from '@/components/site-footer';
+import { SiteHeader } from '@/components/site-header';
 import { ApiError } from '@/lib/api';
 import { formatCRC } from '@/lib/utils';
 import {
@@ -148,24 +150,10 @@ function CheckoutContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-16">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Inicio
-          </Link>
-          <span className="font-bold text-blue-600 flex items-center gap-1.5">
-            <Sparkles className="h-4 w-4 text-amber-500" />
-            Premiático
-          </span>
-        </div>
-      </header>
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      <SiteHeader />
 
-      <main className="mx-auto max-w-3xl px-4 py-8 space-y-6">
+      <main className="flex-1 mx-auto w-full max-w-3xl px-4 py-8 space-y-6">
         {errorMsg ? (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {errorMsg}
@@ -357,6 +345,7 @@ function CheckoutContent() {
           </section>
         )}
       </main>
+      <SiteFooter />
     </div>
   );
 }

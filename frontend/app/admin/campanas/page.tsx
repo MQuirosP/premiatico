@@ -11,9 +11,11 @@ import {
   deleteAdminCampaign,
   deleteAdminCombo,
   listAdminCampaigns,
+  listAdminPasses,
   pauseAdminCampaign,
   publishAdminCampaign,
   updateAdminCampaign,
+  uploadAdminCampaignCover,
 } from '@/services/campaigns';
 
 export default function AdminCampaignsPage() {
@@ -28,6 +30,8 @@ export default function AdminCampaignsPage() {
   const [totalChances, setTotalChances] = useState(10000);
   const [drawAt, setDrawAt] = useState('');
   const [drawReference, setDrawReference] = useState('');
+  const [coverImageKey, setCoverImageKey] = useState<string | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
   const [terms, setTerms] = useState('Aplican restricciones. Promoción válida en Costa Rica.');
 
   const [legalCampaignId, setLegalCampaignId] = useState<string | null>(null);
@@ -39,11 +43,29 @@ export default function AdminCampaignsPage() {
   const [comboPassQty, setComboPassQty] = useState(1);
   const [comboChanceQty, setComboChanceQty] = useState(4);
   const [comboBadge, setComboBadge] = useState('');
+  const [comboPassId, setComboPassId] = useState('');
   const [comboSavedMsg, setComboSavedMsg] = useState<string | null>(null);
 
   const { data: campaigns, isLoading } = useQuery({
     queryKey: ['admin-campaigns'],
     queryFn: listAdminCampaigns,
+  });
+
+  const { data: passes } = useQuery({
+    queryKey: ['admin-passes'],
+    queryFn: listAdminPasses,
+  });
+
+  const coverUploadMutation = useMutation({
+    mutationFn: uploadAdminCampaignCover,
+    onSuccess: (res) => {
+      setCoverImageKey(res.key);
+      setCoverPreviewUrl(res.url);
+      setActionError(null);
+    },
+    onError: (err) => {
+      setActionError(err instanceof ApiError ? err.message : 'Error al subir la imagen de portada');
+    },
   });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['admin-campaigns'] });
@@ -57,6 +79,8 @@ export default function AdminCampaignsPage() {
       setDescription('');
       setDrawAt('');
       setDrawReference('');
+      setCoverImageKey(null);
+      setCoverPreviewUrl(null);
       setActionError(null);
       void refresh();
     },
@@ -179,6 +203,7 @@ export default function AdminCampaignsPage() {
               endAt: nextMonth.toISOString(),
               drawAt: drawAt ? new Date(drawAt).toISOString() : null,
               drawReference: drawReference.trim() || null,
+              coverImageKey,
               totalChances,
               maxNumberChanges: 5,
               requiresLegalApproval: true,
@@ -251,6 +276,31 @@ export default function AdminCampaignsPage() {
                 className="w-full rounded-lg border px-3 py-2 text-sm"
                 placeholder="Ej. Lotería Nacional JPS — Sorteo #4820"
               />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Imagen de portada (JPG, PNG o WEBP)
+              </label>
+              <div className="flex flex-wrap items-center gap-4">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => {
+                    const selected = e.target.files?.[0];
+                    if (selected) coverUploadMutation.mutate(selected);
+                  }}
+                  className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-blue-700"
+                />
+                {coverUploadMutation.isPending ? (
+                  <span className="text-xs text-slate-500">Subiendo imagen...</span>
+                ) : coverPreviewUrl ? (
+                  <img
+                    src={coverPreviewUrl}
+                    alt="Vista previa portada"
+                    className="h-16 w-16 rounded-lg border object-cover"
+                  />
+                ) : null}
+              </div>
             </div>
           </div>
           <div>
@@ -439,6 +489,9 @@ export default function AdminCampaignsPage() {
                 passQuantity: comboPassQty,
                 chanceQuantity: comboChanceQty,
                 badgeLabel: comboBadge.trim() || undefined,
+                ...(comboPassId
+                  ? { passItems: [{ digitalPassId: comboPassId, quantity: comboPassQty }] }
+                  : {}),
               });
             }}
             className="rounded-xl border bg-white p-5 shadow-sm space-y-4"
@@ -583,6 +636,23 @@ export default function AdminCampaignsPage() {
                   placeholder="Ej. Más popular"
                   className="w-full rounded-lg border px-3 py-2 text-sm"
                 />
+              </div>
+              <div className="sm:col-span-2 lg:col-span-5">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Pase digital incluido (subilo primero en &ldquo;Pases digitales&rdquo;)
+                </label>
+                <select
+                  value={comboPassId}
+                  onChange={(e) => setComboPassId(e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm bg-white"
+                >
+                  <option value="">Sin pase digital vinculado</option>
+                  {passes?.map((pass) => (
+                    <option key={pass.id} value={pass.id}>
+                      {pass.name} ({pass.mimeType})
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="flex justify-end gap-2">

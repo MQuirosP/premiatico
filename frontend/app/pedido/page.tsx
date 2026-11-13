@@ -1,10 +1,11 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Download, Search, Sparkles } from 'lucide-react';
-import Link from 'next/link';
+import { Download, Search } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
+import { SiteFooter } from '@/components/site-footer';
+import { SiteHeader } from '@/components/site-header';
 import { formatCRC } from '@/lib/utils';
 import {
   getPublicOrderRequest,
@@ -104,24 +105,10 @@ function OrderLookupContent() {
       : [];
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-16">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Inicio
-          </Link>
-          <span className="font-bold text-blue-600 flex items-center gap-1.5">
-            <Sparkles className="h-4 w-4 text-amber-500" />
-            Premiático
-          </span>
-        </div>
-      </header>
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      <SiteHeader />
 
-      <main className="mx-auto max-w-3xl px-4 py-8 space-y-6">
+      <main className="flex-1 mx-auto w-full max-w-3xl px-4 py-8 space-y-6">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -185,6 +172,7 @@ function OrderLookupContent() {
           </div>
         ) : null}
       </main>
+      <SiteFooter />
     </div>
   );
 }

@@ -1,11 +1,12 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
+import multer from 'multer';
 import { z } from 'zod';
-import { NotFoundError } from '../../core/errors.js';
+import { NotFoundError, ValidationError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
 import { requireAdminAuth } from '../../middlewares/authAdmin.js';
 import { validate } from '../../middlewares/validate.js';
 import { recordAuditLog } from '../audit/audit.service.js';
-import { getSignedUploadUrl, r2KeyBuilders } from '../storage/storage.service.js';
+import { getSignedUploadUrl, r2KeyBuilders, uploadObject } from '../storage/storage.service.js';
 
 const createPassSchema = z.object({
   name: z.string().trim().min(2).max(140),
@@ -39,6 +40,62 @@ adminPassesRouter.get('/', async (_req: Request, res: Response, next: NextFuncti
     next(error);
   }
 });
+
+const passUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+});
+
+adminPassesRouter.post(
+  '/upload',
+  passUpload.single('file'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const file = req.file;
+      if (!file) {
+        throw new ValidationError('Debés adjuntar el archivo del pase digital');
+      }
+      const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+      if (!allowed.has(file.mimetype)) {
+        throw new ValidationError('Formato inválido. Usá JPG, PNG, WEBP o PDF');
+      }
+      const name =
+        typeof req.body?.name === 'string' && req.body.name.trim().length >= 2
+          ? req.body.name.trim().slice(0, 140)
+          : file.originalname;
+      const description =
+        typeof req.body?.description === 'string' && req.body.description.trim().length >= 5
+          ? req.body.description.trim().slice(0, 2000)
+          : `Pase digital: ${name}`;
+
+      const key = r2KeyBuilders.passFile('catalog', file.originalname);
+      await uploadObject({ key, body: file.buffer, contentType: file.mimetype });
+
+      const pass = await prisma.digitalPass.create({
+        data: {
+          name,
+          description,
+          fileKey: key,
+          mimeType: file.mimetype,
+          fileSize: file.size,
+          isActive: true,
+        },
+      });
+
+      await recordAuditLog({
+        actorId: req.admin!.id,
+        action: 'PASS_CREATED',
+        entityType: 'DigitalPass',
+        entityId: pass.id,
+        metadata: { name: pass.name, mimeType: pass.mimeType },
+      });
+
+      res.status(201).json({ success: true, data: { pass } });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 adminPassesRouter.post(
   '/signed-upload',

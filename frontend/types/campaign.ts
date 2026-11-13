@@ -69,6 +69,7 @@ export interface PublicCampaign {
   reservationMinutes: number;
   terms: string;
   coverImageKey: string | null;
+  coverImageUrl?: string | null;
   prizes: CampaignPrize[];
   combos: CampaignCombo[];
   progress: CampaignProgress;
