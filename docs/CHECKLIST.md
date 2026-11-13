@@ -52,6 +52,6 @@
 - [x] Descarga segura de `DigitalPass` tras confirmación de pago (`/pedido`).
 - [x] Dashboard resumen (indicadores reales), listado de clientes (`/admin/clientes`) y visor de `AuditLog` (`/admin/auditoria`).
 - [x] Endurecimiento de seguridad: Cloudflare Turnstile, rate limiting Redis (`premiatico:rate:`), CORS restringido.
-- [x] Pruebas automatizadas de auth, campañas, concurrencia y pagos (`13/13` pasando en `vitest`).
+- [x] Pruebas automatizadas de auth, campañas, concurrencia, pagos, pases y estampado vectorial (`15/15` pasando en `vitest`).
 - [x] Documentación de concurrencia (`docs/CONCURRENCY.md`) y respaldo manual R2 / despliegue (`docs/DEPLOYMENT_AND_BACKUPS.md`).
-- [ ] Configurar `.env` con credenciales reales (Neon, Redis, R2, Resend, Turnstile), ejecutar `prisma migrate deploy` + índice único parcial y desplegar en Render + Cloudflare Pages.
+- [x] Despliegue en producción: Neon PostgreSQL (`prisma migrate deploy`), Cloudflare R2, Resend, Render (backend) y Cloudflare Workers Assets (frontend).
