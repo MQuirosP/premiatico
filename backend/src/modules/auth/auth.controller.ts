@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { env } from '../../core/env.js';
+import { extractAdminToken } from '../../middlewares/authAdmin.js';
 import type { LoginInput } from './auth.schema.js';
 import { loginAdmin, logoutAdmin } from './auth.service.js';
 
@@ -21,7 +22,7 @@ export async function loginController(
 
     res.status(200).json({
       success: true,
-      data: { admin },
+      data: { admin, token },
     });
   } catch (error) {
     next(error);
@@ -34,7 +35,7 @@ export async function logoutController(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const token = req.cookies?.[env.SESSION_COOKIE_NAME] as string | undefined;
+    const token = extractAdminToken(req);
     await logoutAdmin(token, req.admin?.id);
 
     res.clearCookie(env.SESSION_COOKIE_NAME, {

@@ -12,13 +12,26 @@ declare global {
   }
 }
 
+export function extractAdminToken(req: Request): string | undefined {
+  const cookieToken = req.cookies?.[env.SESSION_COOKIE_NAME] as string | undefined;
+  if (cookieToken) {
+    return cookieToken;
+  }
+  const authHeader = req.headers.authorization;
+  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    const bearer = authHeader.slice(7).trim();
+    if (bearer) return bearer;
+  }
+  return undefined;
+}
+
 export async function requireAdminAuth(
   req: Request,
   _res: Response,
   next: NextFunction,
 ): Promise<void> {
   try {
-    const token = req.cookies?.[env.SESSION_COOKIE_NAME] as string | undefined;
+    const token = extractAdminToken(req);
     if (!token) {
       throw new UnauthorizedError('Autenticación administrativa requerida');
     }
