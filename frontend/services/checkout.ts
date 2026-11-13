@@ -43,10 +43,13 @@ export interface PublicOrderDetail {
   totalAmount: number;
   expiresAt: string;
   confirmedAt: string | null;
+  createdAt?: string;
+  customerName?: string | null;
   campaign: {
     id: string;
     title: string;
     slug: string;
+    status?: string;
   };
   items: Array<{
     comboName: string;

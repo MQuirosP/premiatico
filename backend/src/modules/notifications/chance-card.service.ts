@@ -518,15 +518,14 @@ export async function sendRichOrderEmail(params: {
     }
   }
 
-  const corsOrigins = env.CORS_ORIGIN.split(',')
-    .map((o) => o.trim().replace(/\/+$/, ''))
-    .filter(Boolean);
-  const frontendBaseUrl =
-    env.FRONTEND_URL?.replace(/\/+$/, '') ||
-    corsOrigins.find((o) => o.includes('workers.dev')) ||
-    corsOrigins[0] ||
-    'http://localhost:3000';
-  const orderLookupUrl = `${frontendBaseUrl}/pedido?ref=${encodeURIComponent(order.publicReference)}`;
+  const backendBaseUrl =
+    env.BACKEND_URL?.replace(/\/+$/, '') ||
+    (env.NODE_ENV === 'production'
+      ? 'https://premiatico-a6bg.onrender.com'
+      : `http://localhost:${env.PORT}`);
+  const passDownloadUrl = `${backendBaseUrl}/api/v1/orders/${encodeURIComponent(
+    order.publicReference,
+  )}/stamped-pass`;
 
   const emailInput: OrderEmailCommonInput = {
     customerName: order.customer.fullName,
@@ -537,7 +536,7 @@ export async function sendRichOrderEmail(params: {
     passLabel,
     totalPasses,
     totalChances: allNumbers.length,
-    orderLookupUrl,
+    orderLookupUrl: passDownloadUrl,
     cards,
     allNumbers,
   };

@@ -1,111 +1,202 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Download, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
-import { API_BASE_URL } from '@/lib/api';
-import { formatCRC } from '@/lib/utils';
 import {
   getPublicOrderRequest,
   lookupPublicOrdersByCustomerRequest,
   type PublicOrderDetail,
 } from '@/services/checkout';
 
-function OrderResultCard({ order }: { order: PublicOrderDetail }) {
+function formatOrderStatusLabel(order: PublicOrderDetail): { label: string; className: string } {
+  if (order.status === 'CONFIRMED' && order.payment?.status === 'APPROVED') {
+    return { label: 'Pago confirmado', className: 'text-emerald-700' };
+  }
+  if (order.status === 'UNDER_REVIEW' || order.payment?.status === 'UNDER_REVIEW') {
+    return { label: 'En verificación', className: 'text-amber-700' };
+  }
+  if (order.status === 'CANCELLED' || order.payment?.status === 'REJECTED') {
+    return { label: 'Rechazado / Cancelado', className: 'text-red-700' };
+  }
+  return { label: 'Pendiente de pago', className: 'text-slate-600' };
+}
+
+function formatCampaignStatusBadge(status?: string): { label: string; className: string } {
+  if (status === 'COMPLETED' || status === 'CLOSED') {
+    return { label: 'FINALIZADA', className: 'bg-slate-100 text-slate-700' };
+  }
+  return { label: 'ACTIVA', className: 'bg-emerald-100 text-emerald-700' };
+}
+
+function OrdersSummaryView({ orders }: { orders: PublicOrderDetail[] }) {
+  const { customerName, totalChances, activeCampaigns, finishedCampaigns, pendingOrders, grouped } =
+    useMemo(() => {
+      const map = new Map<
+        string,
+        {
+          campaign: PublicOrderDetail['campaign'];
+          chances: string[];
+          orders: PublicOrderDetail[];
+        }
+      >();
+
+      let pending = 0;
+      let total = 0;
+      let resolvedName: string | null = null;
+
+      for (const order of orders) {
+        if (!resolvedName && order.customerName) {
+          resolvedName = order.customerName;
+        }
+        if (order.status !== 'CONFIRMED' || order.payment?.status !== 'APPROVED') {
+          pending += 1;
+        }
+        total += order.chances.length;
+
+        const existing = map.get(order.campaign.id);
+        const orderNumbers = order.chances.map((c) => c.number);
+        if (existing) {
+          existing.chances.push(...orderNumbers);
+          existing.orders.push(order);
+        } else {
+          map.set(order.campaign.id, {
+            campaign: order.campaign,
+            chances: [...orderNumbers],
+            orders: [order],
+          });
+        }
+      }
+
+      const groups = Array.from(map.values()).map((g) => ({
+        ...g,
+        chances: [...g.chances].sort(),
+      }));
+
+      const activeCount = groups.filter(
+        (g) => g.campaign.status !== 'COMPLETED' && g.campaign.status !== 'CLOSED',
+      ).length;
+      const finishedCount = groups.length - activeCount;
+
+      return {
+        customerName: resolvedName,
+        totalChances: total,
+        activeCampaigns: activeCount,
+        finishedCampaigns: finishedCount,
+        pendingOrders: pending,
+        grouped: groups,
+      };
+    }, [orders]);
+
   return (
-    <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="space-y-5">
+      <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
         <div>
-          <p className="text-xs uppercase tracking-wider text-slate-500">
-            {order.campaign.title}
-          </p>
-          <h2 className="text-2xl font-extrabold text-slate-900">
-            {order.publicReference}
+          {customerName ? (
+            <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+              {customerName}
+            </p>
+          ) : null}
+          <h2 className="text-2xl font-extrabold text-slate-900 mt-1">
+            {totalChances} {totalChances === 1 ? 'chance' : 'chances'} en {grouped.length}{' '}
+            {grouped.length === 1 ? 'campaña' : 'campañas'}
           </h2>
         </div>
-        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-          {order.status}
-        </span>
-      </div>
 
-      <div className="text-sm text-slate-600">
-        Total: <strong>{formatCRC(order.totalAmount)}</strong>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-bold text-slate-900">Tus chances</h3>
-          {order.status === 'CONFIRMED' && order.payment?.status === 'APPROVED' ? (
-            <span className="text-[11px] text-slate-500">
-              Tocá un número para descargarlo en imagen
-            </span>
-          ) : null}
-        </div>
-        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-          {order.chances.map((c) =>
-            order.status === 'CONFIRMED' && order.payment?.status === 'APPROVED' ? (
-              <a
-                key={c.number}
-                href={`${API_BASE_URL}/orders/${encodeURIComponent(
-                  order.publicReference,
-                )}/stamped-pass?number=${encodeURIComponent(c.number)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={`Descargar chance ${c.number}`}
-                className="rounded-lg border border-amber-200 bg-amber-50 py-2 text-center font-mono text-sm font-bold text-slate-900 hover:bg-amber-100 transition-colors"
-              >
-                {c.number}
-              </a>
-            ) : (
-              <div
-                key={c.number}
-                className="rounded-lg border bg-amber-50 py-2 text-center font-mono text-sm font-bold text-slate-900"
-              >
-                {c.number}
-              </div>
-            ),
-          )}
-        </div>
-      </div>
-
-      {order.status === 'CONFIRMED' &&
-      order.payment?.status === 'APPROVED' &&
-      order.passDownloads.length > 0 ? (
-        <div className="border-t pt-4 space-y-2">
-          <h3 className="text-sm font-bold text-emerald-700">
-            ¡Tu compra fue confirmada! Descargá tus pases:
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            <a
-              href={`${API_BASE_URL}/orders/${encodeURIComponent(
-                order.publicReference,
-              )}/stamped-pass`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Pase con pedido ({order.publicReference})
-            </a>
-            {order.passDownloads.map((pass) => (
-              <a
-                key={pass.name}
-                href={pass.downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
-              >
-                <Download className="h-3.5 w-3.5" />
-                {pass.name}
-              </a>
-            ))}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center">
+            <div className="text-xl font-extrabold text-slate-900">{activeCampaigns}</div>
+            <div className="text-xs text-slate-500 mt-0.5">Activas</div>
+          </div>
+          <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center">
+            <div className="text-xl font-extrabold text-slate-900">{finishedCampaigns}</div>
+            <div className="text-xs text-slate-500 mt-0.5">Finalizadas</div>
+          </div>
+          <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center">
+            <div className="text-xl font-extrabold text-slate-900">{pendingOrders}</div>
+            <div className="text-xs text-slate-500 mt-0.5">Pendientes</div>
           </div>
         </div>
-      ) : null}
-    </section>
+      </section>
+
+      {grouped.map((group) => {
+        const badge = formatCampaignStatusBadge(group.campaign.status);
+        return (
+          <section
+            key={group.campaign.id}
+            className="rounded-2xl border bg-white p-6 shadow-sm space-y-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1.5">
+                <h3 className="text-lg font-extrabold text-slate-900">{group.campaign.title}</h3>
+                <span
+                  className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold ${badge.className}`}
+                >
+                  {badge.label}
+                </span>
+              </div>
+              <Link
+                href={`/campana?slug=${encodeURIComponent(group.campaign.slug)}`}
+                className="text-xs font-semibold text-slate-600 hover:text-blue-600 whitespace-nowrap"
+              >
+                Ver campaña
+              </Link>
+            </div>
+
+            <div className="space-y-2 border-t pt-4">
+              <p className="text-xs font-bold text-slate-700">
+                Tus chances ({group.chances.length})
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {group.chances.map((num, idx) => (
+                  <span
+                    key={`${num}-${idx}`}
+                    className="rounded-lg bg-blue-50 px-3 py-1.5 font-mono text-xs font-bold text-blue-700"
+                  >
+                    {num}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3 border-t pt-4">
+              {group.orders.map((order) => {
+                const statusInfo = formatOrderStatusLabel(order);
+                const dateStr = new Date(
+                  order.confirmedAt ?? order.createdAt ?? order.expiresAt,
+                ).toLocaleDateString('es-CR');
+
+                return (
+                  <div key={order.publicReference} className="space-y-2">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div>
+                        <p className="font-bold text-slate-900">Pedido {order.publicReference}</p>
+                        <p className={`font-medium ${statusInfo.className}`}>{statusInfo.label}</p>
+                      </div>
+                      <span className="text-slate-400">{dateStr}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {order.chances.map((c) => (
+                        <span
+                          key={c.number}
+                          className="rounded-lg bg-blue-50 px-3 py-1.5 font-mono text-xs font-bold text-blue-700"
+                        >
+                          {c.number}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
+    </div>
   );
 }
 
@@ -156,7 +247,7 @@ function OrderLookupContent() {
           <div>
             <h1 className="text-xl font-bold text-slate-900">Consultá tus pedidos</h1>
             <p className="text-sm text-slate-500 mt-1">
-              Ingresá tu correo electrónico o número de teléfono registrado para ver tus pedidos de sorteos vigentes.
+              Usá los mismos datos que ingresaste en el checkout. No necesitás crear cuenta.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -169,10 +260,10 @@ function OrderLookupContent() {
             />
             <button
               type="submit"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 whitespace-nowrap"
             >
               <Search className="h-4 w-4" />
-              Consultar estado
+              Buscar chances
             </button>
           </div>
         </form>
@@ -188,11 +279,7 @@ function OrderLookupContent() {
             No encontramos pedidos en sorteos vigentes con ese dato.
           </div>
         ) : orders.length > 0 ? (
-          <div className="space-y-4">
-            {orders.map((order) => (
-              <OrderResultCard key={order.publicReference} order={order} />
-            ))}
-          </div>
+          <OrdersSummaryView orders={orders} />
         ) : null}
       </main>
       <SiteFooter />

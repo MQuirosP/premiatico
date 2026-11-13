@@ -14,7 +14,8 @@ function generatePublicReference(): string {
 }
 
 const publicOrderInclude = {
-  campaign: { select: { id: true, title: true, slug: true } },
+  customer: { select: { fullName: true } },
+  campaign: { select: { id: true, title: true, slug: true, status: true } },
   items: true,
   participations: {
     where: { status: { in: ['RESERVED' as const, 'CONFIRMED' as const] } },
@@ -39,7 +40,9 @@ async function formatPublicOrder(order: {
   totalAmount: number;
   expiresAt: Date;
   confirmedAt: Date | null;
-  campaign: { id: string; title: string; slug: string };
+  createdAt?: Date;
+  customer?: { fullName: string } | null;
+  campaign: { id: string; title: string; slug: string; status?: string };
   items: Array<{
     comboNameSnapshot: string;
     passQuantitySnapshot: number;
@@ -91,6 +94,8 @@ async function formatPublicOrder(order: {
     totalAmount: order.totalAmount,
     expiresAt: order.expiresAt,
     confirmedAt: order.confirmedAt,
+    createdAt: order.createdAt ?? order.confirmedAt ?? order.expiresAt,
+    customerName: order.customer?.fullName ?? null,
     campaign: order.campaign,
     items: order.items.map((i) => ({
       comboName: i.comboNameSnapshot,
