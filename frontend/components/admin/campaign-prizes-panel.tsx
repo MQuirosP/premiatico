@@ -181,7 +181,7 @@ export function CampaignPrizesPanel({
     const customerName = prize.winningOrder?.customer.fullName ?? 'Ganador/a';
     const orderRef = prize.winningOrder?.publicReference ?? '';
     return [
-      `¡Felicidades ${customerName}! 🎉`,
+      `¡Felicidades ${customerName}!`,
       `Tu número ${prize.winningNumber} resultó ganador del premio "${prize.name}" en Premiático.`,
       orderRef ? `Referencia de pedido: ${orderRef}.` : '',
       'Pronto coordinaremos la entrega de tu premio.',
