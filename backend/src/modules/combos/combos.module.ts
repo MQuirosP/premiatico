@@ -135,3 +135,48 @@ adminCombosRouter.patch(
     }
   },
 );
+
+adminCombosRouter.delete(
+  '/:id',
+  validate({ params: comboIdSchema }),
+  async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+    try {
+      const existing = await prisma.campaignCombo.findUnique({
+        where: { id: req.params.id },
+        include: {
+          _count: {
+            select: { orderItems: true, reservationSessions: true },
+          },
+        },
+      });
+      if (!existing) throw new NotFoundError('Combo no encontrado');
+
+      const hasHistory =
+        existing._count.orderItems > 0 || existing._count.reservationSessions > 0;
+
+      if (hasHistory) {
+        await prisma.campaignCombo.update({
+          where: { id: existing.id },
+          data: { isActive: false },
+        });
+      } else {
+        await prisma.campaignCombo.delete({ where: { id: existing.id } });
+      }
+
+      await recordAuditLog({
+        actorId: req.admin!.id,
+        action: hasHistory ? 'COMBO_DEACTIVATED' : 'COMBO_DELETED',
+        entityType: 'CampaignCombo',
+        entityId: existing.id,
+        metadata: { campaignId: existing.campaignId, name: existing.name },
+      });
+
+      res.status(200).json({
+        success: true,
+        data: { deleted: !hasHistory, deactivated: hasHistory },
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);

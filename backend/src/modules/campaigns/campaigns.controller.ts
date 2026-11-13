@@ -3,6 +3,7 @@ import type { CreateCampaignInput, UpdateCampaignInput } from './campaigns.schem
 import {
   closeCampaign,
   createCampaign,
+  deleteCampaign,
   getAdminCampaignById,
   getPublicCampaignBySlug,
   listAdminCampaigns,
@@ -124,6 +125,19 @@ export async function closeCampaignController(
   try {
     const campaign = await closeCampaign(req.params.id, req.admin!.id);
     res.status(200).json({ success: true, data: { campaign } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteCampaignController(
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await deleteCampaign(req.params.id, req.admin!.id);
+    res.status(200).json({ success: true, data: result });
   } catch (error) {
     next(error);
   }

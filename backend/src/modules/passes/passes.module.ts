@@ -31,6 +31,7 @@ adminPassesRouter.use(requireAdminAuth);
 adminPassesRouter.get('/', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const passes = await prisma.digitalPass.findMany({
+      where: { isActive: true },
       orderBy: { createdAt: 'desc' },
     });
     res.status(200).json({ success: true, data: { passes } });
@@ -98,6 +99,48 @@ adminPassesRouter.patch(
       });
 
       res.status(200).json({ success: true, data: { pass } });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+adminPassesRouter.delete(
+  '/:id',
+  validate({ params: passIdSchema }),
+  async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+    try {
+      const existing = await prisma.digitalPass.findUnique({
+        where: { id: req.params.id },
+        include: {
+          _count: { select: { comboItems: true } },
+        },
+      });
+      if (!existing) throw new NotFoundError('Pase digital no encontrado');
+
+      const isReferenced = existing._count.comboItems > 0;
+
+      if (isReferenced) {
+        await prisma.digitalPass.update({
+          where: { id: existing.id },
+          data: { isActive: false },
+        });
+      } else {
+        await prisma.digitalPass.delete({ where: { id: existing.id } });
+      }
+
+      await recordAuditLog({
+        actorId: req.admin!.id,
+        action: isReferenced ? 'PASS_DEACTIVATED' : 'PASS_DELETED',
+        entityType: 'DigitalPass',
+        entityId: existing.id,
+        metadata: { name: existing.name },
+      });
+
+      res.status(200).json({
+        success: true,
+        data: { deleted: !isReferenced, deactivated: isReferenced },
+      });
     } catch (error) {
       next(error);
     }

@@ -4,6 +4,7 @@ import { validate } from '../../middlewares/validate.js';
 import {
   closeCampaignController,
   createCampaignController,
+  deleteCampaignController,
   getAdminCampaignByIdController,
   getPublicCampaignBySlugController,
   listAdminCampaignsController,
@@ -59,4 +60,9 @@ adminCampaignsRouter.post(
   '/:id/close',
   validate({ params: campaignIdParamSchema }),
   closeCampaignController,
+);
+adminCampaignsRouter.delete(
+  '/:id',
+  validate({ params: campaignIdParamSchema }),
+  deleteCampaignController,
 );

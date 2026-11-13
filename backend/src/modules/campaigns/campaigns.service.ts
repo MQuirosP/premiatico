@@ -115,6 +115,7 @@ export async function listAdminCampaigns() {
     orderBy: { createdAt: 'desc' },
     include: {
       combos: {
+        where: { isActive: true },
         orderBy: [{ sortOrder: 'asc' }, { price: 'asc' }],
       },
       _count: {
@@ -365,4 +366,47 @@ export async function closeCampaign(id: string, actorId: string) {
   });
 
   return updated;
+}
+
+export async function deleteCampaign(id: string, actorId: string) {
+  const campaign = await prisma.campaign.findUnique({
+    where: { id },
+    include: {
+      _count: {
+        select: {
+          orders: true,
+          participations: true,
+          reservationSessions: true,
+        },
+      },
+    },
+  });
+
+  if (!campaign) {
+    throw new NotFoundError('Campaña no encontrada');
+  }
+
+  const hasActivity =
+    campaign.status !== CampaignStatus.DRAFT ||
+    campaign._count.orders > 0 ||
+    campaign._count.participations > 0 ||
+    campaign._count.reservationSessions > 0;
+
+  if (hasActivity) {
+    throw new ConflictError(
+      'Solo se pueden eliminar permanentemente campañas en borrador sin actividad. Si ya fue activada, podés pausarla o cerrarla.',
+    );
+  }
+
+  await prisma.campaign.delete({ where: { id } });
+
+  await recordAuditLog({
+    actorId,
+    action: 'CAMPAIGN_DELETED',
+    entityType: 'Campaign',
+    entityId: id,
+    metadata: { slug: campaign.slug, title: campaign.title },
+  });
+
+  return { deleted: true };
 }

@@ -109,3 +109,19 @@ export async function createAdminCombo(payload: {
     body: JSON.stringify(payload),
   });
 }
+
+export async function deleteAdminCampaign(id: string): Promise<{ deleted: boolean }> {
+  return apiRequest(`/admin/campaigns/${id}`, { method: 'DELETE' });
+}
+
+export async function deleteAdminCombo(
+  id: string,
+): Promise<{ deleted: boolean; deactivated: boolean }> {
+  return apiRequest(`/admin/combos/${id}`, { method: 'DELETE' });
+}
+
+export async function deleteAdminPass(
+  id: string,
+): Promise<{ deleted: boolean; deactivated: boolean }> {
+  return apiRequest(`/admin/passes/${id}`, { method: 'DELETE' });
+}

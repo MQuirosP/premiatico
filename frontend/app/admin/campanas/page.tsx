@@ -1,13 +1,15 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, PauseCircle, Plus, ShieldCheck, Ticket, XCircle } from 'lucide-react';
+import { CheckCircle2, PauseCircle, Plus, ShieldCheck, Ticket, Trash2, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { ApiError } from '@/lib/api';
 import {
   closeAdminCampaign,
   createAdminCampaign,
   createAdminCombo,
+  deleteAdminCampaign,
+  deleteAdminCombo,
   listAdminCampaigns,
   pauseAdminCampaign,
   publishAdminCampaign,
@@ -107,6 +109,33 @@ export default function AdminCampaignsPage() {
     onError: (err) => {
       setComboSavedMsg(null);
       setActionError(err instanceof ApiError ? err.message : 'Error al crear combo');
+    },
+  });
+
+  const deleteCampaignMutation = useMutation({
+    mutationFn: deleteAdminCampaign,
+    onSuccess: () => {
+      setActionError(null);
+      void refresh();
+    },
+    onError: (err) => {
+      setActionError(err instanceof ApiError ? err.message : 'No se pudo eliminar la campaña');
+    },
+  });
+
+  const deleteComboMutation = useMutation({
+    mutationFn: deleteAdminCombo,
+    onSuccess: (res) => {
+      setComboSavedMsg(
+        res.deleted
+          ? 'Combo eliminado permanentemente.'
+          : 'Combo desactivado (ya tenía pedidos asociados).',
+      );
+      setActionError(null);
+      void refresh();
+    },
+    onError: (err) => {
+      setActionError(err instanceof ApiError ? err.message : 'No se pudo eliminar el combo');
     },
   });
 
@@ -335,7 +364,17 @@ export default function AdminCampaignsPage() {
                         <PauseCircle className="h-3.5 w-3.5" /> Pausar
                       </button>
                     )}
-                    {c.status !== 'CLOSED' && c.status !== 'COMPLETED' && (
+                    {c.status === 'DRAFT' && (
+                      <button
+                        type="button"
+                        disabled={deleteCampaignMutation.isPending}
+                        onClick={() => deleteCampaignMutation.mutate(c.id)}
+                        className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Eliminar
+                      </button>
+                    )}
+                    {c.status !== 'DRAFT' && c.status !== 'CLOSED' && c.status !== 'COMPLETED' && (
                       <button
                         type="button"
                         onClick={() => transitionMutation.mutate({ id: c.id, action: 'close' })}
@@ -449,9 +488,20 @@ export default function AdminCampaignsPage() {
                           {combo.passQuantity} pases · {combo.chanceQuantity} chances
                         </p>
                       </div>
-                      <span className="font-bold text-blue-700">
-                        ₡{combo.price.toLocaleString('es-CR')}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-blue-700">
+                          ₡{combo.price.toLocaleString('es-CR')}
+                        </span>
+                        <button
+                          type="button"
+                          title="Eliminar o desactivar combo"
+                          disabled={deleteComboMutation.isPending}
+                          onClick={() => deleteComboMutation.mutate(combo.id)}
+                          className="rounded p-1 text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
