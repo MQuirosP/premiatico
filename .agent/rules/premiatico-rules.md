@@ -28,8 +28,16 @@ description: Reglas obligatorias de arquitectura, terminología, concurrencia y 
    - Paquete promocional → **Combo** (interno: `CampaignCombo`).
    - **Prohibido** usar "wallpaper", "sticker" o "boleto" como terminología principal.
 
-5. **Redis y Seguridad**
+5. **Redis, Resiliencia y Seguridad**
    - Todas las claves en Redis deben usar exclusivamente los prefijos `premiatico:cache:`, `premiatico:rate:` o `premiatico:jobs:`. Nunca borrar o modificar claves ajenas.
+   - Configurar `ioredis` con `enableOfflineQueue: false`, `connectTimeout`, `retryStrategy` acotado y logs con *throttling* para garantizar *fail-open* inmediato en `rateLimit` cuando Redis no responda.
+   - Configurar límites explícitos de pool en `PrismaPg` (`max`, `idleTimeoutMillis`, `connectionTimeoutMillis`).
    - Nunca almacenar secretos en Git ni registrar contraseñas, tokens o datos bancarios en logs.
    - Registrar `AuditLog` en todas las acciones administrativas críticas.
-   - Usar transacciones PostgreSQL, restricciones únicas parciales e idempotencia para operaciones concurrentes.
+   - Usar transacciones PostgreSQL (`SELECT ... FOR UPDATE`), restricciones únicas parciales e idempotencia para operaciones concurrentes.
+   - Si una operación sube archivos a Cloudflare R2 antes de escribir en PostgreSQL, ejecutar rollback (`deleteObject`) en caso de error de DB para evitar objetos huérfanos.
+
+6. **SOLID, KISS, DRY y Responsive**
+   - **Backend:** Separar los módulos en `*.schema.ts`, `*.service.ts` y `*.routes.ts` (sin mezclar Zod, queries Prisma y rutas Express en un mismo archivo monolítico). Reutilizar `createMemoryUpload` para cargas con `multer` y no duplicar middlewares como `requireAdminAuth` al montar routers en `/admin`.
+   - **Frontend:** Mantener páginas ligeras extrayendo formularios, modales y pasos de checkout a `frontend/components/`. Todas las vistas administrativas con tablas deben incluir representación en *cards* para móvil (`sm:hidden`) y tabla en desktop (`hidden sm:block overflow-x-auto`).
+   - **Compatibilidad multi-dispositivo:** Optimizar imágenes (`loading="lazy"`, `decoding="async"` / `fetchPriority`), persistir estado recuperable en checkout móvil, y mantener el fallback `Authorization: Bearer` para navegadores con bloqueo de cookies cross-site hasta unificar dominio raíz.

@@ -77,6 +77,8 @@ export default function HomePage() {
                           <img
                             src={campaign.coverImageUrl}
                             alt={campaign.title}
+                            loading="lazy"
+                            decoding="async"
                             className="h-full w-full object-cover transition duration-300 hover:scale-105"
                           />
                         </div>

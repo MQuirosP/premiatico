@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import { MulterError } from 'multer';
 import { ZodError } from 'zod';
 import { AppError } from '../core/errors.js';
 import { logger } from '../core/logger.js';
@@ -35,6 +36,20 @@ export function errorHandler(
         code: 'VALIDATION_ERROR',
         message: 'Datos de entrada inválidos',
         details: err.flatten().fieldErrors,
+      },
+    });
+    return;
+  }
+
+  if (err instanceof MulterError) {
+    const isTooLarge = err.code === 'LIMIT_FILE_SIZE';
+    res.status(isTooLarge ? 413 : 400).json({
+      success: false,
+      error: {
+        code: err.code,
+        message: isTooLarge
+          ? 'El archivo excede el tamaño máximo permitido'
+          : 'Error al procesar el archivo adjunto',
       },
     });
     return;

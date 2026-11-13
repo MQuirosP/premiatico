@@ -83,6 +83,8 @@ function CampaignDetailContent() {
                 <img
                   src={campaign.coverImageUrl}
                   alt={campaign.title}
+                  decoding="async"
+                  fetchPriority="high"
                   className="h-full w-full object-cover"
                 />
               </div>

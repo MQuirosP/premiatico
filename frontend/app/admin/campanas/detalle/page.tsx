@@ -89,9 +89,7 @@ function CampaignDetailInner() {
 
   const combos = campaign.combos ?? [];
   const orders = campaign.orders ?? [];
-  const digits =
-    campaign.numberDigits ??
-    Math.min(5, Math.max(2, String(Math.max(1, campaign.totalChances - 1)).length));
+  const digits = campaign.numberDigits ?? 5;
   const maxNumberLabel = String(Math.max(0, campaign.totalChances - 1)).padStart(digits, '0');
   const activeWinnerResult = latestResult ?? campaign.winnerResult ?? null;
 

@@ -5,6 +5,7 @@ Todos los cambios notables de **Premiático** se documentan en este archivo.
 ## [1.0.0] - 2026-11-12
 
 ### Agregado
+
 - **MVP 1.0 completo**: API REST en Express + TypeScript + Prisma + Neon PostgreSQL + Redis + Cloudflare R2 y frontend estático en Next.js + Tailwind CSS.
 - **Gestión de campañas**:
   - Creación y edición de campañas con imagen de portada (`POST /api/v1/admin/campaigns/cover-upload`), fecha de cierre (`endAt`), fecha y referencia de sorteo (`drawAt`, `drawReference`).

@@ -1,11 +1,11 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import multer from 'multer';
 import { z } from 'zod';
 import { ConflictError, NotFoundError, ValidationError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
+import { createMemoryUpload } from '../../middlewares/upload.js';
 import { validate } from '../../middlewares/validate.js';
 import { hashToken } from '../reservations/reservations.module.js';
-import { r2KeyBuilders, uploadObject } from '../storage/storage.service.js';
+import { deleteObject, r2KeyBuilders, uploadObject } from '../storage/storage.service.js';
 
 const MAX_PROOF_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_MIME_TYPES = new Set([
@@ -15,9 +15,10 @@ const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
 ]);
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_PROOF_BYTES },
+const upload = createMemoryUpload({
+  maxFileSizeBytes: MAX_PROOF_BYTES,
+  allowedMimeTypes: ALLOWED_MIME_TYPES,
+  invalidMimeMessage: 'Formato de comprobante no permitido',
 });
 
 function hasValidMagicBytes(buffer: Buffer, mimeType: string): boolean {
@@ -105,39 +106,44 @@ publicPaymentsRouter.post(
         contentType: file.mimetype,
       });
 
-      const updated = await prisma.$transaction(async (tx) => {
-        const proof = await tx.paymentProof.create({
-          data: {
-            paymentId: payment.id,
-            storageKey,
-            mimeType: file.mimetype,
-            fileSize: file.size,
-          },
-        });
+      const updated = await prisma
+        .$transaction(async (tx) => {
+          const proof = await tx.paymentProof.create({
+            data: {
+              paymentId: payment.id,
+              storageKey,
+              mimeType: file.mimetype,
+              fileSize: file.size,
+            },
+          });
 
-        await tx.payment.update({
-          where: { id: payment.id },
-          data: { status: 'UNDER_REVIEW' },
-        });
+          await tx.payment.update({
+            where: { id: payment.id },
+            data: { status: 'UNDER_REVIEW' },
+          });
 
-        await tx.order.update({
-          where: { id: order.id },
-          data: { status: 'UNDER_REVIEW' },
-        });
+          await tx.order.update({
+            where: { id: order.id },
+            data: { status: 'UNDER_REVIEW' },
+          });
 
-        // Protect chances from automatic expiration while under manual review
-        await tx.participation.updateMany({
-          where: {
-            orderId: order.id,
-            status: 'RESERVED',
-          },
-          data: {
-            reservedUntil: null,
-          },
-        });
+          // Protect chances from automatic expiration while under manual review
+          await tx.participation.updateMany({
+            where: {
+              orderId: order.id,
+              status: 'RESERVED',
+            },
+            data: {
+              reservedUntil: null,
+            },
+          });
 
-        return proof;
-      });
+          return proof;
+        })
+        .catch(async (err) => {
+          await deleteObject(storageKey).catch(() => undefined);
+          throw err;
+        });
 
       res.status(201).json({
         success: true,

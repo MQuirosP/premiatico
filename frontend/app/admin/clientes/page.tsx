@@ -44,7 +44,7 @@ export default function AdminClientesPage() {
         <p className="text-sm text-slate-500">Listado de compradores registrados en Premiático.</p>
       </div>
 
-      <div className="rounded-xl border bg-white shadow-sm overflow-x-auto">
+      <div className="rounded-xl border bg-white shadow-sm">
         {isLoading ? (
           <div className="p-6 text-sm text-slate-500">Cargando clientes...</div>
         ) : !data || data.customers.length === 0 ? (
@@ -52,58 +52,106 @@ export default function AdminClientesPage() {
             No hay clientes registrados aún.
           </div>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 border-b text-xs uppercase text-slate-500 whitespace-nowrap">
-              <tr>
-                <th className="px-4 py-3">Nombre</th>
-                <th className="px-4 py-3">Correo</th>
-                <th className="px-4 py-3">Teléfono</th>
-                <th className="px-4 py-3">Pedidos / Chances</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
+          <>
+            {/* Vista móvil en cards */}
+            <div className="divide-y sm:hidden">
               {data.customers.map((c) => {
                 const orders = c.orders ?? [];
                 return (
-                  <tr key={c.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
-                      {c.fullName}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{c.email}</td>
-                    <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{c.phone}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-slate-700">
-                          {c._count.orders} {c._count.orders === 1 ? 'pedido' : 'pedidos'}
-                        </span>
-                        {orders.length > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setSelectedCustomer({
-                                title: c.fullName,
-                                subtitle: `${c.phone} · ${c.email}`,
-                                entries: orders.map((order) => ({
-                                  label: `${order.publicReference} · ${order.campaign.title}`,
-                                  sublabel:
-                                    order.items.map((i) => i.comboNameSnapshot).join(', ') || 'Combo',
-                                  numbers: order.participations ?? [],
-                                })),
-                              })
-                            }
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            Ver
-                          </button>
-                        ) : null}
+                  <div key={c.id} className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-slate-900">{c.fullName}</p>
+                        <p className="text-xs text-slate-500 break-all">{c.email}</p>
+                        <p className="text-xs text-slate-600 mt-0.5">{c.phone}</p>
                       </div>
-                    </td>
-                  </tr>
+                      <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                        {c._count.orders} {c._count.orders === 1 ? 'pedido' : 'pedidos'}
+                      </span>
+                    </div>
+                    {orders.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedCustomer({
+                            title: c.fullName,
+                            subtitle: `${c.phone} · ${c.email}`,
+                            entries: orders.map((order) => ({
+                              label: `${order.publicReference} · ${order.campaign.title}`,
+                              sublabel:
+                                order.items.map((i) => i.comboNameSnapshot).join(', ') || 'Combo',
+                              numbers: order.participations ?? [],
+                            })),
+                          })
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        Ver chances ({orders.length})
+                      </button>
+                    ) : null}
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
+            </div>
+
+            {/* Vista desktop en tabla */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b text-xs uppercase text-slate-500 whitespace-nowrap">
+                  <tr>
+                    <th className="px-4 py-3">Nombre</th>
+                    <th className="px-4 py-3">Correo</th>
+                    <th className="px-4 py-3">Teléfono</th>
+                    <th className="px-4 py-3">Pedidos / Chances</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {data.customers.map((c) => {
+                    const orders = c.orders ?? [];
+                    return (
+                      <tr key={c.id} className="hover:bg-slate-50/60">
+                        <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
+                          {c.fullName}
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{c.email}</td>
+                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{c.phone}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-slate-700">
+                              {c._count.orders} {c._count.orders === 1 ? 'pedido' : 'pedidos'}
+                            </span>
+                            {orders.length > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedCustomer({
+                                    title: c.fullName,
+                                    subtitle: `${c.phone} · ${c.email}`,
+                                    entries: orders.map((order) => ({
+                                      label: `${order.publicReference} · ${order.campaign.title}`,
+                                      sublabel:
+                                        order.items.map((i) => i.comboNameSnapshot).join(', ') ||
+                                        'Combo',
+                                      numbers: order.participations ?? [],
+                                    })),
+                                  })
+                                }
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                Ver
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

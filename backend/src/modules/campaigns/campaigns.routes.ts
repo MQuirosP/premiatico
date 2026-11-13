@@ -1,7 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import multer from 'multer';
 import { ValidationError } from '../../core/errors.js';
 import { requireAdminAuth } from '../../middlewares/authAdmin.js';
+import { createMemoryUpload } from '../../middlewares/upload.js';
 import { validate } from '../../middlewares/validate.js';
 import { getSignedDownloadUrl, r2KeyBuilders, uploadObject } from '../storage/storage.service.js';
 import {
@@ -33,9 +33,10 @@ publicCampaignsRouter.get(
   getPublicCampaignBySlugController,
 );
 
-const coverUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 },
+const coverUpload = createMemoryUpload({
+  maxFileSizeBytes: 8 * 1024 * 1024,
+  allowedMimeTypes: new Set(['image/jpeg', 'image/png', 'image/webp']),
+  invalidMimeMessage: 'Formato de imagen inválido. Usá JPG, PNG o WEBP',
 });
 
 export const adminCampaignsRouter = Router();
@@ -48,10 +49,6 @@ adminCampaignsRouter.post(
       const file = req.file;
       if (!file) {
         throw new ValidationError('Debés adjuntar una imagen de portada');
-      }
-      const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);
-      if (!allowed.has(file.mimetype)) {
-        throw new ValidationError('Formato de imagen inválido. Usá JPG, PNG o WEBP');
       }
       const key = r2KeyBuilders.campaignImage('cover', file.originalname);
       await uploadObject({ key, body: file.buffer, contentType: file.mimetype });

@@ -15,6 +15,7 @@ export function buildRedisKey(prefix: RedisPrefix, key: string): string {
 }
 
 let redisClient: Redis | null = null;
+let lastRedisErrorLogAt = 0;
 
 export function getRedisClient(): Redis | null {
   if (!env.REDIS_URL) {
@@ -22,11 +23,18 @@ export function getRedisClient(): Redis | null {
   }
   if (!redisClient) {
     redisClient = new Redis(env.REDIS_URL, {
-      maxRetriesPerRequest: 2,
+      maxRetriesPerRequest: 1,
+      connectTimeout: 3_000,
+      enableOfflineQueue: false,
       lazyConnect: true,
+      retryStrategy: (times) => Math.min(times * 1_000, 30_000),
     });
     redisClient.on('error', (err) => {
-      logger.error({ err: err.message }, 'Redis connection error');
+      const now = Date.now();
+      if (now - lastRedisErrorLogAt >= 30_000) {
+        lastRedisErrorLogAt = now;
+        logger.error({ err: err.message }, 'Redis connection error');
+      }
     });
   }
   return redisClient;

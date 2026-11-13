@@ -2,12 +2,13 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { CheckCircle2, RefreshCw, Sparkles, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { ReservationSummaryCard } from '@/components/checkout/reservation-summary-card';
+import { SinpePaymentStep } from '@/components/checkout/sinpe-payment-step';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { ApiError } from '@/lib/api';
@@ -44,6 +45,7 @@ function CheckoutContent() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const storageKey = `premiatico_res_${campaignId}_${comboId}`;
+  const orderStorageKey = `premiatico_ord_${campaignId}_${comboId}`;
 
   const reserveMutation = useMutation({
     mutationFn: createReservationRequest,
@@ -64,6 +66,15 @@ function CheckoutContent() {
   useEffect(() => {
     if (!campaignId || !comboId) return;
     try {
+      const cachedOrder = sessionStorage.getItem(orderStorageKey);
+      if (cachedOrder) {
+        const parsedOrder = JSON.parse(cachedOrder) as CreatedOrderData;
+        if (new Date(parsedOrder.expiresAt).getTime() > Date.now()) {
+          setOrder(parsedOrder);
+          return;
+        }
+        sessionStorage.removeItem(orderStorageKey);
+      }
       const cached = sessionStorage.getItem(storageKey);
       if (cached) {
         const parsed = JSON.parse(cached) as ReservationSessionData;
@@ -71,6 +82,7 @@ function CheckoutContent() {
           setSession(parsed);
           return;
         }
+        sessionStorage.removeItem(storageKey);
       }
     } catch {
       // ignore
@@ -118,6 +130,7 @@ function CheckoutContent() {
       setErrorMsg(null);
       try {
         sessionStorage.removeItem(storageKey);
+        sessionStorage.setItem(orderStorageKey, JSON.stringify(data));
       } catch {
         // ignore
       }
@@ -132,6 +145,11 @@ function CheckoutContent() {
     onSuccess: () => {
       setProofUploaded(true);
       setErrorMsg(null);
+      try {
+        sessionStorage.removeItem(orderStorageKey);
+      } catch {
+        // ignore
+      }
     },
     onError: (err) => {
       setErrorMsg(err instanceof ApiError ? err.message : 'Error al subir el comprobante');
@@ -149,6 +167,8 @@ function CheckoutContent() {
     );
   }
 
+  const isSessionExpired = Boolean(session && new Date(session.expiresAt).getTime() <= Date.now());
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <SiteHeader />
@@ -162,54 +182,25 @@ function CheckoutContent() {
 
         {!order ? (
           <>
-            <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h1 className="text-xl font-bold text-slate-900">Descubrí tus chances</h1>
-                  {session ? (
-                    <p className="text-sm text-slate-500">
-                      {session.comboName} · {formatCRC(session.price)}
-                    </p>
-                  ) : null}
-                </div>
-                {session ? (
-                  <button
-                    type="button"
-                    disabled={session.remainingChanges <= 0 || regenMutation.isPending}
-                    onClick={() =>
-                      regenMutation.mutate({
-                        sessionId: session.sessionId,
-                        sessionToken: session.sessionToken,
-                      })
-                    }
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" />
-                    Cambiá tus números ({session.remainingChanges} restantes)
-                  </button>
-                ) : null}
-              </div>
+            <ReservationSummaryCard
+              session={session}
+              isReserving={reserveMutation.isPending}
+              isRegenerating={regenMutation.isPending}
+              onRegenerate={() => {
+                if (!session) return;
+                regenMutation.mutate({
+                  sessionId: session.sessionId,
+                  sessionToken: session.sessionToken,
+                });
+              }}
+              onReserveAgain={() => {
+                setSession(null);
+                reserveMutation.mutate({ campaignId, comboId });
+              }}
+            />
 
-              {reserveMutation.isPending || !session ? (
-                <div className="py-8 text-center text-sm text-slate-500">
-                  Generando tus números aleatorios...
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
-                  {session.numbers.map((num) => (
-                    <div
-                      key={num}
-                      className="rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-center font-mono text-base font-extrabold text-slate-900"
-                    >
-                      {num}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            {session ? (
-              <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
+            {session && !isSessionExpired ? (
+              <section className="rounded-2xl border bg-white p-5 sm:p-6 shadow-sm space-y-4">
                 <h2 className="text-lg font-bold text-slate-900">Tus datos para reservar</h2>
                 <form
                   onSubmit={handleSubmit((values) =>
@@ -276,73 +267,22 @@ function CheckoutContent() {
               </section>
             ) : null}
           </>
-        ) : !proofUploaded ? (
-          <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-5">
-            <div className="space-y-1">
-              <span className="inline-block rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                ¡Tus chances están listos!
-              </span>
-              <h1 className="text-2xl font-extrabold text-slate-900">
-                Pedido {order.publicReference}
-              </h1>
-              <p className="text-sm text-slate-600">
-                {order.sinpeInstructions.instructions}
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-slate-50 border p-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Monto exacto SINPE Móvil:</span>
-                <span className="font-bold text-slate-900">{formatCRC(order.totalAmount)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Referencia / Detalle:</span>
-                <span className="font-mono font-bold text-blue-700">{order.publicReference}</span>
-              </div>
-            </div>
-
-            <div className="space-y-3 border-t pt-4">
-              <h2 className="font-bold text-slate-900">Adjuntá tu comprobante</h2>
-              <input
-                type="file"
-                accept=".jpg,.jpeg,.png,.webp,.pdf"
-                onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
-                className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-xs file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
-              />
-              <button
-                type="button"
-                disabled={!proofFile || proofMutation.isPending}
-                onClick={() => {
-                  if (!proofFile) return;
-                  proofMutation.mutate({
-                    publicReference: order.publicReference,
-                    accessToken: order.accessToken,
-                    file: proofFile,
-                  });
-                }}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-              >
-                <Upload className="h-4 w-4" />
-                {proofMutation.isPending ? 'Subiendo comprobante...' : 'Enviar comprobante SINPE'}
-              </button>
-            </div>
-          </section>
         ) : (
-          <section className="rounded-2xl border bg-white p-8 shadow-sm text-center space-y-4">
-            <CheckCircle2 className="h-12 w-12 mx-auto text-emerald-600" />
-            <h1 className="text-2xl font-extrabold text-slate-900">
-              Estamos verificando tu pago
-            </h1>
-            <p className="text-sm text-slate-600">
-              Recibimos tu comprobante para el pedido <strong>{order.publicReference}</strong>. Tus chances quedan protegidos mientras nuestro equipo confirma el ingreso bancario.
-            </p>
-            <Link
-              href={`/pedido?ref=${encodeURIComponent(order.publicReference)}&token=${encodeURIComponent(order.accessToken)}`}
-              className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
-            >
-              Consultar estado del pedido
-            </Link>
-          </section>
+          <SinpePaymentStep
+            order={order}
+            proofUploaded={proofUploaded}
+            proofFile={proofFile}
+            isUploading={proofMutation.isPending}
+            onFileSelect={setProofFile}
+            onUploadProof={() => {
+              if (!proofFile) return;
+              proofMutation.mutate({
+                publicReference: order.publicReference,
+                accessToken: order.accessToken,
+                file: proofFile,
+              });
+            }}
+          />
         )}
       </main>
       <SiteFooter />

@@ -3,9 +3,11 @@ import { prisma } from '../../core/prisma.js';
 import { requireAdminAuth } from '../../middlewares/authAdmin.js';
 
 export const adminDashboardRouter = Router();
-adminDashboardRouter.use(requireAdminAuth);
 
-adminDashboardRouter.get('/dashboard', async (_req: Request, res: Response, next: NextFunction) => {
+adminDashboardRouter.get(
+  '/dashboard',
+  requireAdminAuth,
+  async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -42,7 +44,10 @@ adminDashboardRouter.get('/dashboard', async (_req: Request, res: Response, next
   }
 });
 
-adminDashboardRouter.get('/orders', async (req: Request, res: Response, next: NextFunction) => {
+adminDashboardRouter.get(
+  '/orders',
+  requireAdminAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
   try {
     const status = typeof req.query.status === 'string' ? req.query.status : undefined;
     const search = typeof req.query.q === 'string' ? req.query.q.trim() : undefined;
@@ -76,7 +81,10 @@ adminDashboardRouter.get('/orders', async (req: Request, res: Response, next: Ne
   }
 });
 
-adminDashboardRouter.get('/customers', async (_req: Request, res: Response, next: NextFunction) => {
+adminDashboardRouter.get(
+  '/customers',
+  requireAdminAuth,
+  async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const customers = await prisma.customer.findMany({
       orderBy: { createdAt: 'desc' },
@@ -107,7 +115,10 @@ adminDashboardRouter.get('/customers', async (_req: Request, res: Response, next
   }
 });
 
-adminDashboardRouter.get('/audit', async (req: Request, res: Response, next: NextFunction) => {
+adminDashboardRouter.get(
+  '/audit',
+  requireAdminAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
   try {
     const rawLimit = Number(req.query.limit ?? 20);
     const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, Math.trunc(rawLimit))) : 20;
