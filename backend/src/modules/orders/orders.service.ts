@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import path from 'node:path';
 import { z } from 'zod';
 import { ConflictError, NotFoundError, UnauthorizedError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
@@ -54,8 +55,9 @@ async function formatPublicOrder(order: {
     rejectionReason: string | null;
   }>;
 }) {
+  const latestPayment = order.payments[0] ?? null;
   const passDownloads: Array<{ name: string; downloadUrl: string }> = [];
-  if (order.status === 'CONFIRMED') {
+  if (order.status === 'CONFIRMED' && latestPayment?.status === 'APPROVED') {
     for (const item of order.items) {
       const snapshot = item.passesSnapshotJson as Array<{
         name: string;
@@ -63,10 +65,15 @@ async function formatPublicOrder(order: {
       }>;
       if (Array.isArray(snapshot)) {
         for (const p of snapshot) {
+          const ext = path.posix.extname(p.fileKey);
+          const downloadFileName =
+            ext && !p.name.toLowerCase().endsWith(ext.toLowerCase())
+              ? `${p.name}${ext}`
+              : p.name;
           const signed = await getSignedDownloadUrl({
             key: p.fileKey,
             expiresInSeconds: 600,
-            downloadFileName: p.name,
+            downloadFileName,
           }).catch(() => null);
           if (signed) {
             passDownloads.push({ name: p.name, downloadUrl: signed.downloadUrl });

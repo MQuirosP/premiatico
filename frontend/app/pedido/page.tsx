@@ -48,7 +48,9 @@ function OrderResultCard({ order }: { order: PublicOrderDetail }) {
         </div>
       </div>
 
-      {order.status === 'CONFIRMED' && order.passDownloads.length > 0 ? (
+      {order.status === 'CONFIRMED' &&
+      order.payment?.status === 'APPROVED' &&
+      order.passDownloads.length > 0 ? (
         <div className="border-t pt-4 space-y-2">
           <h3 className="text-sm font-bold text-emerald-700">
             ¡Tu compra fue confirmada! Descargá tus pases:
