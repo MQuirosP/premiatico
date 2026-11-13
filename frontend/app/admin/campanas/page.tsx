@@ -32,10 +32,12 @@ export default function AdminCampaignsPage() {
   const [legalRef, setLegalRef] = useState('');
 
   const [comboCampaignId, setComboCampaignId] = useState<string | null>(null);
-  const [comboName, setComboName] = useState('1 Pase');
+  const [comboName, setComboName] = useState('');
   const [comboPrice, setComboPrice] = useState(4000);
   const [comboPassQty, setComboPassQty] = useState(1);
   const [comboChanceQty, setComboChanceQty] = useState(4);
+  const [comboBadge, setComboBadge] = useState('');
+  const [comboSavedMsg, setComboSavedMsg] = useState<string | null>(null);
 
   const { data: campaigns, isLoading } = useQuery({
     queryKey: ['admin-campaigns'],
@@ -96,11 +98,14 @@ export default function AdminCampaignsPage() {
   const createComboMutation = useMutation({
     mutationFn: createAdminCombo,
     onSuccess: () => {
-      setComboCampaignId(null);
+      setComboSavedMsg('Combo agregado. Podés agregar otro o cerrar.');
+      setComboName('');
+      setComboBadge('');
       setActionError(null);
       void refresh();
     },
     onError: (err) => {
+      setComboSavedMsg(null);
       setActionError(err instanceof ApiError ? err.message : 'Error al crear combo');
     },
   });
@@ -382,75 +387,166 @@ export default function AdminCampaignsPage() {
         </form>
       ) : null}
 
-      {comboCampaignId ? (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            createComboMutation.mutate({
-              campaignId: comboCampaignId,
-              name: comboName,
-              price: comboPrice,
-              passQuantity: comboPassQty,
-              chanceQuantity: comboChanceQty,
-            });
-          }}
-          className="rounded-xl border bg-white p-5 shadow-sm space-y-3"
-        >
-          <h2 className="text-sm font-bold text-slate-900">Agregar combo a la campaña</h2>
-          <div className="grid gap-3 sm:grid-cols-4">
-            <input
-              required
-              value={comboName}
-              onChange={(e) => setComboName(e.target.value)}
-              placeholder="Nombre (ej. 1 Pase)"
-              className="rounded-lg border px-3 py-2 text-sm"
-            />
-            <input
-              type="number"
-              min={100}
-              required
-              value={comboPrice}
-              onChange={(e) => setComboPrice(Number(e.target.value))}
-              placeholder="Precio CRC"
-              className="rounded-lg border px-3 py-2 text-sm"
-            />
-            <input
-              type="number"
-              min={1}
-              required
-              value={comboPassQty}
-              onChange={(e) => setComboPassQty(Number(e.target.value))}
-              placeholder="Pases"
-              className="rounded-lg border px-3 py-2 text-sm"
-            />
-            <input
-              type="number"
-              min={1}
-              required
-              value={comboChanceQty}
-              onChange={(e) => setComboChanceQty(Number(e.target.value))}
-              placeholder="Chances"
-              className="rounded-lg border px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setComboCampaignId(null)}
-              className="rounded-lg border px-3 py-1.5 text-xs font-medium text-slate-600"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={createComboMutation.isPending}
-              className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-amber-400"
-            >
-              Guardar combo
-            </button>
-          </div>
-        </form>
-      ) : null}
+      {comboCampaignId ? (() => {
+        const selectedCampaign = campaigns?.find((item) => item.id === comboCampaignId);
+        return (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              createComboMutation.mutate({
+                campaignId: comboCampaignId,
+                name: comboName,
+                price: comboPrice,
+                passQuantity: comboPassQty,
+                chanceQuantity: comboChanceQty,
+                badgeLabel: comboBadge.trim() || undefined,
+              });
+            }}
+            className="rounded-xl border bg-white p-5 shadow-sm space-y-4"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">
+                  Combos de: {selectedCampaign?.title ?? 'Campaña'}
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Agregá uno o varios combos distintos (ej. 1 Pase, 2 Pases, 3 Pases...).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setComboCampaignId(null);
+                  setComboSavedMsg(null);
+                }}
+                className="rounded-lg border px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Cerrar panel
+              </button>
+            </div>
+
+            {selectedCampaign?.combos && selectedCampaign.combos.length > 0 ? (
+              <div className="rounded-lg border bg-slate-50 p-3 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Combos actuales ({selectedCampaign.combos.length})
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {selectedCampaign.combos.map((combo) => (
+                    <div
+                      key={combo.id}
+                      className="rounded-lg border bg-white px-3 py-2 text-xs flex items-center justify-between gap-2"
+                    >
+                      <div>
+                        <p className="font-bold text-slate-900">
+                          {combo.name}
+                          {combo.badgeLabel ? (
+                            <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-800">
+                              {combo.badgeLabel}
+                            </span>
+                          ) : null}
+                        </p>
+                        <p className="text-slate-500">
+                          {combo.passQuantity} pases · {combo.chanceQuantity} chances
+                        </p>
+                      </div>
+                      <span className="font-bold text-blue-700">
+                        ₡{combo.price.toLocaleString('es-CR')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                Esta campaña aún no tiene combos. Agregá el primero abajo.
+              </p>
+            )}
+
+            {comboSavedMsg ? (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+                {comboSavedMsg}
+              </div>
+            ) : null}
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Nombre del combo
+                </label>
+                <input
+                  required
+                  value={comboName}
+                  onChange={(e) => setComboName(e.target.value)}
+                  placeholder="Ej. 2 Pases"
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Precio (CRC)
+                </label>
+                <input
+                  type="number"
+                  min={100}
+                  required
+                  value={comboPrice}
+                  onChange={(e) => setComboPrice(Number(e.target.value))}
+                  placeholder="8000"
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Pases digitales
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  value={comboPassQty}
+                  onChange={(e) => setComboPassQty(Number(e.target.value))}
+                  placeholder="2"
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Chances de regalo
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  value={comboChanceQty}
+                  onChange={(e) => setComboChanceQty(Number(e.target.value))}
+                  placeholder="8"
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Etiqueta (opcional)
+                </label>
+                <input
+                  value={comboBadge}
+                  onChange={(e) => setComboBadge(e.target.value)}
+                  placeholder="Ej. Más popular"
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="submit"
+                disabled={createComboMutation.isPending}
+                className="rounded-lg bg-amber-500 px-4 py-2 text-xs font-semibold text-slate-900 hover:bg-amber-400"
+              >
+                {createComboMutation.isPending ? 'Guardando...' : 'Agregar combo'}
+              </button>
+            </div>
+          </form>
+        );
+      })() : null}
     </div>
   );
 }

@@ -114,6 +114,9 @@ export async function listAdminCampaigns() {
   const campaigns = await prisma.campaign.findMany({
     orderBy: { createdAt: 'desc' },
     include: {
+      combos: {
+        orderBy: [{ sortOrder: 'asc' }, { price: 'asc' }],
+      },
       _count: {
         select: {
           prizes: true,
