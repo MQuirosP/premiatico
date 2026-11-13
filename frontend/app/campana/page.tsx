@@ -5,6 +5,7 @@ import { ArrowLeft, Award, Calendar, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
+import { CampaignCountdown } from '@/components/campaign-countdown';
 import { CampaignProgressBar } from '@/components/campaign-progress';
 import { ComboSelector } from '@/components/combo-selector';
 import { formatCRC } from '@/lib/utils';
@@ -96,6 +97,12 @@ function CampaignDetailContent() {
 
           <h1 className="text-3xl font-extrabold text-slate-900">{campaign.title}</h1>
           <p className="text-slate-600 whitespace-pre-line">{campaign.description}</p>
+
+          <CampaignCountdown
+            endAt={campaign.endAt}
+            drawAt={campaign.drawAt}
+            drawReference={campaign.drawReference}
+          />
 
           <CampaignProgressBar progress={campaign.progress} />
         </section>
