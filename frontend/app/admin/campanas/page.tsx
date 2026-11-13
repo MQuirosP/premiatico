@@ -1,15 +1,17 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, PauseCircle, Plus, XCircle } from 'lucide-react';
+import { CheckCircle2, PauseCircle, Plus, ShieldCheck, Ticket, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { ApiError } from '@/lib/api';
 import {
   closeAdminCampaign,
   createAdminCampaign,
+  createAdminCombo,
   listAdminCampaigns,
   pauseAdminCampaign,
   publishAdminCampaign,
+  updateAdminCampaign,
 } from '@/services/campaigns';
 
 export default function AdminCampaignsPage() {
@@ -23,6 +25,15 @@ export default function AdminCampaignsPage() {
   const [description, setDescription] = useState('');
   const [totalChances, setTotalChances] = useState(10000);
   const [terms, setTerms] = useState('Aplican restricciones. Promoción válida en Costa Rica.');
+
+  const [legalCampaignId, setLegalCampaignId] = useState<string | null>(null);
+  const [legalRef, setLegalRef] = useState('');
+
+  const [comboCampaignId, setComboCampaignId] = useState<string | null>(null);
+  const [comboName, setComboName] = useState('1 Pase');
+  const [comboPrice, setComboPrice] = useState(4000);
+  const [comboPassQty, setComboPassQty] = useState(1);
+  const [comboChanceQty, setComboChanceQty] = useState(4);
 
   const { data: campaigns, isLoading } = useQuery({
     queryKey: ['admin-campaigns'],
@@ -58,6 +69,35 @@ export default function AdminCampaignsPage() {
     },
     onError: (err) => {
       setActionError(err instanceof ApiError ? err.message : 'No se pudo cambiar el estado');
+    },
+  });
+
+  const approveLegalMutation = useMutation({
+    mutationFn: ({ id, reference }: { id: string; reference: string }) =>
+      updateAdminCampaign(id, {
+        legalApprovalStatus: 'APPROVED',
+        legalApprovalReference: reference,
+      }),
+    onSuccess: () => {
+      setLegalCampaignId(null);
+      setLegalRef('');
+      setActionError(null);
+      void refresh();
+    },
+    onError: (err) => {
+      setActionError(err instanceof ApiError ? err.message : 'Error al registrar autorización');
+    },
+  });
+
+  const createComboMutation = useMutation({
+    mutationFn: createAdminCombo,
+    onSuccess: () => {
+      setComboCampaignId(null);
+      setActionError(null);
+      void refresh();
+    },
+    onError: (err) => {
+      setActionError(err instanceof ApiError ? err.message : 'Error al crear combo');
     },
   });
 
@@ -225,6 +265,25 @@ export default function AdminCampaignsPage() {
                     {c.progress.confirmedChances}/{c.totalChances} ({c.progress.soldPercentage}%)
                   </td>
                   <td className="px-4 py-3 text-right space-x-2">
+                    {c.legalApprovalStatus !== 'APPROVED' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLegalCampaignId(c.id);
+                          setLegalRef(c.legalApprovalReference ?? '');
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" /> Aprobar legal
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setComboCampaignId(c.id)}
+                      className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                    >
+                      <Ticket className="h-3.5 w-3.5" /> + Combo
+                    </button>
                     {(c.status === 'DRAFT' || c.status === 'PAUSED') && (
                       <button
                         type="button"
@@ -259,6 +318,111 @@ export default function AdminCampaignsPage() {
           </table>
         )}
       </div>
+
+      {legalCampaignId ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            approveLegalMutation.mutate({ id: legalCampaignId, reference: legalRef });
+          }}
+          className="rounded-xl border bg-white p-5 shadow-sm space-y-3"
+        >
+          <h2 className="text-sm font-bold text-slate-900">Registrar autorización legal</h2>
+          <input
+            required
+            value={legalRef}
+            onChange={(e) => setLegalRef(e.target.value)}
+            placeholder="Número de oficio / resolución (ej. MEIC-DAC-2026-001)"
+            className="w-full rounded-lg border px-3 py-2 text-sm"
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setLegalCampaignId(null)}
+              className="rounded-lg border px-3 py-1.5 text-xs font-medium text-slate-600"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={approveLegalMutation.isPending}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+            >
+              Marcar APPROVED
+            </button>
+          </div>
+        </form>
+      ) : null}
+
+      {comboCampaignId ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            createComboMutation.mutate({
+              campaignId: comboCampaignId,
+              name: comboName,
+              price: comboPrice,
+              passQuantity: comboPassQty,
+              chanceQuantity: comboChanceQty,
+            });
+          }}
+          className="rounded-xl border bg-white p-5 shadow-sm space-y-3"
+        >
+          <h2 className="text-sm font-bold text-slate-900">Agregar combo a la campaña</h2>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <input
+              required
+              value={comboName}
+              onChange={(e) => setComboName(e.target.value)}
+              placeholder="Nombre (ej. 1 Pase)"
+              className="rounded-lg border px-3 py-2 text-sm"
+            />
+            <input
+              type="number"
+              min={100}
+              required
+              value={comboPrice}
+              onChange={(e) => setComboPrice(Number(e.target.value))}
+              placeholder="Precio CRC"
+              className="rounded-lg border px-3 py-2 text-sm"
+            />
+            <input
+              type="number"
+              min={1}
+              required
+              value={comboPassQty}
+              onChange={(e) => setComboPassQty(Number(e.target.value))}
+              placeholder="Pases"
+              className="rounded-lg border px-3 py-2 text-sm"
+            />
+            <input
+              type="number"
+              min={1}
+              required
+              value={comboChanceQty}
+              onChange={(e) => setComboChanceQty(Number(e.target.value))}
+              placeholder="Chances"
+              className="rounded-lg border px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setComboCampaignId(null)}
+              className="rounded-lg border px-3 py-1.5 text-xs font-medium text-slate-600"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={createComboMutation.isPending}
+              className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-amber-400"
+            >
+              Guardar combo
+            </button>
+          </div>
+        </form>
+      ) : null}
     </div>
   );
 }

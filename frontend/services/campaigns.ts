@@ -37,6 +37,21 @@ export async function createAdminCampaign(payload: {
   return res.campaign;
 }
 
+export async function updateAdminCampaign(
+  id: string,
+  payload: {
+    legalApprovalStatus?: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+    legalApprovalReference?: string | null;
+    requiresLegalApproval?: boolean;
+  },
+): Promise<AdminCampaign> {
+  const res = await apiRequest<{ campaign: AdminCampaign }>(`/admin/campaigns/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+  return res.campaign;
+}
+
 export async function publishAdminCampaign(id: string): Promise<AdminCampaign> {
   const res = await apiRequest<{ campaign: AdminCampaign }>(`/admin/campaigns/${id}/publish`, {
     method: 'POST',
