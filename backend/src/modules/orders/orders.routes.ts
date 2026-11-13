@@ -10,6 +10,7 @@ import {
 import {
   createOrderFromSession,
   getPublicOrderByReference,
+  getStampedPassForPublicOrder,
   lookupPublicOrdersByCustomer,
 } from './orders.service.js';
 
@@ -51,6 +52,34 @@ publicOrdersRouter.get(
       const { token } = req.query as z.infer<typeof orderLookupQuerySchema>;
       const order = await getPublicOrderByReference(req.params.publicReference, token);
       res.status(200).json({ success: true, data: { order } });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+const stampedPassQuerySchema = z.object({
+  number: z
+    .string()
+    .trim()
+    .regex(/^\d{1,5}$/)
+    .optional(),
+});
+
+publicOrdersRouter.get(
+  '/:publicReference/stamped-pass',
+  validate({ params: orderLookupParamsSchema, query: stampedPassQuerySchema }),
+  async (req: Request<{ publicReference: string }>, res: Response, next: NextFunction) => {
+    try {
+      const { number } = req.query as z.infer<typeof stampedPassQuerySchema>;
+      const { buffer, filename } = await getStampedPassForPublicOrder(
+        req.params.publicReference,
+        number,
+      );
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Cache-Control', 'private, max-age=300');
+      res.status(200).send(buffer);
     } catch (error) {
       next(error);
     }

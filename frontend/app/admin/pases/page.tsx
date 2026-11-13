@@ -1,9 +1,9 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, Plus, Ticket, Trash2 } from 'lucide-react';
+import { Eye, Plus, Sparkles, Ticket, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { ApiError } from '@/lib/api';
+import { API_BASE_URL, ApiError, getAdminSessionToken } from '@/lib/api';
 import {
   deleteAdminPass,
   getAdminPassPreviewUrl,
@@ -192,6 +192,41 @@ export default function AdminPassesPage() {
                         <Eye className="h-3.5 w-3.5" />
                         Ver
                       </button>
+                      {pass.mimeType.startsWith('image/') ? (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const token = getAdminSessionToken();
+                              const response = await fetch(
+                                `${API_BASE_URL}/admin/passes/${encodeURIComponent(
+                                  pass.id,
+                                )}/preview-stamped?number=12345`,
+                                {
+                                  credentials: 'include',
+                                  headers: token ? { Authorization: `Bearer ${token}` } : {},
+                                },
+                              );
+                              if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}`);
+                              }
+                              const blob = await response.blob();
+                              const objectUrl = URL.createObjectURL(blob);
+                              window.open(objectUrl, '_blank', 'noopener,noreferrer');
+                            } catch (err) {
+                              setFeedback(
+                                err instanceof Error
+                                  ? `No se pudo generar el estampado de prueba (${err.message})`
+                                  : 'No se pudo generar el estampado de prueba',
+                              );
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" />
+                          Probar estampado
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         disabled={deleteMutation.isPending}

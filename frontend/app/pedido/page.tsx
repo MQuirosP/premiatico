@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
+import { API_BASE_URL } from '@/lib/api';
 import { formatCRC } from '@/lib/utils';
 import {
   getPublicOrderRequest,
@@ -35,16 +36,38 @@ function OrderResultCard({ order }: { order: PublicOrderDetail }) {
       </div>
 
       <div className="space-y-2">
-        <h3 className="text-sm font-bold text-slate-900">Tus chances</h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-bold text-slate-900">Tus chances</h3>
+          {order.status === 'CONFIRMED' && order.payment?.status === 'APPROVED' ? (
+            <span className="text-[11px] text-slate-500">
+              Tocá un número para descargarlo en imagen
+            </span>
+          ) : null}
+        </div>
         <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-          {order.chances.map((c) => (
-            <div
-              key={c.number}
-              className="rounded-lg border bg-amber-50 py-2 text-center font-mono text-sm font-bold text-slate-900"
-            >
-              {c.number}
-            </div>
-          ))}
+          {order.chances.map((c) =>
+            order.status === 'CONFIRMED' && order.payment?.status === 'APPROVED' ? (
+              <a
+                key={c.number}
+                href={`${API_BASE_URL}/orders/${encodeURIComponent(
+                  order.publicReference,
+                )}/stamped-pass?number=${encodeURIComponent(c.number)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Descargar chance ${c.number}`}
+                className="rounded-lg border border-amber-200 bg-amber-50 py-2 text-center font-mono text-sm font-bold text-slate-900 hover:bg-amber-100 transition-colors"
+              >
+                {c.number}
+              </a>
+            ) : (
+              <div
+                key={c.number}
+                className="rounded-lg border bg-amber-50 py-2 text-center font-mono text-sm font-bold text-slate-900"
+              >
+                {c.number}
+              </div>
+            ),
+          )}
         </div>
       </div>
 
@@ -56,6 +79,17 @@ function OrderResultCard({ order }: { order: PublicOrderDetail }) {
             ¡Tu compra fue confirmada! Descargá tus pases:
           </h3>
           <div className="flex flex-wrap gap-2">
+            <a
+              href={`${API_BASE_URL}/orders/${encodeURIComponent(
+                order.publicReference,
+              )}/stamped-pass`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Pase con pedido ({order.publicReference})
+            </a>
             {order.passDownloads.map((pass) => (
               <a
                 key={pass.name}

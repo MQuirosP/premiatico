@@ -6,8 +6,10 @@ import { requireAdminAuth } from '../../middlewares/authAdmin.js';
 import { createMemoryUpload } from '../../middlewares/upload.js';
 import { validate } from '../../middlewares/validate.js';
 import { recordAuditLog } from '../audit/audit.service.js';
+import { generateStampedPassImage } from '../notifications/chance-card.service.js';
 import {
   deleteObject,
+  getObjectBuffer,
   getSignedDownloadUrl,
   getSignedUploadUrl,
   r2KeyBuilders,
@@ -195,6 +197,41 @@ adminPassesRouter.get(
           mimeType: existing.mimeType,
         },
       });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+adminPassesRouter.get(
+  '/:id/preview-stamped',
+  validate({ params: passIdSchema }),
+  async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+    try {
+      const existing = await prisma.digitalPass.findUnique({
+        where: { id: req.params.id },
+        select: { id: true, name: true, fileKey: true, mimeType: true },
+      });
+      if (!existing) throw new NotFoundError('Pase digital no encontrado');
+      if (!existing.mimeType.startsWith('image/')) {
+        throw new ValidationError('Solo se puede previsualizar estampado en pases de imagen');
+      }
+
+      const rawNumber =
+        typeof req.query.number === 'string' && /^[a-zA-Z0-9-]{1,16}$/.test(req.query.number)
+          ? req.query.number
+          : '12345';
+
+      const templateBuffer = await getObjectBuffer(existing.fileKey);
+      const buffer = await generateStampedPassImage({
+        templateBuffer,
+        text: rawNumber,
+        resizeTo: 600,
+      });
+
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'no-store');
+      res.status(200).send(buffer);
     } catch (error) {
       next(error);
     }

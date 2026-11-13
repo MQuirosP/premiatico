@@ -5,6 +5,7 @@ import { prisma } from '../../core/prisma.js';
 import { createMemoryUpload } from '../../middlewares/upload.js';
 import { validate } from '../../middlewares/validate.js';
 import { hashToken } from '../reservations/reservations.module.js';
+import { sendRichOrderEmail } from '../notifications/chance-card.service.js';
 import { deleteObject, r2KeyBuilders, uploadObject } from '../storage/storage.service.js';
 
 const MAX_PROOF_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -78,6 +79,14 @@ publicPaymentsRouter.post(
       const order = await prisma.order.findUnique({
         where: { publicReference: req.params.publicReference },
         include: {
+          customer: true,
+          campaign: { select: { title: true } },
+          items: true,
+          participations: {
+            where: { status: { in: ['RESERVED', 'CONFIRMED'] } },
+            orderBy: { number: 'asc' },
+            select: { number: true },
+          },
           payments: { orderBy: { createdAt: 'desc' }, take: 1 },
         },
       });
@@ -144,6 +153,12 @@ publicPaymentsRouter.post(
           await deleteObject(storageKey).catch(() => undefined);
           throw err;
         });
+
+      await sendRichOrderEmail({
+        order,
+        type: 'PROOF_RECEIVED',
+        eventDate: new Date(),
+      }).catch(() => undefined);
 
       res.status(201).json({
         success: true,

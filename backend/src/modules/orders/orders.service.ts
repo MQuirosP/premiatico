@@ -3,8 +3,9 @@ import path from 'node:path';
 import { z } from 'zod';
 import { ConflictError, NotFoundError, UnauthorizedError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
+import { generateStampedPassImage } from '../notifications/chance-card.service.js';
 import { hashToken } from '../reservations/reservations.module.js';
-import { getSignedDownloadUrl } from '../storage/storage.service.js';
+import { getObjectBuffer, getSignedDownloadUrl } from '../storage/storage.service.js';
 import type { createOrderSchema } from './orders.schema.js';
 
 function generatePublicReference(): string {
@@ -66,10 +67,11 @@ async function formatPublicOrder(order: {
       if (Array.isArray(snapshot)) {
         for (const p of snapshot) {
           const ext = path.posix.extname(p.fileKey);
-          const downloadFileName =
-            ext && !p.name.toLowerCase().endsWith(ext.toLowerCase())
-              ? `${p.name}${ext}`
+          const baseName =
+            ext && p.name.toLowerCase().endsWith(ext.toLowerCase())
+              ? p.name.slice(0, -ext.length)
               : p.name;
+          const downloadFileName = `${baseName}_${order.publicReference}${ext}`;
           const signed = await getSignedDownloadUrl({
             key: p.fileKey,
             expiresInSeconds: 600,
@@ -301,4 +303,83 @@ export async function lookupPublicOrdersByCustomer(identifier: string) {
   });
 
   return Promise.all(orders.map((order) => formatPublicOrder(order)));
+}
+
+export async function getStampedPassForPublicOrder(
+  publicReference: string,
+  chanceNumber?: string,
+): Promise<{ buffer: Buffer; filename: string }> {
+  const order = await prisma.order.findUnique({
+    where: { publicReference },
+    include: publicOrderInclude,
+  });
+
+  if (!order) {
+    throw new NotFoundError('Pedido no encontrado');
+  }
+
+  const latestPayment = order.payments[0] ?? null;
+  if (order.status !== 'CONFIRMED' || latestPayment?.status !== 'APPROVED') {
+    throw new ConflictError('El pase estará disponible cuando el pago sea aprobado');
+  }
+
+  if (chanceNumber) {
+    const ownsChance = order.participations.some(
+      (p) => p.status === 'CONFIRMED' && p.number === chanceNumber,
+    );
+    if (!ownsChance) {
+      throw new NotFoundError('Chance no encontrado en este pedido');
+    }
+  }
+
+  const passSnapshots = order.items.flatMap((item) =>
+    Array.isArray(item.passesSnapshotJson)
+      ? (item.passesSnapshotJson as Array<{
+          digitalPassId?: string;
+          name?: string;
+          fileKey?: string;
+          mimeType?: string;
+        }>)
+      : [],
+  );
+
+  const digitalPassIds = [
+    ...new Set(
+      passSnapshots.map((p) => p.digitalPassId).filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const dbPasses =
+    digitalPassIds.length > 0
+      ? await prisma.digitalPass.findMany({
+          where: { id: { in: digitalPassIds } },
+          select: { id: true, name: true, fileKey: true, mimeType: true },
+        })
+      : [];
+
+  const imagePass =
+    dbPasses.find((p) => p.mimeType.startsWith('image/')) ??
+    passSnapshots.find(
+      (p) =>
+        p.fileKey &&
+        (p.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(p.fileKey)),
+    );
+
+  if (!imagePass?.fileKey) {
+    throw new NotFoundError('Este pedido no tiene un pase de imagen configurable');
+  }
+
+  const templateBuffer = await getObjectBuffer(imagePass.fileKey);
+  const stampText = chanceNumber || order.publicReference;
+  const buffer = await generateStampedPassImage({
+    templateBuffer,
+    text: stampText,
+  });
+
+  const safeLabel = (imagePass.name || 'Pase').replace(/[^a-zA-Z0-9_-]+/g, '_');
+  const filename = chanceNumber
+    ? `${safeLabel}_${order.publicReference}_${chanceNumber}.png`
+    : `${safeLabel}_${order.publicReference}.png`;
+
+  return { buffer, filename };
 }
