@@ -14,6 +14,8 @@ import {
   deleteCampaignPrize,
   drawRandomPrizeWinner,
   evaluatePrizeWinner,
+  notifyPrizeWinnerByEmail,
+  resetPrizeEvaluation,
   updateCampaignPrize,
 } from './prizes.service.js';
 
@@ -86,6 +88,32 @@ adminPrizesRouter.post(
       const data = req.body as z.infer<typeof drawRandomPrizeWinnerSchema>;
       const result = await drawRandomPrizeWinner(req.params.id, data, req.admin!.id);
       res.status(200).json({ success: true, data: { result } });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+adminPrizesRouter.post(
+  '/:id/reset',
+  validate({ params: prizeIdSchema }),
+  async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+    try {
+      const result = await resetPrizeEvaluation(req.params.id, req.admin!.id);
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+adminPrizesRouter.post(
+  '/:id/notify-email',
+  validate({ params: prizeIdSchema }),
+  async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+    try {
+      const result = await notifyPrizeWinnerByEmail(req.params.id, req.admin!.id);
+      res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);
     }

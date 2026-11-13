@@ -4,6 +4,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../../core/errors
 import { prisma } from '../../core/prisma.js';
 import { recordAuditLog } from '../audit/audit.service.js';
 import { getCampaignNumberDigits } from '../chances/chances.service.js';
+import { sendPrizeWinnerEmail } from '../notifications/notifications.service.js';
 import type {
   createPrizeSchema,
   drawRandomPrizeWinnerSchema,
@@ -370,5 +371,136 @@ export async function drawRandomPrizeWinner(
           customer: selected.order.customer,
         }
       : null,
+  };
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+export async function resetPrizeEvaluation(prizeId: string, actorId: string) {
+  const prize = await prisma.campaignPrize.findUnique({
+    where: { id: prizeId },
+    select: {
+      id: true,
+      campaignId: true,
+      name: true,
+      winningNumber: true,
+      winningOrderId: true,
+      winnerEvaluatedAt: true,
+    },
+  });
+
+  if (!prize) {
+    throw new NotFoundError('Premio o sorteo no encontrado');
+  }
+
+  if (!prize.winnerEvaluatedAt && !prize.winningNumber && !prize.winningOrderId) {
+    throw new ConflictError('Este premio aún no ha sido evaluado');
+  }
+
+  await prisma.campaignPrize.update({
+    where: { id: prizeId },
+    data: {
+      winningNumber: null,
+      winningOrderId: null,
+      winnerEvaluatedAt: null,
+      winnerNotes: null,
+    },
+  });
+
+  await recordAuditLog({
+    actorId,
+    action: 'PRIZE_EVALUATION_RESET',
+    entityType: 'CampaignPrize',
+    entityId: prizeId,
+    metadata: {
+      campaignId: prize.campaignId,
+      prizeName: prize.name,
+      previousWinningNumber: prize.winningNumber,
+      previousWinningOrderId: prize.winningOrderId,
+      previousEvaluatedAt: prize.winnerEvaluatedAt?.toISOString() ?? null,
+    },
+  });
+
+  return { reset: true };
+}
+
+export async function notifyPrizeWinnerByEmail(prizeId: string, actorId: string) {
+  const prize = await prisma.campaignPrize.findUnique({
+    where: { id: prizeId },
+    select: {
+      id: true,
+      campaignId: true,
+      name: true,
+      winningNumber: true,
+      winnerEvaluatedAt: true,
+      campaign: { select: { title: true } },
+      winningOrder: {
+        select: {
+          id: true,
+          publicReference: true,
+          customer: { select: { fullName: true, email: true } },
+        },
+      },
+    },
+  });
+
+  if (!prize) {
+    throw new NotFoundError('Premio o sorteo no encontrado');
+  }
+
+  if (!prize.winnerEvaluatedAt || !prize.winningNumber) {
+    throw new ConflictError('Este premio aún no tiene una evaluación registrada');
+  }
+
+  if (!prize.winningOrder) {
+    throw new ConflictError('El número ganador quedó desierto y no tiene un cliente ganador para notificar');
+  }
+
+  const { fullName, email } = prize.winningOrder.customer;
+  const subject = `¡Felicidades ${fullName}! Ganaste ${prize.name} en Premiático`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
+      <h2 style="color: #059669;">¡Felicidades, ${escapeHtml(fullName)}!</h2>
+      <p>Tu número <strong>${escapeHtml(prize.winningNumber)}</strong> resultó ganador del premio <strong>${escapeHtml(prize.name)}</strong> en la campaña <strong>${escapeHtml(prize.campaign.title)}</strong>.</p>
+      <p><strong>Referencia de pedido:</strong> ${escapeHtml(prize.winningOrder.publicReference)}</p>
+      <p>Nuestro equipo se pondrá en contacto con vos para coordinar la entrega del premio.</p>
+      <p style="font-size: 12px; color: #64748b;">Premiático Costa Rica</p>
+    </div>
+  `.trim();
+
+  const delivery = await sendPrizeWinnerEmail({
+    orderId: prize.winningOrder.id,
+    recipientEmail: email,
+    subject,
+    html,
+    idempotencyKey: `PRIZE_WINNER:${prize.id}:${prize.winningNumber}:${prize.winningOrder.id}`,
+  });
+
+  await recordAuditLog({
+    actorId,
+    action: 'PRIZE_WINNER_EMAIL_NOTIFIED',
+    entityType: 'CampaignPrize',
+    entityId: prizeId,
+    metadata: {
+      campaignId: prize.campaignId,
+      orderId: prize.winningOrder.id,
+      recipientEmail: email,
+      winningNumber: prize.winningNumber,
+      sent: delivery.sent,
+      skippedReason: delivery.skippedReason ?? null,
+      errorMessage: delivery.errorMessage ?? null,
+    },
+  });
+
+  return {
+    ...delivery,
+    recipientEmail: email,
   };
 }

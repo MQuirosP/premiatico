@@ -304,3 +304,32 @@ export async function drawRandomAdminPrizeWinner(
   );
   return res.result;
 }
+
+export async function resetAdminPrizeEvaluation(
+  prizeId: string,
+): Promise<{ reset: boolean }> {
+  return apiRequest<{ reset: boolean }>(
+    `/admin/prizes/${encodeURIComponent(prizeId)}/reset`,
+    {
+      method: 'POST',
+    },
+  );
+}
+
+export interface PrizeWinnerEmailNotificationResult {
+  sent: boolean;
+  skippedReason?: 'RESEND_NOT_CONFIGURED' | 'ALREADY_SENT';
+  errorMessage?: string;
+  recipientEmail: string;
+}
+
+export async function notifyAdminPrizeWinnerEmail(
+  prizeId: string,
+): Promise<PrizeWinnerEmailNotificationResult> {
+  return apiRequest<PrizeWinnerEmailNotificationResult>(
+    `/admin/prizes/${encodeURIComponent(prizeId)}/notify-email`,
+    {
+      method: 'POST',
+    },
+  );
+}

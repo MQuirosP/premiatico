@@ -6,7 +6,14 @@ export type NotificationType =
   | 'ORDER_CREATED'
   | 'PROOF_RECEIVED'
   | 'PAYMENT_CONFIRMED'
-  | 'PAYMENT_REJECTED';
+  | 'PAYMENT_REJECTED'
+  | 'PRIZE_WINNER';
+
+export interface EmailDeliveryResult {
+  sent: boolean;
+  skippedReason?: 'RESEND_NOT_CONFIGURED' | 'ALREADY_SENT';
+  errorMessage?: string;
+}
 
 interface SendEmailParams {
   orderId: string;
@@ -14,16 +21,17 @@ interface SendEmailParams {
   recipientEmail: string;
   subject: string;
   html: string;
+  idempotencyKey?: string;
 }
 
-export async function sendOrderNotification(params: SendEmailParams): Promise<void> {
-  const idempotencyKey = `${params.type}:${params.orderId}`;
+async function sendEmailWithLog(params: SendEmailParams): Promise<EmailDeliveryResult> {
+  const idempotencyKey = params.idempotencyKey ?? `${params.type}:${params.orderId}`;
 
   const existing = await prisma.notificationLog.findUnique({
     where: { idempotencyKey },
   });
   if (existing && existing.status === 'SENT') {
-    return;
+    return { sent: false, skippedReason: 'ALREADY_SENT' };
   }
 
   if (!env.RESEND_API_KEY) {
@@ -31,7 +39,7 @@ export async function sendOrderNotification(params: SendEmailParams): Promise<vo
       { orderId: params.orderId, type: params.type },
       'RESEND_API_KEY not configured; skipping external email send',
     );
-    return;
+    return { sent: false, skippedReason: 'RESEND_NOT_CONFIGURED' };
   }
 
   let lastError: string | null = null;
@@ -91,4 +99,25 @@ export async function sendOrderNotification(params: SendEmailParams): Promise<vo
     .catch((err) => {
       logger.error({ err, idempotencyKey }, 'Failed to persist NotificationLog');
     });
+
+  if (lastError) {
+    return { sent: false, errorMessage: lastError };
+  }
+
+  return { sent: true };
+}
+
+export async function sendOrderNotification(
+  params: Omit<SendEmailParams, 'idempotencyKey'>,
+): Promise<void> {
+  await sendEmailWithLog(params);
+}
+
+export async function sendPrizeWinnerEmail(
+  params: Omit<SendEmailParams, 'type'>,
+): Promise<EmailDeliveryResult> {
+  return sendEmailWithLog({
+    ...params,
+    type: 'PRIZE_WINNER',
+  });
 }

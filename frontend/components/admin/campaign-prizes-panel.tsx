@@ -1,7 +1,19 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Award, Calendar, CheckCircle2, Dices, Plus, Trash2, Trophy } from 'lucide-react';
+import {
+  Award,
+  Calendar,
+  CheckCircle2,
+  Dices,
+  Mail,
+  MessageCircle,
+  Plus,
+  RotateCcw,
+  Share2,
+  Trash2,
+  Trophy,
+} from 'lucide-react';
 import { useState } from 'react';
 import { ApiError } from '@/lib/api';
 import { formatCRC } from '@/lib/utils';
@@ -10,6 +22,8 @@ import {
   deleteAdminPrize,
   drawRandomAdminPrizeWinner,
   evaluateAdminPrizeWinner,
+  notifyAdminPrizeWinnerEmail,
+  resetAdminPrizeEvaluation,
   type AdminCampaignPrize,
 } from '@/services/campaigns';
 
@@ -31,6 +45,7 @@ export function CampaignPrizesPanel({
   const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -118,6 +133,84 @@ export function CampaignPrizesPanel({
     },
   });
 
+  const resetMutation = useMutation({
+    mutationFn: resetAdminPrizeEvaluation,
+    onSuccess: () => {
+      setActivePrizeId(null);
+      setWinningNumber('');
+      setNotes('');
+      setErrorMsg(null);
+      setStatusMsg('Evaluación revertida. El premio volvió a estado pendiente.');
+      void refresh();
+    },
+    onError: (err) => {
+      setStatusMsg(null);
+      setErrorMsg(err instanceof ApiError ? err.message : 'No se pudo revertir la evaluación');
+    },
+  });
+
+  const notifyEmailMutation = useMutation({
+    mutationFn: notifyAdminPrizeWinnerEmail,
+    onSuccess: (res) => {
+      setErrorMsg(null);
+      if (res.sent) {
+        setStatusMsg(`Correo de ganador enviado a ${res.recipientEmail}.`);
+      } else if (res.skippedReason === 'RESEND_NOT_CONFIGURED') {
+        setStatusMsg(
+          `Resend no está configurado todavía. Podés usar "Abrir en correo" o WhatsApp para notificar a ${res.recipientEmail}.`,
+        );
+      } else if (res.skippedReason === 'ALREADY_SENT') {
+        setStatusMsg(`Ya se había enviado la notificación por correo a ${res.recipientEmail}.`);
+      } else {
+        setErrorMsg(res.errorMessage || 'No se pudo enviar el correo al ganador');
+      }
+    },
+    onError: (err) => {
+      setStatusMsg(null);
+      setErrorMsg(err instanceof ApiError ? err.message : 'No se pudo notificar por correo');
+    },
+  });
+
+  const normalizeCostaRicaPhone = (phone: string): string => {
+    const digitsOnly = phone.replace(/\D/g, '');
+    if (digitsOnly.length === 8) return `506${digitsOnly}`;
+    return digitsOnly;
+  };
+
+  const buildWinnerMessage = (prize: AdminCampaignPrize): string => {
+    const customerName = prize.winningOrder?.customer.fullName ?? 'Ganador/a';
+    const orderRef = prize.winningOrder?.publicReference ?? '';
+    return [
+      `¡Felicidades ${customerName}! 🎉`,
+      `Tu número ${prize.winningNumber} resultó ganador del premio "${prize.name}" en Premiático.`,
+      orderRef ? `Referencia de pedido: ${orderRef}.` : '',
+      'Pronto coordinaremos la entrega de tu premio.',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  };
+
+  const handleNativeShare = async (prize: AdminCampaignPrize) => {
+    const text = buildWinnerMessage(prize);
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({
+          title: `¡Ganador de ${prize.name} en Premiático!`,
+          text,
+        });
+        return;
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+      }
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      setErrorMsg(null);
+      setStatusMsg('Mensaje del ganador copiado al portapapeles para compartir.');
+    }
+  };
+
   const canDelete = campaignStatus !== 'CLOSED' && campaignStatus !== 'COMPLETED';
 
   return (
@@ -148,6 +241,12 @@ export function CampaignPrizesPanel({
       {errorMsg ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-xs text-red-700">
           {errorMsg}
+        </div>
+      ) : null}
+
+      {statusMsg ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-800">
+          {statusMsg}
         </div>
       ) : null}
 
@@ -337,14 +436,56 @@ export function CampaignPrizesPanel({
                       </span>
                     </div>
                     {prize.winningOrder ? (
-                      <div className="space-y-0.5">
-                        <p className="font-semibold">
-                          {prize.winningOrder.customer.fullName} ·{' '}
-                          <span className="font-mono">{prize.winningOrder.publicReference}</span>
-                        </p>
-                        <p className="text-[11px]">
-                          {prize.winningOrder.customer.phone} · {prize.winningOrder.customer.email}
-                        </p>
+                      <div className="space-y-1.5">
+                        <div className="space-y-0.5">
+                          <p className="font-semibold">
+                            {prize.winningOrder.customer.fullName} ·{' '}
+                            <span className="font-mono">{prize.winningOrder.publicReference}</span>
+                          </p>
+                          <p className="text-[11px]">
+                            {prize.winningOrder.customer.phone} · {prize.winningOrder.customer.email}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                          <a
+                            href={`https://wa.me/${normalizeCostaRicaPhone(
+                              prize.winningOrder.customer.phone,
+                            )}?text=${encodeURIComponent(buildWinnerMessage(prize))}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
+                          >
+                            <MessageCircle className="h-3 w-3" />
+                            WhatsApp
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => void handleNativeShare(prize)}
+                            className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100"
+                          >
+                            <Share2 className="h-3 w-3" />
+                            Compartir
+                          </button>
+                          <button
+                            type="button"
+                            disabled={notifyEmailMutation.isPending}
+                            onClick={() => notifyEmailMutation.mutate(prize.id)}
+                            className="inline-flex items-center gap-1 rounded-md border border-blue-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-blue-800 hover:bg-blue-50 disabled:opacity-60"
+                          >
+                            <Mail className="h-3 w-3" />
+                            {notifyEmailMutation.isPending ? 'Enviando...' : 'Correo (Resend)'}
+                          </button>
+                          <a
+                            href={`mailto:${prize.winningOrder.customer.email}?subject=${encodeURIComponent(
+                              `¡Felicidades ${prize.winningOrder.customer.fullName}! Ganaste ${prize.name} en Premiático`,
+                            )}&body=${encodeURIComponent(buildWinnerMessage(prize))}`}
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                          >
+                            <Mail className="h-3 w-3" />
+                            Abrir en correo
+                          </a>
+                        </div>
                       </div>
                     ) : (
                       <p>Número desierto (no vendido/confirmado).</p>
@@ -439,26 +580,48 @@ export function CampaignPrizesPanel({
                     </div>
                   </form>
                 ) : (
-                  <div className="flex items-center justify-between gap-2 pt-1">
-                    {isBeforeDrawAt ? (
-                      <span className="text-[11px] font-medium text-slate-500">
-                        Evaluación habilitada el{' '}
-                        {new Date(prize.drawAt!).toLocaleString('es-CR')}
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActivePrizeId(prize.id);
-                          setWinningNumber(prize.winningNumber ?? '');
-                          setNotes(prize.winnerNotes ?? '');
-                        }}
-                        className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200"
-                      >
-                        <Trophy className="h-3.5 w-3.5" />
-                        {isEvaluated ? 'Re-evaluar' : 'Evaluar ganador'}
-                      </button>
-                    )}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {isBeforeDrawAt ? (
+                        <span className="text-[11px] font-medium text-slate-500">
+                          Evaluación habilitada el{' '}
+                          {new Date(prize.drawAt!).toLocaleString('es-CR')}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActivePrizeId(prize.id);
+                            setWinningNumber(prize.winningNumber ?? '');
+                            setNotes(prize.winnerNotes ?? '');
+                          }}
+                          className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200"
+                        >
+                          <Trophy className="h-3.5 w-3.5" />
+                          {isEvaluated ? 'Re-evaluar' : 'Evaluar ganador'}
+                        </button>
+                      )}
+
+                      {isEvaluated ? (
+                        <button
+                          type="button"
+                          disabled={resetMutation.isPending}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `¿Seguro que querés revertir la evaluación de "${prize.name}"? Quedará como pendiente sin ganador.`,
+                              )
+                            ) {
+                              resetMutation.mutate(prize.id);
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          {resetMutation.isPending ? 'Revirtiendo...' : 'Revertir evaluación'}
+                        </button>
+                      ) : null}
+                    </div>
                     {canDelete && !isEvaluated ? (
                       <button
                         type="button"
