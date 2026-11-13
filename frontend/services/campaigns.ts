@@ -290,3 +290,17 @@ export async function evaluateAdminPrizeWinner(
   );
   return res.result;
 }
+
+export async function drawRandomAdminPrizeWinner(
+  prizeId: string,
+  payload: { notes?: string; allowDuplicateOrder?: boolean } = {},
+): Promise<PrizeWinnerEvaluationResult> {
+  const res = await apiRequest<{ result: PrizeWinnerEvaluationResult }>(
+    `/admin/prizes/${encodeURIComponent(prizeId)}/draw-random`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+  return res.result;
+}

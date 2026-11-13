@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { z } from 'zod';
 import { ConflictError, NotFoundError, ValidationError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
@@ -5,6 +6,7 @@ import { recordAuditLog } from '../audit/audit.service.js';
 import { getCampaignNumberDigits } from '../chances/chances.service.js';
 import type {
   createPrizeSchema,
+  drawRandomPrizeWinnerSchema,
   evaluatePrizeWinnerSchema,
   updatePrizeSchema,
 } from './prizes.schema.js';
@@ -242,6 +244,118 @@ export async function evaluatePrizeWinner(
           confirmedAt: match.order.confirmedAt,
           comboNames: match.order.items.map((i) => i.comboNameSnapshot),
           customer: match.order.customer,
+        }
+      : null,
+  };
+}
+
+export async function drawRandomPrizeWinner(
+  prizeId: string,
+  input: z.infer<typeof drawRandomPrizeWinnerSchema>,
+  actorId: string,
+) {
+  const prize = await prisma.campaignPrize.findUnique({
+    where: { id: prizeId },
+    include: {
+      campaign: {
+        select: { id: true, title: true, totalChances: true },
+      },
+    },
+  });
+
+  if (!prize) {
+    throw new NotFoundError('Premio o sorteo no encontrado');
+  }
+
+  let excludedOrderIds: string[] = [];
+  if (!input.allowDuplicateOrder) {
+    const priorWins = await prisma.campaignPrize.findMany({
+      where: {
+        campaignId: prize.campaignId,
+        id: { not: prize.id },
+        winningOrderId: { not: null },
+      },
+      select: { winningOrderId: true },
+    });
+    excludedOrderIds = priorWins
+      .map((w) => w.winningOrderId)
+      .filter((id): id is string => Boolean(id));
+  }
+
+  const eligibleParticipations = await prisma.participation.findMany({
+    where: {
+      campaignId: prize.campaignId,
+      status: 'CONFIRMED',
+      ...(excludedOrderIds.length > 0 ? { orderId: { notIn: excludedOrderIds } } : {}),
+    },
+    include: {
+      order: {
+        select: {
+          id: true,
+          publicReference: true,
+          totalAmount: true,
+          confirmedAt: true,
+          customer: { select: { fullName: true, email: true, phone: true } },
+          items: { select: { comboNameSnapshot: true } },
+        },
+      },
+    },
+  });
+
+  if (eligibleParticipations.length === 0) {
+    throw new ConflictError(
+      excludedOrderIds.length > 0
+        ? 'No quedan chances confirmados elegibles sin haber ganado otro premio. Activá "Permitir ganador repetido" si aplica.'
+        : 'No hay chances confirmados en esta campaña para sortear.',
+    );
+  }
+
+  const selected = eligibleParticipations[crypto.randomInt(0, eligibleParticipations.length)]!;
+  const digits = getCampaignNumberDigits(prize.campaign.totalChances);
+  const evaluatedAt = new Date();
+  const notes = input.notes?.trim() || 'Sorteo aleatorio entre chances confirmados';
+
+  await prisma.campaignPrize.update({
+    where: { id: prizeId },
+    data: {
+      winningNumber: selected.number,
+      winningOrderId: selected.order?.id ?? null,
+      winnerEvaluatedAt: evaluatedAt,
+      winnerNotes: notes,
+    },
+  });
+
+  await recordAuditLog({
+    actorId,
+    action: 'PRIZE_RANDOM_DRAWN',
+    entityType: 'CampaignPrize',
+    entityId: prizeId,
+    metadata: {
+      campaignId: prize.campaignId,
+      prizeName: prize.name,
+      drawReference: prize.drawReference,
+      winningNumber: selected.number,
+      eligiblePoolSize: eligibleParticipations.length,
+      orderReference: selected.order?.publicReference ?? null,
+    },
+  });
+
+  return {
+    prizeId: prize.id,
+    prizeName: prize.name,
+    drawReference: prize.drawReference,
+    winningNumber: selected.number,
+    digits,
+    evaluatedAt,
+    notes,
+    winner: selected.order
+      ? {
+          orderId: selected.order.id,
+          publicReference: selected.order.publicReference,
+          totalAmount: selected.order.totalAmount,
+          confirmedAt: selected.order.confirmedAt,
+          comboNames: selected.order.items.map((i) => i.comboNameSnapshot),
+          customer: selected.order.customer,
         }
       : null,
   };

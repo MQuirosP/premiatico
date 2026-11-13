@@ -32,3 +32,8 @@ export const evaluatePrizeWinnerSchema = z.object({
   notes: z.string().trim().max(500).optional(),
   allowDuplicateOrder: z.boolean().optional().default(false),
 });
+
+export const drawRandomPrizeWinnerSchema = z.object({
+  notes: z.string().trim().max(500).optional(),
+  allowDuplicateOrder: z.boolean().optional().default(false),
+});

@@ -1,13 +1,14 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Award, Calendar, CheckCircle2, Plus, Trash2, Trophy } from 'lucide-react';
+import { Award, Calendar, CheckCircle2, Dices, Plus, Trash2, Trophy } from 'lucide-react';
 import { useState } from 'react';
 import { ApiError } from '@/lib/api';
 import { formatCRC } from '@/lib/utils';
 import {
   createAdminPrizes,
   deleteAdminPrize,
+  drawRandomAdminPrizeWinner,
   evaluateAdminPrizeWinner,
   type AdminCampaignPrize,
 } from '@/services/campaigns';
@@ -93,6 +94,27 @@ export function CampaignPrizesPanel({
     },
     onError: (err) => {
       setErrorMsg(err instanceof ApiError ? err.message : 'No se pudo evaluar este sorteo');
+    },
+  });
+
+  const drawRandomMutation = useMutation({
+    mutationFn: ({
+      prizeId,
+      payload,
+    }: {
+      prizeId: string;
+      payload: { notes?: string; allowDuplicateOrder?: boolean };
+    }) => drawRandomAdminPrizeWinner(prizeId, payload),
+    onSuccess: () => {
+      setActivePrizeId(null);
+      setWinningNumber('');
+      setNotes('');
+      setAllowDuplicateOrder(false);
+      setErrorMsg(null);
+      void refresh();
+    },
+    onError: (err) => {
+      setErrorMsg(err instanceof ApiError ? err.message : 'No se pudo realizar el sorteo al azar');
     },
   });
 
@@ -375,7 +397,7 @@ export function CampaignPrizesPanel({
                       />
                       Permitir si este pedido ya ganó otro premio de la campaña
                     </label>
-                    <div className="flex justify-end gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => setActivePrizeId(null)}
@@ -384,11 +406,32 @@ export function CampaignPrizesPanel({
                         Cancelar
                       </button>
                       <button
+                        type="button"
+                        disabled={drawRandomMutation.isPending || evaluateMutation.isPending}
+                        onClick={() =>
+                          drawRandomMutation.mutate({
+                            prizeId: prize.id,
+                            payload: {
+                              notes: notes.trim() || undefined,
+                              allowDuplicateOrder,
+                            },
+                          })
+                        }
+                        className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                      >
+                        <Dices className="h-3.5 w-3.5" />
+                        {drawRandomMutation.isPending ? 'Sorteando...' : 'Sortear al azar'}
+                      </button>
+                      <button
                         type="submit"
-                        disabled={evaluateMutation.isPending || winningNumber.length !== digits}
+                        disabled={
+                          evaluateMutation.isPending ||
+                          drawRandomMutation.isPending ||
+                          winningNumber.length !== digits
+                        }
                         className="rounded-lg bg-amber-500 px-3 py-1 text-xs font-semibold text-slate-900 hover:bg-amber-400 disabled:opacity-60"
                       >
-                        {evaluateMutation.isPending ? 'Evaluando...' : 'Confirmar ganador'}
+                        {evaluateMutation.isPending ? 'Evaluando...' : 'Evaluar número'}
                       </button>
                     </div>
                   </form>

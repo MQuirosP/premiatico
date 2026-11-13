@@ -4,6 +4,7 @@ import { requireAdminAuth } from '../../middlewares/authAdmin.js';
 import { validate } from '../../middlewares/validate.js';
 import {
   createPrizeSchema,
+  drawRandomPrizeWinnerSchema,
   evaluatePrizeWinnerSchema,
   prizeIdSchema,
   updatePrizeSchema,
@@ -11,6 +12,7 @@ import {
 import {
   createCampaignPrizes,
   deleteCampaignPrize,
+  drawRandomPrizeWinner,
   evaluatePrizeWinner,
   updateCampaignPrize,
 } from './prizes.service.js';
@@ -69,6 +71,20 @@ adminPrizesRouter.post(
     try {
       const data = req.body as z.infer<typeof evaluatePrizeWinnerSchema>;
       const result = await evaluatePrizeWinner(req.params.id, data, req.admin!.id);
+      res.status(200).json({ success: true, data: { result } });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+adminPrizesRouter.post(
+  '/:id/draw-random',
+  validate({ params: prizeIdSchema, body: drawRandomPrizeWinnerSchema }),
+  async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+    try {
+      const data = req.body as z.infer<typeof drawRandomPrizeWinnerSchema>;
+      const result = await drawRandomPrizeWinner(req.params.id, data, req.admin!.id);
       res.status(200).json({ success: true, data: { result } });
     } catch (error) {
       next(error);
