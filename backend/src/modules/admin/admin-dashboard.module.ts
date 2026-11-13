@@ -91,16 +91,28 @@ adminDashboardRouter.get('/customers', async (_req: Request, res: Response, next
   }
 });
 
-adminDashboardRouter.get('/audit', async (_req: Request, res: Response, next: NextFunction) => {
+adminDashboardRouter.get('/audit', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const logs = await prisma.auditLog.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 100,
+    const rawLimit = Number(req.query.limit ?? 20);
+    const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, Math.trunc(rawLimit))) : 20;
+    const cursor = typeof req.query.cursor === 'string' && req.query.cursor.trim()
+      ? req.query.cursor.trim()
+      : undefined;
+
+    const rows = await prisma.auditLog.findMany({
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: {
         actor: { select: { name: true, email: true } },
       },
     });
-    res.status(200).json({ success: true, data: { logs } });
+
+    const hasMore = rows.length > limit;
+    const logs = hasMore ? rows.slice(0, limit) : rows;
+    const nextCursor = hasMore ? (logs[logs.length - 1]?.id ?? null) : null;
+
+    res.status(200).json({ success: true, data: { logs, nextCursor, hasMore } });
   } catch (error) {
     next(error);
   }

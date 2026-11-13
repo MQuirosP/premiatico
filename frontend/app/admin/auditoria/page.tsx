@@ -1,6 +1,8 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
 import { apiRequest } from '@/lib/api';
 
 interface AuditRow {
@@ -12,10 +14,23 @@ interface AuditRow {
   actor: { name: string; email: string } | null;
 }
 
+interface AuditResponse {
+  logs: AuditRow[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 export default function AdminAuditoriaPage() {
-  const { data, isLoading } = useQuery({
-    queryKey: ['admin-audit'],
-    queryFn: () => apiRequest<{ logs: AuditRow[] }>('/admin/audit'),
+  const [cursorHistory, setCursorHistory] = useState<Array<string | null>>([]);
+  const [currentCursor, setCurrentCursor] = useState<string | null>(null);
+
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ['admin-audit', currentCursor],
+    queryFn: () => {
+      const params = new URLSearchParams({ limit: '20' });
+      if (currentCursor) params.set('cursor', currentCursor);
+      return apiRequest<AuditResponse>(`/admin/audit?${params.toString()}`);
+    },
   });
 
   return (
@@ -65,6 +80,40 @@ export default function AdminAuditoriaPage() {
           </table>
         )}
       </div>
+
+      {data && (cursorHistory.length > 0 || data.hasMore) ? (
+        <div className="flex items-center justify-between text-xs text-slate-600">
+          <span>
+            Página {cursorHistory.length + 1} · {data.logs.length} registros
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={cursorHistory.length === 0 || isFetching}
+              onClick={() => {
+                const prev = cursorHistory[cursorHistory.length - 1] ?? null;
+                setCursorHistory((hist) => hist.slice(0, -1));
+                setCurrentCursor(prev);
+              }}
+              className="inline-flex items-center gap-1 rounded-lg border bg-white px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            >
+              <ChevronLeft className="h-4 w-4" /> Anterior
+            </button>
+            <button
+              type="button"
+              disabled={!data.hasMore || !data.nextCursor || isFetching}
+              onClick={() => {
+                if (!data.nextCursor) return;
+                setCursorHistory((hist) => [...hist, currentCursor]);
+                setCurrentCursor(data.nextCursor);
+              }}
+              className="inline-flex items-center gap-1 rounded-lg border bg-white px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            >
+              Siguiente <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

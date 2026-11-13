@@ -66,8 +66,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
-      <aside className="hidden md:flex w-64 flex-col border-r bg-white">
+    <div className="h-screen overflow-hidden flex bg-slate-50">
+      <aside className="hidden md:flex w-64 h-full shrink-0 flex-col border-r bg-white overflow-y-auto">
         <div className="flex items-center gap-2 border-b px-5 py-4 font-bold text-lg text-blue-600">
           <Sparkles className="h-5 w-5 text-amber-500" />
           <span>Premiático</span>
@@ -109,7 +109,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 p-6">{children}</main>
+      <main className="flex-1 h-full overflow-y-auto p-6 lg:p-8">{children}</main>
     </div>
   );
 }
