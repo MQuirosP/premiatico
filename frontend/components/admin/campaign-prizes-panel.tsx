@@ -145,6 +145,12 @@ export function CampaignPrizesPanel({
     },
     onError: (err) => {
       setStatusMsg(null);
+      if (err instanceof ApiError && err.status === 404) {
+        setErrorMsg(
+          'La opción para revertir evaluación aún se está actualizando en el servidor. Intentá de nuevo en unos minutos.',
+        );
+        return;
+      }
       setErrorMsg(err instanceof ApiError ? err.message : 'No se pudo revertir la evaluación');
     },
   });
@@ -157,7 +163,7 @@ export function CampaignPrizesPanel({
         setStatusMsg(`Correo de ganador enviado a ${res.recipientEmail}.`);
       } else if (res.skippedReason === 'RESEND_NOT_CONFIGURED') {
         setStatusMsg(
-          `Resend no está configurado todavía. Podés usar "Abrir en correo" o WhatsApp para notificar a ${res.recipientEmail}.`,
+          `El servicio automático de correo aún no está configurado. Podés usar "Abrir en correo" o WhatsApp para notificar a ${res.recipientEmail}.`,
         );
       } else if (res.skippedReason === 'ALREADY_SENT') {
         setStatusMsg(`Ya se había enviado la notificación por correo a ${res.recipientEmail}.`);
@@ -167,6 +173,12 @@ export function CampaignPrizesPanel({
     },
     onError: (err) => {
       setStatusMsg(null);
+      if (err instanceof ApiError && err.status === 404) {
+        setErrorMsg(
+          'El envío automático de correo todavía no está disponible en el servidor (puede estar actualizándose o pendiente de configurar). Mientras tanto, usá "Abrir en correo" o WhatsApp.',
+        );
+        return;
+      }
       setErrorMsg(err instanceof ApiError ? err.message : 'No se pudo notificar por correo');
     },
   });
@@ -474,7 +486,7 @@ export function CampaignPrizesPanel({
                             className="inline-flex items-center gap-1 rounded-md border border-blue-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-blue-800 hover:bg-blue-50 disabled:opacity-60"
                           >
                             <Mail className="h-3 w-3" />
-                            {notifyEmailMutation.isPending ? 'Enviando...' : 'Correo (Resend)'}
+                            {notifyEmailMutation.isPending ? 'Enviando...' : 'Enviar correo'}
                           </button>
                           <a
                             href={`mailto:${prize.winningOrder.customer.email}?subject=${encodeURIComponent(
