@@ -1,9 +1,14 @@
 import type { NextFunction, Request, Response } from 'express';
-import type { CreateCampaignInput, UpdateCampaignInput } from './campaigns.schema.js';
+import type {
+  CreateCampaignInput,
+  EvaluateWinnerInput,
+  UpdateCampaignInput,
+} from './campaigns.schema.js';
 import {
   closeCampaign,
   createCampaign,
   deleteCampaign,
+  evaluateCampaignWinner,
   getAdminCampaignById,
   getPublicCampaignBySlug,
   listAdminCampaigns,
@@ -138,6 +143,23 @@ export async function deleteCampaignController(
   try {
     const result = await deleteCampaign(req.params.id, req.admin!.id);
     res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function evaluateCampaignWinnerController(
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await evaluateCampaignWinner(
+      req.params.id,
+      req.body as EvaluateWinnerInput,
+      req.admin!.id,
+    );
+    res.status(200).json({ success: true, data: { winnerResult: result } });
   } catch (error) {
     next(error);
   }

@@ -62,5 +62,14 @@ export const campaignSlugParamSchema = z.object({
   slug: z.string().min(1),
 });
 
+export const evaluateWinnerSchema = z.object({
+  winningNumber: z
+    .string()
+    .trim()
+    .regex(/^\d{1,5}$/, 'El número ganador debe contener solo dígitos'),
+  notes: z.string().trim().max(500).optional().nullable(),
+});
+
 export type CreateCampaignInput = z.infer<typeof createCampaignSchema>;
 export type UpdateCampaignInput = z.infer<typeof updateCampaignSchema>;
+export type EvaluateWinnerInput = z.infer<typeof evaluateWinnerSchema>;

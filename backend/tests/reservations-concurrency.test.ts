@@ -231,7 +231,7 @@ describe('Chances Engine & Concurrency', () => {
     expect(allNumbers).toHaveLength(100);
     expect(new Set(allNumbers).size).toBe(100);
     for (const num of allNumbers) {
-      expect(num).toMatch(/^\d{5}$/);
+      expect(num).toMatch(/^\d{2}$/);
     }
 
     // 26th request must fail because totalChances (100) is exhausted

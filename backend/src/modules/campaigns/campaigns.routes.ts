@@ -8,6 +8,7 @@ import {
   closeCampaignController,
   createCampaignController,
   deleteCampaignController,
+  evaluateCampaignWinnerController,
   getAdminCampaignByIdController,
   getPublicCampaignBySlugController,
   listAdminCampaignsController,
@@ -20,6 +21,7 @@ import {
   campaignIdParamSchema,
   campaignSlugParamSchema,
   createCampaignSchema,
+  evaluateWinnerSchema,
   updateCampaignSchema,
 } from './campaigns.schema.js';
 
@@ -90,6 +92,11 @@ adminCampaignsRouter.post(
   '/:id/close',
   validate({ params: campaignIdParamSchema }),
   closeCampaignController,
+);
+adminCampaignsRouter.post(
+  '/:id/evaluate-winner',
+  validate({ params: campaignIdParamSchema, body: evaluateWinnerSchema }),
+  evaluateCampaignWinnerController,
 );
 adminCampaignsRouter.delete(
   '/:id',

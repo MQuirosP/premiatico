@@ -16,7 +16,28 @@ export async function listAdminCampaigns(): Promise<AdminCampaign[]> {
   return res.campaigns;
 }
 
+export interface CampaignWinnerResult {
+  winningNumber: string;
+  digits: number;
+  evaluatedAt: string;
+  notes: string | null;
+  winner: {
+    orderId: string;
+    publicReference: string;
+    totalAmount: number;
+    confirmedAt: string | null;
+    comboNames: string[];
+    customer: {
+      fullName: string;
+      email: string;
+      phone: string;
+    };
+  } | null;
+}
+
 export interface AdminCampaignDetail extends AdminCampaign {
+  numberDigits?: number;
+  winnerResult?: CampaignWinnerResult | null;
   combos: Array<
     AdminCampaign['combos'][number] & {
       passItems?: Array<{
@@ -187,4 +208,18 @@ export async function deleteAdminPass(
   id: string,
 ): Promise<{ deleted: boolean; deactivated: boolean }> {
   return apiRequest(`/admin/passes/${id}`, { method: 'DELETE' });
+}
+
+export async function evaluateAdminCampaignWinner(
+  id: string,
+  payload: { winningNumber: string; notes?: string },
+): Promise<CampaignWinnerResult> {
+  const res = await apiRequest<{ winnerResult: CampaignWinnerResult }>(
+    `/admin/campaigns/${encodeURIComponent(id)}/evaluate-winner`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+  return res.winnerResult;
 }

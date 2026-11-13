@@ -3,8 +3,17 @@ import { Prisma } from '@prisma/client';
 import { ConflictError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
 
+export function getCampaignNumberDigits(totalChances: number): number {
+  const safeTotal = Math.max(10, Math.min(100000, Math.trunc(totalChances)));
+  return Math.min(5, Math.max(2, String(safeTotal - 1).length));
+}
+
+export function formatCampaignNumber(n: number, digits: number): string {
+  return String(n).padStart(digits, '0');
+}
+
 export function formatFiveDigitNumber(n: number): string {
-  return String(n).padStart(5, '0');
+  return formatCampaignNumber(n, 5);
 }
 
 export async function releaseExpiredReservations(
@@ -126,6 +135,8 @@ export async function allocateRandomNumbers(params: {
 
   const taken = new Set<string>(activeRows.map((r) => r.number));
   const assigned: string[] = [];
+  const maxPool = Math.min(100000, Math.max(10, totalChances));
+  const digits = getCampaignNumberDigits(totalChances);
 
   for (let attempt = 0; attempt < 5 && assigned.length < quantity; attempt++) {
     const needed = quantity - assigned.length;
@@ -133,9 +144,9 @@ export async function allocateRandomNumbers(params: {
     const maxDraws = Math.max(needed * 10, 500);
 
     for (let draw = 0; draw < maxDraws && candidates.size < needed; draw++) {
-      const candidate = formatFiveDigitNumber(crypto.randomInt(0, 100000));
+      const candidate = formatCampaignNumber(crypto.randomInt(0, maxPool), digits);
       if (taken.has(candidate)) continue;
-      if (attempt === 0 && excludeNumbers?.has(candidate) && 100000 - taken.size > quantity) {
+      if (attempt === 0 && excludeNumbers?.has(candidate) && maxPool - taken.size > quantity) {
         continue;
       }
       candidates.add(candidate);

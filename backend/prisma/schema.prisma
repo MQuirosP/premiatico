@@ -97,6 +97,10 @@ model Campaign {
   legalApprovalReference String?
   terms                  String
   coverImageKey          String?
+  winningNumber          String?             @db.VarChar(5)
+  winningOrderId         String?
+  winnerEvaluatedAt      DateTime?
+  winnerNotes            String?
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
 

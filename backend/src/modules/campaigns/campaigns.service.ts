@@ -2,8 +2,13 @@ import { CampaignStatus, LegalApprovalStatus } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
 import { recordAuditLog } from '../audit/audit.service.js';
+import { getCampaignNumberDigits } from '../chances/chances.service.js';
 import { getSignedDownloadUrl } from '../storage/storage.service.js';
-import type { CreateCampaignInput, UpdateCampaignInput } from './campaigns.schema.js';
+import type {
+  CreateCampaignInput,
+  EvaluateWinnerInput,
+  UpdateCampaignInput,
+} from './campaigns.schema.js';
 
 async function resolveCoverImageUrl(coverImageKey: string | null): Promise<string | null> {
   if (!coverImageKey) return null;
@@ -201,7 +206,78 @@ export async function getAdminCampaignById(id: string) {
     getCampaignProgress(campaign.id, campaign.totalChances),
     resolveCoverImageUrl(campaign.coverImageKey),
   ]);
-  return { ...campaign, coverImageUrl, progress };
+
+  const numberDigits = getCampaignNumberDigits(campaign.totalChances);
+  let winnerResult: {
+    winningNumber: string;
+    digits: number;
+    evaluatedAt: Date;
+    notes: string | null;
+    winner: {
+      orderId: string;
+      publicReference: string;
+      totalAmount: number;
+      confirmedAt: Date | null;
+      comboNames: string[];
+      customer: {
+        fullName: string;
+        email: string;
+        phone: string;
+      };
+    } | null;
+  } | null = null;
+
+  if (campaign.winningNumber && campaign.winnerEvaluatedAt) {
+    let matchedOrder = campaign.winningOrderId
+      ? campaign.orders.find((o) => o.id === campaign.winningOrderId) ?? null
+      : null;
+
+    if (!matchedOrder && campaign.winningOrderId) {
+      const dbOrder = await prisma.order.findUnique({
+        where: { id: campaign.winningOrderId },
+        select: {
+          id: true,
+          publicReference: true,
+          totalAmount: true,
+          confirmedAt: true,
+          customer: { select: { fullName: true, email: true, phone: true } },
+          items: {
+            select: {
+              comboNameSnapshot: true,
+              passQuantitySnapshot: true,
+              chanceQuantitySnapshot: true,
+            },
+          },
+          participations: {
+            where: { status: { in: ['RESERVED', 'CONFIRMED'] } },
+            select: { number: true, status: true },
+          },
+        },
+      });
+      if (dbOrder) {
+        matchedOrder = dbOrder as (typeof campaign.orders)[number];
+      }
+    }
+
+    winnerResult = {
+      winningNumber: campaign.winningNumber,
+      digits: numberDigits,
+      evaluatedAt: campaign.winnerEvaluatedAt,
+      notes: campaign.winnerNotes ?? null,
+      winner: matchedOrder
+        ? {
+            orderId: matchedOrder.id,
+            publicReference: matchedOrder.publicReference,
+            totalAmount: matchedOrder.totalAmount,
+            confirmedAt: matchedOrder.confirmedAt,
+            comboNames: matchedOrder.items.map((i) => i.comboNameSnapshot),
+            customer: matchedOrder.customer,
+          }
+        : null,
+    };
+  }
+
+  return { ...campaign, coverImageUrl, numberDigits, winnerResult, progress };
 }
 
 export async function createCampaign(input: CreateCampaignInput, actorId: string) {
@@ -451,4 +527,98 @@ export async function deleteCampaign(id: string, actorId: string) {
   });
 
   return { deleted: true };
+}
+
+export async function evaluateCampaignWinner(
+  id: string,
+  input: EvaluateWinnerInput,
+  actorId: string,
+) {
+  const campaign = await prisma.campaign.findUnique({
+    where: { id },
+    select: { id: true, title: true, totalChances: true },
+  });
+
+  if (!campaign) {
+    throw new NotFoundError('Campaña no encontrada');
+  }
+
+  const digits = getCampaignNumberDigits(campaign.totalChances);
+  const rawNumber = input.winningNumber.trim();
+
+  if (rawNumber.length !== digits) {
+    throw new ValidationError(
+      `El número ganador para esta campaña debe tener exactamente ${digits} dígitos`,
+    );
+  }
+
+  const numericValue = Number(rawNumber);
+  if (!Number.isInteger(numericValue) || numericValue < 0 || numericValue >= campaign.totalChances) {
+    throw new ValidationError(
+      `El número ganador debe estar dentro del rango permitido (0 a ${String(campaign.totalChances - 1).padStart(digits, '0')})`,
+    );
+  }
+
+  const match = await prisma.participation.findFirst({
+    where: {
+      campaignId: id,
+      number: rawNumber,
+      status: 'CONFIRMED',
+    },
+    include: {
+      order: {
+        select: {
+          id: true,
+          publicReference: true,
+          totalAmount: true,
+          confirmedAt: true,
+          customer: { select: { fullName: true, email: true, phone: true } },
+          items: { select: { comboNameSnapshot: true } },
+        },
+      },
+    },
+  });
+
+  const evaluatedAt = new Date();
+  const notes = input.notes?.trim() || null;
+
+  await prisma.campaign.update({
+    where: { id },
+    data: {
+      winningNumber: rawNumber,
+      winningOrderId: match?.order?.id ?? null,
+      winnerEvaluatedAt: evaluatedAt,
+      winnerNotes: notes,
+    },
+  });
+
+  await recordAuditLog({
+    actorId,
+    action: 'CAMPAIGN_WINNER_EVALUATED',
+    entityType: 'Campaign',
+    entityId: id,
+    metadata: {
+      winningNumber: rawNumber,
+      digits,
+      matched: Boolean(match?.order),
+      orderReference: match?.order?.publicReference ?? null,
+    },
+  });
+
+  return {
+    winningNumber: rawNumber,
+    digits,
+    evaluatedAt,
+    notes,
+    winner: match?.order
+      ? {
+          orderId: match.order.id,
+          publicReference: match.order.publicReference,
+          totalAmount: match.order.totalAmount,
+          confirmedAt: match.order.confirmedAt,
+          comboNames: match.order.items.map((i) => i.comboNameSnapshot),
+          customer: match.order.customer,
+        }
+      : null,
+  };
 }
