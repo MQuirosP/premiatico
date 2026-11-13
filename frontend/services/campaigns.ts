@@ -1,5 +1,10 @@
 import { apiRequest } from '@/lib/api';
-import type { AdminCampaign, DigitalPass, PublicCampaign } from '@/types/campaign';
+import type {
+  AdminCampaign,
+  CampaignPrize,
+  DigitalPass,
+  PublicCampaign,
+} from '@/types/campaign';
 
 export async function listPublicCampaigns(): Promise<PublicCampaign[]> {
   const res = await apiRequest<{ campaigns: PublicCampaign[] }>('/campaigns');
@@ -35,9 +40,37 @@ export interface CampaignWinnerResult {
   } | null;
 }
 
+export interface AdminCampaignPrize extends CampaignPrize {
+  winningOrderId?: string | null;
+  winningOrder?: {
+    id: string;
+    publicReference: string;
+    totalAmount: number;
+    confirmedAt: string | null;
+    customer: {
+      fullName: string;
+      email: string;
+      phone: string;
+    };
+    items: Array<{ comboNameSnapshot: string }>;
+  } | null;
+}
+
+export interface PrizeWinnerEvaluationResult {
+  prizeId: string;
+  prizeName: string;
+  drawReference: string | null;
+  winningNumber: string;
+  digits: number;
+  evaluatedAt: string;
+  notes: string | null;
+  winner: CampaignWinnerResult['winner'];
+}
+
 export interface AdminCampaignDetail extends AdminCampaign {
   numberDigits?: number;
   winnerResult?: CampaignWinnerResult | null;
+  prizes: AdminCampaignPrize[];
   combos: Array<
     AdminCampaign['combos'][number] & {
       passItems?: Array<{
@@ -222,4 +255,38 @@ export async function evaluateAdminCampaignWinner(
     },
   );
   return res.winnerResult;
+}
+
+export async function createAdminPrizes(payload: {
+  campaignId: string;
+  name: string;
+  description: string;
+  estimatedValue?: number | null;
+  drawAt?: string | null;
+  drawReference?: string | null;
+  quantity?: number;
+}): Promise<AdminCampaignPrize[]> {
+  const res = await apiRequest<{ prizes: AdminCampaignPrize[] }>('/admin/prizes', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res.prizes;
+}
+
+export async function deleteAdminPrize(id: string): Promise<{ deleted: boolean }> {
+  return apiRequest(`/admin/prizes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export async function evaluateAdminPrizeWinner(
+  prizeId: string,
+  payload: { winningNumber: string; notes?: string; allowDuplicateOrder?: boolean },
+): Promise<PrizeWinnerEvaluationResult> {
+  const res = await apiRequest<{ result: PrizeWinnerEvaluationResult }>(
+    `/admin/prizes/${encodeURIComponent(prizeId)}/evaluate-winner`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+  return res.result;
 }

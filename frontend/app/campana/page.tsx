@@ -127,18 +127,33 @@ function CampaignDetailContent() {
           <section className="space-y-4">
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <Award className="h-5 w-5 text-amber-500" />
-              Premios de la campaña
+              Premios y sorteos de la campaña
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
               {campaign.prizes.map((prize) => (
                 <div key={prize.id} className="rounded-2xl border bg-white p-5 shadow-sm space-y-2">
-                  <h3 className="font-bold text-slate-900">{prize.name}</h3>
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-bold text-slate-900">{prize.name}</h3>
+                    {prize.winningNumber ? (
+                      <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 font-mono text-xs font-bold text-emerald-800">
+                        Ganador: {prize.winningNumber}
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="text-sm text-slate-600">{prize.description}</p>
-                  {prize.estimatedValue ? (
-                    <p className="text-xs font-semibold text-emerald-700">
-                      Valor estimado: {formatCRC(prize.estimatedValue)}
-                    </p>
-                  ) : null}
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                    {prize.drawReference ? (
+                      <span className="font-semibold text-blue-700">{prize.drawReference}</span>
+                    ) : null}
+                    {prize.drawAt ? (
+                      <span>{new Date(prize.drawAt).toLocaleString('es-CR')}</span>
+                    ) : null}
+                    {prize.estimatedValue ? (
+                      <span className="font-semibold text-emerald-700">
+                        Valor: {formatCRC(prize.estimatedValue)}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </div>

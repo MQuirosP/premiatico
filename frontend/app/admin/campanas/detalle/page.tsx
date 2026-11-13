@@ -5,6 +5,7 @@ import { ArrowLeft, Award, Calendar, CheckCircle2, ExternalLink, Eye, ShieldChec
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
+import { CampaignPrizesPanel } from '@/components/admin/campaign-prizes-panel';
 import { CampaignProgressBar } from '@/components/campaign-progress';
 import { ChancesModal, type ChancesModalEntry } from '@/components/chances-modal';
 import { ApiError } from '@/lib/api';
@@ -169,6 +170,14 @@ function CampaignDetailInner() {
           </div>
         </div>
       </section>
+
+      <CampaignPrizesPanel
+        campaignId={campaign.id}
+        campaignStatus={campaign.status}
+        digits={digits}
+        maxNumberLabel={maxNumberLabel}
+        prizes={campaign.prizes ?? []}
+      />
 
       <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">

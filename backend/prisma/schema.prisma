@@ -114,15 +114,22 @@ model Campaign {
 }
 
 model CampaignPrize {
-  id             String  @id @default(cuid())
-  campaignId     String
-  name           String
-  description    String
-  estimatedValue Int?
-  imageKey       String?
-  position       Int     @default(0)
+  id                String    @id @default(cuid())
+  campaignId        String
+  name              String
+  description       String
+  estimatedValue    Int?
+  imageKey          String?
+  position          Int       @default(0)
+  drawAt            DateTime?
+  drawReference     String?
+  winningNumber     String?   @db.VarChar(5)
+  winningOrderId    String?
+  winnerEvaluatedAt DateTime?
+  winnerNotes       String?
 
-  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  winningOrder Order?   @relation("WinningPrizeOrder", fields: [winningOrderId], references: [id], onDelete: SetNull)
 
   @@index([campaignId, position])
 }
@@ -229,6 +236,7 @@ model Order {
   participations     Participation[]
   payments           Payment[]
   notifications      NotificationLog[]
+  wonPrizes          CampaignPrize[]     @relation("WinningPrizeOrder")
 
   @@index([campaignId, status])
   @@index([customerId])

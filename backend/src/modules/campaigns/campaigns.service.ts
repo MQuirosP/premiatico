@@ -71,7 +71,22 @@ export async function listPublicCampaigns() {
     },
     orderBy: { startAt: 'asc' },
     include: {
-      prizes: { orderBy: { position: 'asc' } },
+      prizes: {
+        orderBy: [{ position: 'asc' }, { drawAt: 'asc' }],
+        select: {
+          id: true,
+          campaignId: true,
+          name: true,
+          description: true,
+          estimatedValue: true,
+          imageKey: true,
+          position: true,
+          drawAt: true,
+          drawReference: true,
+          winningNumber: true,
+          winnerEvaluatedAt: true,
+        },
+      },
       combos: {
         where: { isActive: true },
         orderBy: { sortOrder: 'asc' },
@@ -98,7 +113,22 @@ export async function getPublicCampaignBySlug(slug: string) {
   const campaign = await prisma.campaign.findUnique({
     where: { slug },
     include: {
-      prizes: { orderBy: { position: 'asc' } },
+      prizes: {
+        orderBy: [{ position: 'asc' }, { drawAt: 'asc' }],
+        select: {
+          id: true,
+          campaignId: true,
+          name: true,
+          description: true,
+          estimatedValue: true,
+          imageKey: true,
+          position: true,
+          drawAt: true,
+          drawReference: true,
+          winningNumber: true,
+          winnerEvaluatedAt: true,
+        },
+      },
       combos: {
         where: { isActive: true },
         orderBy: { sortOrder: 'asc' },
@@ -164,7 +194,21 @@ export async function getAdminCampaignById(id: string) {
   const campaign = await prisma.campaign.findUnique({
     where: { id },
     include: {
-      prizes: { orderBy: { position: 'asc' } },
+      prizes: {
+        orderBy: [{ position: 'asc' }, { drawAt: 'asc' }],
+        include: {
+          winningOrder: {
+            select: {
+              id: true,
+              publicReference: true,
+              totalAmount: true,
+              confirmedAt: true,
+              customer: { select: { fullName: true, email: true, phone: true } },
+              items: { select: { comboNameSnapshot: true } },
+            },
+          },
+        },
+      },
       combos: {
         where: { isActive: true },
         orderBy: [{ sortOrder: 'asc' }, { price: 'asc' }],

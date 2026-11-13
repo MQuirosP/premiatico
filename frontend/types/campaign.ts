@@ -14,6 +14,11 @@ export interface CampaignPrize {
   estimatedValue: number | null;
   imageKey: string | null;
   position: number;
+  drawAt?: string | null;
+  drawReference?: string | null;
+  winningNumber?: string | null;
+  winnerEvaluatedAt?: string | null;
+  winnerNotes?: string | null;
 }
 
 export interface DigitalPass {
@@ -76,6 +81,7 @@ export interface PublicCampaign {
 }
 
 export interface AdminCampaign extends PublicCampaign {
+  numberDigits?: number;
   requiresLegalApproval: boolean;
   legalApprovalStatus: LegalApprovalStatus;
   legalApprovalReference: string | null;
