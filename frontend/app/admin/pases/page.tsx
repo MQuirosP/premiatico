@@ -26,7 +26,7 @@ export default function AdminPassesPage() {
       setName('');
       setDescription('');
       setFile(null);
-      setFeedback('Pase digital subido a Cloudflare R2 correctamente.');
+      setFeedback('Pase digital guardado correctamente.');
       void queryClient.invalidateQueries({ queryKey: ['admin-passes'] });
     },
     onError: (err) => {
@@ -55,7 +55,7 @@ export default function AdminPassesPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Pases digitales</h1>
           <p className="text-sm text-slate-500">
-            Catálogo de pases digitales activos alojados en Cloudflare R2 y asignables a combos.
+            Catálogo de pases digitales activos asignables a combos.
           </p>
         </div>
         <button
