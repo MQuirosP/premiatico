@@ -166,7 +166,7 @@ function CampaignDetailInner() {
               </div>
             </div>
 
-            <CampaignProgressBar progress={campaign.progress} />
+            <CampaignProgressBar progress={campaign.progress} showAvailable />
           </div>
         </div>
       </section>
