@@ -29,7 +29,7 @@ export default function HomePage() {
               Elegí tu combo, descubrí tus chances y participá por grandes premios
             </h1>
             <p className="text-blue-100 text-lg max-w-2xl mx-auto">
-              Adquirí tus pases digitales, recibí chances de regalo de 5 dígitos y pagá fácil con SINPE Móvil.
+              Adquirí tus pases digitales, recibí tus chances asignados al instante y pagá fácil con SINPE Móvil.
             </p>
           </div>
         </section>

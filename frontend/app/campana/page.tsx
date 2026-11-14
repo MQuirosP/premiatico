@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Calendar } from 'lucide-react';
+import { ArrowLeft, Calendar, Hash } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
@@ -59,6 +59,8 @@ function CampaignDetailContent() {
   }
 
   const theme = getCampaignTheme(campaign.themeColor);
+  const safeTotalChances = Math.max(10, Math.min(100000, Math.trunc(campaign.totalChances)));
+  const numberDigits = Math.min(5, Math.max(2, String(safeTotalChances - 1).length));
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -97,9 +99,15 @@ function CampaignDetailContent() {
 
             <div className="space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-                  {campaign.category}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                    {campaign.category}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                    <Hash className="h-3.5 w-3.5 text-slate-500" />
+                    Chances de {numberDigits} dígitos
+                  </span>
+                </div>
                 <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
                   <span className="inline-flex items-center gap-1.5">
                     <Calendar className="h-4 w-4" />
