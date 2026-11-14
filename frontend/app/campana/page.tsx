@@ -11,6 +11,7 @@ import { ComboSelector } from '@/components/combo-selector';
 import { PackageChancesModal } from '@/components/package-chances-modal';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
+import { getCampaignTheme } from '@/lib/campaign-themes';
 import { formatCRC } from '@/lib/utils';
 import { getPublicCampaignBySlug } from '@/services/campaigns';
 import type { CampaignCombo } from '@/types/campaign';
@@ -56,6 +57,8 @@ function CampaignDetailContent() {
       </div>
     );
   }
+
+  const theme = getCampaignTheme(campaign.themeColor);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -118,6 +121,7 @@ function CampaignDetailContent() {
                 endAt={campaign.endAt}
                 drawAt={campaign.drawAt}
                 drawReference={campaign.drawReference}
+                themeColor={campaign.themeColor}
               />
 
               <CampaignProgressBar progress={campaign.progress} />
@@ -136,6 +140,7 @@ function CampaignDetailContent() {
           <ComboSelector
             combos={campaign.combos}
             selectedComboId={selectedCombo?.id ?? null}
+            themeColor={campaign.themeColor}
             onSelect={(combo) => {
               setSelectedCombo(combo);
               setModalOpen(true);
@@ -143,7 +148,9 @@ function CampaignDetailContent() {
           />
 
           {selectedCombo ? (
-            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div
+              className={`rounded-2xl border p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${theme.summaryBox}`}
+            >
               <div>
                 <p className="font-bold text-slate-900">
                   Combo seleccionado: {selectedCombo.name} ({formatCRC(selectedCombo.price)})
@@ -155,7 +162,7 @@ function CampaignDetailContent() {
               <button
                 type="button"
                 onClick={() => setModalOpen(true)}
-                className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+                className={`inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-bold shadow-sm transition ${theme.ctaButton}`}
               >
                 Descubrí tus chances
               </button>

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { CampaignThemePicker } from '@/components/admin/campaign-theme-picker';
+import type { CampaignThemeColor } from '@/lib/campaign-themes';
 
 export interface CampaignCreatePayload {
   slug: string;
@@ -15,6 +17,7 @@ export interface CampaignCreatePayload {
   totalChances: number;
   maxNumberChanges: number;
   enableInverseNumbers: boolean;
+  themeColor: CampaignThemeColor;
   requiresLegalApproval: boolean;
   legalApprovalStatus: 'PENDING';
   terms: string;
@@ -42,6 +45,7 @@ export function CampaignCreateForm({
   const [totalChances, setTotalChances] = useState(10000);
   const [maxNumberChanges, setMaxNumberChanges] = useState(5);
   const [enableInverseNumbers, setEnableInverseNumbers] = useState(false);
+  const [themeColor, setThemeColor] = useState<CampaignThemeColor>('classic');
   const [endAt, setEndAt] = useState('');
   const [drawAt, setDrawAt] = useState('');
   const [drawReference, setDrawReference] = useState('');
@@ -71,6 +75,7 @@ export function CampaignCreateForm({
           totalChances,
           maxNumberChanges,
           enableInverseNumbers,
+          themeColor,
           requiresLegalApproval: true,
           legalApprovalStatus: 'PENDING',
           terms,
@@ -154,6 +159,12 @@ export function CampaignCreateForm({
               </span>
             </div>
           </label>
+        </div>
+        <div className="sm:col-span-2 space-y-2">
+          <label className="block text-xs font-semibold text-slate-600">
+            Paleta de color de la campaña (contador, combos, chip y botón)
+          </label>
+          <CampaignThemePicker value={themeColor} onChange={setThemeColor} />
         </div>
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1">

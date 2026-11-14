@@ -72,6 +72,7 @@ export interface PublicCampaign {
   totalChances: number;
   maxNumberChanges: number;
   enableInverseNumbers: boolean;
+  themeColor?: string;
   reservationMinutes: number;
   terms: string;
   coverImageKey: string | null;

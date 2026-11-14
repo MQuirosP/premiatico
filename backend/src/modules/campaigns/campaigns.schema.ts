@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+export const CAMPAIGN_THEME_COLORS = [
+  'classic',
+  'ocean',
+  'emerald',
+  'crimson',
+  'violet',
+  'gold',
+  'magenta',
+] as const;
+
 export const createCampaignSchema = z.object({
   slug: z
     .string()
@@ -18,6 +28,7 @@ export const createCampaignSchema = z.object({
   totalChances: z.coerce.number().int().min(1).max(100000),
   maxNumberChanges: z.coerce.number().int().min(0).max(20).default(5),
   enableInverseNumbers: z.boolean().default(false),
+  themeColor: z.enum(CAMPAIGN_THEME_COLORS).default('classic'),
   reservationMinutes: z.coerce.number().int().min(5).max(120).default(15),
   paymentWindowMinutes: z.coerce.number().int().min(10).max(1440).default(60),
   reviewSlaHours: z.coerce.number().int().min(1).max(168).default(24),
@@ -44,6 +55,7 @@ export const updateCampaignSchema = z.object({
   totalChances: z.coerce.number().int().min(1).max(100000).optional(),
   maxNumberChanges: z.coerce.number().int().min(0).max(20).optional(),
   enableInverseNumbers: z.boolean().optional(),
+  themeColor: z.enum(CAMPAIGN_THEME_COLORS).optional(),
   reservationMinutes: z.coerce.number().int().min(5).max(120).optional(),
   paymentWindowMinutes: z.coerce.number().int().min(10).max(1440).optional(),
   reviewSlaHours: z.coerce.number().int().min(1).max(168).optional(),

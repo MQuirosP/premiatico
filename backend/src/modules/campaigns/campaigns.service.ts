@@ -351,6 +351,7 @@ export async function createCampaign(input: CreateCampaignInput, actorId: string
       totalChances: input.totalChances,
       maxNumberChanges: input.maxNumberChanges,
       enableInverseNumbers: input.enableInverseNumbers,
+      themeColor: input.themeColor,
       reservationMinutes: input.reservationMinutes,
       paymentWindowMinutes: input.paymentWindowMinutes,
       reviewSlaHours: input.reviewSlaHours,

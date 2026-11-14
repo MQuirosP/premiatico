@@ -2,6 +2,7 @@
 
 import { Clock, Flame } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { getCampaignTheme } from '@/lib/campaign-themes';
 
 interface TimeLeft {
   days: number;
@@ -32,11 +33,14 @@ export function CampaignCountdown({
   endAt,
   drawAt,
   drawReference,
+  themeColor,
 }: {
   endAt: string;
   drawAt?: string | null;
   drawReference?: string | null;
+  themeColor?: string | null;
 }) {
+  const theme = getCampaignTheme(themeColor);
   const targetAt = drawAt || endAt;
   const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(null);
 
@@ -58,10 +62,14 @@ export function CampaignCountdown({
   const isUrgent = Boolean(timeLeft && !timeLeft.expired && timeLeft.days < 3);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-amber-400/30 bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-900 p-4 sm:p-5 text-white shadow-md">
+    <div
+      className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 text-white shadow-md ${theme.countdownCard}`}
+    >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-300">
+          <div
+            className={`inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider ${theme.countdownAccentText}`}
+          >
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
@@ -70,19 +78,19 @@ export function CampaignCountdown({
               <span>Campaña finalizada</span>
             ) : isUrgent ? (
               <span className="inline-flex items-center gap-1">
-                <Flame className="h-3.5 w-3.5 text-amber-400" />
+                <Flame className={`h-3.5 w-3.5 ${theme.countdownIconColor}`} />
                 ¡Últimos días para participar!
               </span>
             ) : (
               <span className="inline-flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5 text-amber-300" />
+                <Clock className={`h-3.5 w-3.5 ${theme.countdownAccentText}`} />
                 Cierre de participación en
               </span>
             )}
           </div>
 
           {drawAt || drawReference ? (
-            <p className="text-xs text-blue-100/90">
+            <p className={`text-xs ${theme.countdownSubText}`}>
               {drawAt ? `Juega el ${new Date(drawAt).toLocaleDateString('es-CR')}` : 'Sorteo'}
               {drawReference ? ` · ${drawReference}` : ''}
             </p>
@@ -93,12 +101,14 @@ export function CampaignCountdown({
           {units.map((unit) => (
             <div
               key={unit.label}
-              className="flex flex-col items-center justify-center rounded-xl border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm min-w-[58px]"
+              className={`flex flex-col items-center justify-center rounded-xl border px-3 py-2 backdrop-blur-sm min-w-[58px] ${theme.countdownBox}`}
             >
               <span className="font-mono text-xl sm:text-2xl font-extrabold tracking-tight tabular-nums text-white">
                 {unit.value}
               </span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-200/90">
+              <span
+                className={`text-[10px] font-semibold uppercase tracking-wider ${theme.countdownAccentText}`}
+              >
                 {unit.label}
               </span>
             </div>

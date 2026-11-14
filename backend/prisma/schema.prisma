@@ -91,6 +91,7 @@ model Campaign {
   totalChances           Int
   maxNumberChanges       Int                 @default(5)
   enableInverseNumbers   Boolean             @default(false)
+  themeColor             String              @default("classic")
   reservationMinutes     Int                 @default(15)
   paymentWindowMinutes   Int                 @default(60)
   reviewSlaHours         Int                 @default(24)

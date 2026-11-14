@@ -138,6 +138,7 @@ export async function updateAdminCampaign(
     coverImageKey?: string | null;
     enableInverseNumbers?: boolean;
     maxNumberChanges?: number;
+    themeColor?: string;
   },
 ): Promise<AdminCampaign> {
   const res = await apiRequest<{ campaign: AdminCampaign }>(`/admin/campaigns/${id}`, {

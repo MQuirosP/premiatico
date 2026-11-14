@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { CampaignPrizesPanel } from '@/components/admin/campaign-prizes-panel';
+import { CampaignThemePicker } from '@/components/admin/campaign-theme-picker';
 import { CampaignProgressBar } from '@/components/campaign-progress';
 import { ChancesModal, type ChancesModalEntry } from '@/components/chances-modal';
 import { ApiError } from '@/lib/api';
@@ -57,6 +58,13 @@ function CampaignDetailInner() {
   const toggleInverseMutation = useMutation({
     mutationFn: (nextValue: boolean) =>
       updateAdminCampaign(id, { enableInverseNumbers: nextValue }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin-campaign-detail', id] });
+    },
+  });
+
+  const updateThemeMutation = useMutation({
+    mutationFn: (nextTheme: string) => updateAdminCampaign(id, { themeColor: nextTheme }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin-campaign-detail', id] });
     },
@@ -201,6 +209,31 @@ function CampaignDetailInner() {
               >
                 {campaign.enableInverseNumbers ? 'Habilitado' : 'Deshabilitado'}
               </button>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold text-slate-800">
+                    Paleta de color de la campaña
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Aplica de forma agrupada al contador, cards de combos, chip destacado y botón.
+                  </p>
+                </div>
+                {updateThemeMutation.isPending ? (
+                  <span className="text-[11px] font-semibold text-blue-600">Guardando...</span>
+                ) : null}
+              </div>
+              <CampaignThemePicker
+                value={campaign.themeColor ?? 'classic'}
+                disabled={
+                  updateThemeMutation.isPending ||
+                  campaign.status === 'CLOSED' ||
+                  campaign.status === 'COMPLETED'
+                }
+                onChange={(nextTheme) => updateThemeMutation.mutate(nextTheme)}
+              />
             </div>
           </div>
         </div>
