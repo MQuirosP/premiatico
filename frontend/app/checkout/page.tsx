@@ -343,7 +343,7 @@ function CheckoutContent() {
                     <input
                       {...register('firstName')}
                       className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      placeholder="Ej. Mario"
+                      placeholder="Ej. María"
                     />
                     {errors.firstName ? (
                       <p className="mt-1 text-xs text-red-600">{errors.firstName.message}</p>
@@ -356,7 +356,7 @@ function CheckoutContent() {
                     <input
                       {...register('lastName')}
                       className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      placeholder="Ej. Quirós Pizarro"
+                      placeholder="Ej. Rojas Brenes"
                     />
                     {errors.lastName ? (
                       <p className="mt-1 text-xs text-red-600">{errors.lastName.message}</p>
@@ -386,7 +386,7 @@ function CheckoutContent() {
                     type="email"
                     {...register('email')}
                     className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    placeholder="mario@correo.com"
+                    placeholder="maria@ejemplo.com"
                   />
                   {errors.email ? (
                     <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
