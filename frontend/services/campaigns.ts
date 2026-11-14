@@ -136,6 +136,8 @@ export async function updateAdminCampaign(
     drawAt?: string | null;
     drawReference?: string | null;
     coverImageKey?: string | null;
+    enableInverseNumbers?: boolean;
+    maxNumberChanges?: number;
   },
 ): Promise<AdminCampaign> {
   const res = await apiRequest<{ campaign: AdminCampaign }>(`/admin/campaigns/${id}`, {

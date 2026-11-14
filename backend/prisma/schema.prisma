@@ -71,8 +71,9 @@ model AdminUser {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  reviewedPayments Payment[]
-  auditLogs        AuditLog[]
+  reviewedPayments       Payment[]
+  auditLogs              AuditLog[]
+  paymentSettingsUpdates PaymentSettings[]
 }
 
 model Campaign {
@@ -89,6 +90,7 @@ model Campaign {
   publishedAt            DateTime?
   totalChances           Int
   maxNumberChanges       Int                 @default(5)
+  enableInverseNumbers   Boolean             @default(false)
   reservationMinutes     Int                 @default(15)
   paymentWindowMinutes   Int                 @default(60)
   reviewSlaHours         Int                 @default(24)
@@ -197,15 +199,17 @@ model Customer {
 }
 
 model ReservationSession {
-  id                String            @id @default(cuid())
-  campaignId        String
-  comboId           String
-  sessionTokenHash  String            @unique
-  regenerationCount Int               @default(0)
-  expiresAt         DateTime
-  status            ReservationStatus @default(ACTIVE)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id                   String            @id @default(cuid())
+  campaignId           String
+  comboId              String
+  sessionTokenHash     String            @unique
+  regenerationCount    Int               @default(0)
+  packageCount         Int               @default(1)
+  inverseAdditionsJson Json?
+  expiresAt            DateTime
+  status               ReservationStatus @default(ACTIVE)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
 
   campaign       Campaign        @relation(fields: [campaignId], references: [id], onDelete: Restrict)
   combo          CampaignCombo   @relation(fields: [comboId], references: [id], onDelete: Restrict)
@@ -222,9 +226,10 @@ model Order {
   customerId           String
   campaignId           String
   reservationSessionId String?     @unique
-  status               OrderStatus @default(PENDING_PAYMENT)
-  totalAmount          Int
-  expiresAt            DateTime
+  status                    OrderStatus @default(PENDING_PAYMENT)
+  totalAmount               Int
+  sinpeReceiverSnapshotJson Json?
+  expiresAt                 DateTime
   confirmedAt          DateTime?
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
@@ -343,4 +348,18 @@ model NotificationLog {
   createdAt      DateTime @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model PaymentSettings {
+  id                String   @id @default("default")
+  sinpePhone        String
+  sinpeHolderName   String
+  sinpeBankName     String?
+  sinpeInstructions String
+  sinpeDetailNotice String?
+  updatedById       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  updatedBy AdminUser? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
 }

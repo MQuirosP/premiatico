@@ -2,12 +2,14 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import { z } from 'zod';
 import { validate } from '../../middlewares/validate.js';
 import {
+  cancelOrderSchema,
   createOrderSchema,
   customerOrderLookupSchema,
   orderLookupParamsSchema,
   orderLookupQuerySchema,
 } from './orders.schema.js';
 import {
+  cancelPendingOrder,
   createOrderFromSession,
   getPublicOrderByReference,
   getStampedPassForPublicOrder,
@@ -80,6 +82,20 @@ publicOrdersRouter.get(
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('Cache-Control', 'private, max-age=300');
       res.status(200).send(buffer);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+publicOrdersRouter.post(
+  '/:publicReference/cancel',
+  validate({ params: orderLookupParamsSchema, body: cancelOrderSchema }),
+  async (req: Request<{ publicReference: string }>, res: Response, next: NextFunction) => {
+    try {
+      const { accessToken } = req.body as z.infer<typeof cancelOrderSchema>;
+      const result = await cancelPendingOrder(req.params.publicReference, accessToken);
+      res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);
     }

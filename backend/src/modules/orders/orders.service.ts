@@ -1,10 +1,12 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { ConflictError, NotFoundError, UnauthorizedError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
 import { generateStampedPassImage } from '../notifications/chance-card.service.js';
 import { hashToken } from '../reservations/reservations.module.js';
+import { getPaymentSettings, type SinpeReceiverConfig } from '../settings/payment-settings.module.js';
 import { getObjectBuffer, getSignedDownloadUrl } from '../storage/storage.service.js';
 import type { createOrderSchema } from './orders.schema.js';
 
@@ -115,7 +117,19 @@ export async function createOrderFromSession(input: z.infer<typeof createOrderSc
   const accessTokenHash = hashToken(rawAccessToken);
   const normalizedEmail = input.email.trim().toLowerCase();
   const normalizedPhone = input.phone.trim();
-  const normalizedName = input.fullName.trim();
+  const normalizedName =
+    input.firstName && input.lastName
+      ? `${input.firstName.trim()} ${input.lastName.trim()}`
+      : (input.fullName ?? '').trim();
+
+  const sinpeSettings = await getPaymentSettings();
+  const sinpeSnapshot: SinpeReceiverConfig = {
+    sinpePhone: sinpeSettings.sinpePhone,
+    sinpeHolderName: sinpeSettings.sinpeHolderName,
+    sinpeBankName: sinpeSettings.sinpeBankName,
+    sinpeInstructions: sinpeSettings.sinpeInstructions,
+    sinpeDetailNotice: sinpeSettings.sinpeDetailNotice,
+  };
 
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM "ReservationSession" WHERE id = ${input.sessionId} FOR UPDATE`;
@@ -159,7 +173,10 @@ export async function createOrderFromSession(input: z.infer<typeof createOrderSc
       orderBy: { number: 'asc' },
     });
 
-    if (participations.length !== session.combo.chanceQuantity) {
+    const packageCount = Math.max(1, session.packageCount || 1);
+    const expectedChances = session.combo.chanceQuantity * packageCount;
+
+    if (participations.length !== expectedChances) {
       throw new ConflictError('Los chances reservados no coinciden con el combo seleccionado');
     }
 
@@ -181,12 +198,16 @@ export async function createOrderFromSession(input: z.infer<typeof createOrderSc
       Date.now() + session.campaign.paymentWindowMinutes * 60_000,
     );
 
+    const totalAmount = session.combo.price * packageCount;
+    const totalPasses = session.combo.passQuantity * packageCount;
+    const totalChances = session.combo.chanceQuantity * packageCount;
+
     const passesSnapshot = session.combo.passItems.map((item) => ({
       digitalPassId: item.digitalPass.id,
       name: item.digitalPass.name,
       fileKey: item.digitalPass.fileKey,
       mimeType: item.digitalPass.mimeType,
-      quantity: item.quantity,
+      quantity: item.quantity * packageCount,
     }));
 
     const order = await tx.order.create({
@@ -197,24 +218,25 @@ export async function createOrderFromSession(input: z.infer<typeof createOrderSc
         campaignId: session.campaignId,
         reservationSessionId: session.id,
         status: 'PENDING_PAYMENT',
-        totalAmount: session.combo.price,
+        totalAmount,
+        sinpeReceiverSnapshotJson: sinpeSnapshot as unknown as Prisma.InputJsonValue,
         expiresAt: orderExpiresAt,
         items: {
           create: {
             comboId: session.combo.id,
             comboNameSnapshot: session.combo.name,
-            quantity: 1,
+            quantity: packageCount,
             unitPrice: session.combo.price,
-            passQuantitySnapshot: session.combo.passQuantity,
-            chanceQuantitySnapshot: session.combo.chanceQuantity,
-            totalPrice: session.combo.price,
+            passQuantitySnapshot: totalPasses,
+            chanceQuantitySnapshot: totalChances,
+            totalPrice: totalAmount,
             passesSnapshotJson: passesSnapshot,
           },
         },
         payments: {
           create: {
             method: 'SINPE_MOVIL',
-            amount: session.combo.price,
+            amount: totalAmount,
             status: 'PENDING',
           },
         },
@@ -255,10 +277,13 @@ export async function createOrderFromSession(input: z.infer<typeof createOrderSc
       numbers: participations.map((p) => p.number),
       sinpeInstructions: {
         method: 'SINPE Móvil',
+        receiverPhone: sinpeSnapshot.sinpePhone,
+        receiverHolder: sinpeSnapshot.sinpeHolderName,
+        receiverBank: sinpeSnapshot.sinpeBankName,
+        detailNotice: sinpeSnapshot.sinpeDetailNotice,
         amount: order.totalAmount,
         referenceNote: order.publicReference,
-        instructions:
-          'Realizá la transferencia SINPE Móvil por el monto exacto indicando tu referencia de pedido y adjuntá el comprobante antes del vencimiento.',
+        instructions: sinpeSnapshot.sinpeInstructions,
       },
     };
   });
@@ -387,4 +412,57 @@ export async function getStampedPassForPublicOrder(
     : `${safeLabel}_${order.publicReference}.png`;
 
   return { buffer, filename };
+}
+
+export async function cancelPendingOrder(publicReference: string, accessToken: string) {
+  const tokenHash = hashToken(accessToken);
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Order" WHERE "publicReference" = ${publicReference} FOR UPDATE`;
+
+    const order = await tx.order.findUnique({
+      where: { publicReference },
+    });
+
+    if (!order) {
+      throw new NotFoundError('Pedido no encontrado');
+    }
+
+    if (order.accessTokenHash !== tokenHash) {
+      throw new UnauthorizedError('Token de acceso inválido');
+    }
+
+    if (order.status !== 'PENDING_PAYMENT') {
+      throw new ConflictError('Solo se pueden cancelar pedidos pendientes de pago');
+    }
+
+    await tx.participation.updateMany({
+      where: {
+        orderId: order.id,
+        status: 'RESERVED',
+      },
+      data: {
+        status: 'RELEASED',
+        reservedUntil: null,
+      },
+    });
+
+    await tx.order.update({
+      where: { id: order.id },
+      data: { status: 'CANCELLED' },
+    });
+
+    await tx.payment.updateMany({
+      where: {
+        orderId: order.id,
+        status: 'PENDING',
+      },
+      data: {
+        status: 'REJECTED',
+        rejectionReason: 'Cancelado por el cliente',
+      },
+    });
+
+    return { cancelled: true, publicReference: order.publicReference };
+  });
 }

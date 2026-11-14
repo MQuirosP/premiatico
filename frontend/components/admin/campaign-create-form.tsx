@@ -14,6 +14,7 @@ export interface CampaignCreatePayload {
   coverImageKey: string | null;
   totalChances: number;
   maxNumberChanges: number;
+  enableInverseNumbers: boolean;
   requiresLegalApproval: boolean;
   legalApprovalStatus: 'PENDING';
   terms: string;
@@ -39,6 +40,8 @@ export function CampaignCreateForm({
   const [category, setCategory] = useState('Vehículos');
   const [description, setDescription] = useState('');
   const [totalChances, setTotalChances] = useState(10000);
+  const [maxNumberChanges, setMaxNumberChanges] = useState(5);
+  const [enableInverseNumbers, setEnableInverseNumbers] = useState(false);
   const [endAt, setEndAt] = useState('');
   const [drawAt, setDrawAt] = useState('');
   const [drawReference, setDrawReference] = useState('');
@@ -66,7 +69,8 @@ export function CampaignCreateForm({
           drawReference: drawReference.trim() || null,
           coverImageKey,
           totalChances,
-          maxNumberChanges: 5,
+          maxNumberChanges,
+          enableInverseNumbers,
           requiresLegalApproval: true,
           legalApprovalStatus: 'PENDING',
           terms,
@@ -117,6 +121,39 @@ export function CampaignCreateForm({
             onChange={(e) => setTotalChances(Number(e.target.value))}
             className="w-full rounded-lg border px-3 py-2 text-sm"
           />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 mb-1">
+            Cambios de números permitidos
+          </label>
+          <input
+            type="number"
+            min={0}
+            max={20}
+            required
+            value={maxNumberChanges}
+            onChange={(e) => setMaxNumberChanges(Number(e.target.value))}
+            className="w-full rounded-lg border px-3 py-2 text-sm"
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 cursor-pointer hover:border-blue-300 transition">
+            <input
+              type="checkbox"
+              checked={enableInverseNumbers}
+              onChange={(e) => setEnableInverseNumbers(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            <div>
+              <span className="block text-sm font-semibold text-slate-900">
+                Habilitar oferta de números inversos
+              </span>
+              <span className="block text-xs text-slate-500">
+                Si está activo, al seleccionar un paquete el comprador podrá agregar el número
+                inverso disponible (ej. 83897 → 79838) sumando otro paquete completo.
+              </span>
+            </div>
+          </label>
         </div>
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1">

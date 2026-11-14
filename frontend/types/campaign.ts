@@ -71,6 +71,7 @@ export interface PublicCampaign {
   drawReference: string | null;
   totalChances: number;
   maxNumberChanges: number;
+  enableInverseNumbers: boolean;
   reservationMinutes: number;
   terms: string;
   coverImageKey: string | null;

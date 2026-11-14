@@ -7,6 +7,7 @@ import {
   Megaphone,
   Menu,
   Receipt,
+  Settings,
   ShieldAlert,
   Sparkles,
   Ticket,
@@ -25,6 +26,7 @@ const navItems = [
   { href: '/admin/pedidos', label: 'Pedidos y pagos', icon: Receipt },
   { href: '/admin/clientes', label: 'Clientes', icon: Users },
   { href: '/admin/auditoria', label: 'Auditoría', icon: ShieldAlert },
+  { href: '/admin/configuracion', label: 'Configuración', icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

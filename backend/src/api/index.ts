@@ -14,6 +14,7 @@ import { adminPaymentsRouter } from '../modules/payments/admin-payments.module.j
 import { publicPaymentsRouter } from '../modules/payments/payments.module.js';
 import { adminPrizesRouter } from '../modules/prizes/prizes.module.js';
 import { publicReservationsRouter } from '../modules/reservations/reservations.module.js';
+import { adminPaymentSettingsRouter } from '../modules/settings/payment-settings.module.js';
 import { adminStorageRouter } from '../modules/storage/storage.routes.js';
 
 export const apiRouter = Router();
@@ -56,4 +57,5 @@ apiRouter.use('/admin/prizes', adminPrizesRouter);
 apiRouter.use('/admin/passes', adminPassesRouter);
 apiRouter.use('/admin/combos', adminCombosRouter);
 apiRouter.use('/admin/payments', adminPaymentsRouter);
+apiRouter.use('/admin/settings', adminPaymentSettingsRouter);
 apiRouter.use('/admin/storage', adminStorageRouter);

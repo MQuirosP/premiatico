@@ -8,6 +8,7 @@ import { Suspense, useState } from 'react';
 import { CampaignCountdown } from '@/components/campaign-countdown';
 import { CampaignProgressBar } from '@/components/campaign-progress';
 import { ComboSelector } from '@/components/combo-selector';
+import { PackageChancesModal } from '@/components/package-chances-modal';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { formatCRC } from '@/lib/utils';
@@ -18,6 +19,7 @@ function CampaignDetailContent() {
   const searchParams = useSearchParams();
   const slug = searchParams.get('slug') ?? '';
   const [selectedCombo, setSelectedCombo] = useState<CampaignCombo | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const { data: campaign, isLoading, isError } = useQuery({
     queryKey: ['public-campaign', slug],
@@ -134,7 +136,10 @@ function CampaignDetailContent() {
           <ComboSelector
             combos={campaign.combos}
             selectedComboId={selectedCombo?.id ?? null}
-            onSelect={setSelectedCombo}
+            onSelect={(combo) => {
+              setSelectedCombo(combo);
+              setModalOpen(true);
+            }}
           />
 
           {selectedCombo ? (
@@ -147,12 +152,13 @@ function CampaignDetailContent() {
                   Incluye {selectedCombo.passQuantity} pases y {selectedCombo.chanceQuantity} chances de regalo (hasta {campaign.maxNumberChanges} cambios de números).
                 </p>
               </div>
-              <Link
-                href={`/checkout?campaignId=${encodeURIComponent(campaign.id)}&comboId=${encodeURIComponent(selectedCombo.id)}`}
+              <button
+                type="button"
+                onClick={() => setModalOpen(true)}
                 className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
               >
                 Descubrí tus chances
-              </Link>
+              </button>
             </div>
           ) : null}
         </section>
@@ -162,6 +168,13 @@ function CampaignDetailContent() {
           <p className="text-xs text-slate-600 whitespace-pre-line">{campaign.terms}</p>
         </section>
       </main>
+      <PackageChancesModal
+        campaignId={campaign.id}
+        campaignTitle={campaign.title}
+        combo={selectedCombo}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+      />
       <SiteFooter />
     </div>
   );

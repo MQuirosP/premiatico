@@ -1,15 +1,28 @@
 import { apiRequest } from '@/lib/api';
 
+export interface InverseOffer {
+  sourceNumber: string;
+  inverseNumber: string;
+}
+
 export interface ReservationSessionData {
   sessionId: string;
   sessionToken: string;
   campaignId: string;
+  campaignTitle?: string;
   comboId: string;
   comboName: string;
+  unitPrice: number;
+  unitPassQuantity: number;
+  unitChanceQuantity: number;
+  packageCount: number;
   price: number;
   passQuantity: number;
   chanceQuantity: number;
   numbers: string[];
+  enableInverseNumbers: boolean;
+  availableInverses: InverseOffer[];
+  inverseAdditions: InverseOffer[];
   regenerationCount: number;
   maxNumberChanges: number;
   remainingChanges: number;
@@ -31,6 +44,10 @@ export interface CreatedOrderData {
   numbers: string[];
   sinpeInstructions: {
     method: string;
+    receiverPhone: string;
+    receiverHolder: string;
+    receiverBank: string | null;
+    detailNotice: string | null;
     amount: number;
     referenceNote: string;
     instructions: string;
@@ -78,27 +95,70 @@ export async function createReservationRequest(payload: {
   });
 }
 
-export async function regenerateNumbersRequest(payload: {
+export interface ReservationMutationResult {
   sessionId: string;
-  sessionToken: string;
-}): Promise<{
-  sessionId: string;
+  packageCount: number;
+  price: number;
+  passQuantity: number;
+  chanceQuantity: number;
   numbers: string[];
+  enableInverseNumbers: boolean;
+  availableInverses: InverseOffer[];
+  inverseAdditions: InverseOffer[];
   regenerationCount: number;
   maxNumberChanges: number;
   remainingChanges: number;
   expiresAt: string;
-}> {
-  return apiRequest(`/reservations/${encodeURIComponent(payload.sessionId)}/regenerate`, {
-    method: 'POST',
-    body: JSON.stringify({ sessionToken: payload.sessionToken }),
-  });
+}
+
+export async function regenerateNumbersRequest(payload: {
+  sessionId: string;
+  sessionToken: string;
+}): Promise<ReservationMutationResult> {
+  return apiRequest<ReservationMutationResult>(
+    `/reservations/${encodeURIComponent(payload.sessionId)}/regenerate`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ sessionToken: payload.sessionToken }),
+    },
+  );
+}
+
+export async function addInversePackageRequest(payload: {
+  sessionId: string;
+  sessionToken: string;
+  sourceNumber: string;
+}): Promise<ReservationMutationResult> {
+  return apiRequest<ReservationMutationResult>(
+    `/reservations/${encodeURIComponent(payload.sessionId)}/add-inverse`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionToken: payload.sessionToken,
+        sourceNumber: payload.sourceNumber,
+      }),
+    },
+  );
+}
+
+export async function cancelReservationRequest(payload: {
+  sessionId: string;
+  sessionToken: string;
+}): Promise<{ cancelled: boolean }> {
+  return apiRequest<{ cancelled: boolean }>(
+    `/reservations/${encodeURIComponent(payload.sessionId)}/cancel`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ sessionToken: payload.sessionToken }),
+    },
+  );
 }
 
 export async function createOrderRequest(payload: {
   sessionId: string;
   sessionToken: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone: string;
 }): Promise<CreatedOrderData> {
@@ -106,6 +166,19 @@ export async function createOrderRequest(payload: {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+}
+
+export async function cancelOrderRequest(payload: {
+  publicReference: string;
+  accessToken: string;
+}): Promise<{ cancelled: boolean; publicReference: string }> {
+  return apiRequest<{ cancelled: boolean; publicReference: string }>(
+    `/orders/${encodeURIComponent(payload.publicReference)}/cancel`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ accessToken: payload.accessToken }),
+    },
+  );
 }
 
 export async function uploadProofRequest(payload: {

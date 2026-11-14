@@ -1,14 +1,25 @@
 import { z } from 'zod';
 
-export const createOrderSchema = z.object({
-  sessionId: z.string().min(1),
-  sessionToken: z.string().min(16),
-  fullName: z.string().trim().min(3).max(120),
-  email: z.string().trim().email('Correo electrónico inválido').toLowerCase(),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^[0-9+\-\s]{8,20}$/, 'Teléfono inválido (formato Costa Rica: 8 dígitos)'),
+export const createOrderSchema = z
+  .object({
+    sessionId: z.string().min(1),
+    sessionToken: z.string().min(16),
+    firstName: z.string().trim().min(2, 'Ingresá tu nombre').max(60).optional(),
+    lastName: z.string().trim().min(2, 'Ingresá tus apellidos').max(80).optional(),
+    fullName: z.string().trim().min(3).max(120).optional(),
+    email: z.string().trim().email('Correo electrónico inválido').toLowerCase(),
+    phone: z
+      .string()
+      .trim()
+      .regex(/^[0-9+\-\s]{8,20}$/, 'Teléfono inválido (formato Costa Rica: 8 dígitos)'),
+  })
+  .refine((data) => Boolean(data.fullName || (data.firstName && data.lastName)), {
+    message: 'Ingresá tu nombre y apellidos',
+    path: ['firstName'],
+  });
+
+export const cancelOrderSchema = z.object({
+  accessToken: z.string().min(16),
 });
 
 export const orderLookupParamsSchema = z.object({

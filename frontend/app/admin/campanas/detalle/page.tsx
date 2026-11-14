@@ -10,7 +10,7 @@ import { CampaignProgressBar } from '@/components/campaign-progress';
 import { ChancesModal, type ChancesModalEntry } from '@/components/chances-modal';
 import { ApiError } from '@/lib/api';
 import { formatCRC } from '@/lib/utils';
-import { evaluateAdminCampaignWinner, getAdminCampaignDetail, type CampaignWinnerResult } from '@/services/campaigns';
+import { evaluateAdminCampaignWinner, getAdminCampaignDetail, updateAdminCampaign, type CampaignWinnerResult } from '@/services/campaigns';
 
 const ORDER_STATUS_LABEL: Record<string, string> = {
   PENDING_PAYMENT: 'Pendiente de pago',
@@ -51,6 +51,14 @@ function CampaignDetailInner() {
     },
     onError: (err) => {
       setEvalError(err instanceof ApiError ? err.message : 'No se pudo evaluar el número ganador');
+    },
+  });
+
+  const toggleInverseMutation = useMutation({
+    mutationFn: (nextValue: boolean) =>
+      updateAdminCampaign(id, { enableInverseNumbers: nextValue }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin-campaign-detail', id] });
     },
   });
 
@@ -167,6 +175,33 @@ function CampaignDetailInner() {
             </div>
 
             <CampaignProgressBar progress={campaign.progress} showAvailable />
+
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+              <div>
+                <p className="text-xs font-bold text-slate-800">
+                  Oferta de números inversos
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Permite al comprador agregar el número inverso disponible sumando otro paquete completo.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={
+                  toggleInverseMutation.isPending ||
+                  campaign.status === 'CLOSED' ||
+                  campaign.status === 'COMPLETED'
+                }
+                onClick={() => toggleInverseMutation.mutate(!campaign.enableInverseNumbers)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition disabled:opacity-50 ${
+                  campaign.enableInverseNumbers
+                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                }`}
+              >
+                {campaign.enableInverseNumbers ? 'Habilitado' : 'Deshabilitado'}
+              </button>
+            </div>
           </div>
         </div>
       </section>
