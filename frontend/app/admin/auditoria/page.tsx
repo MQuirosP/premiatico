@@ -50,34 +50,61 @@ export default function AdminAuditoriaPage() {
             Sin registros de auditoría aún.
           </div>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 border-b text-xs uppercase text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Fecha</th>
-                <th className="px-4 py-3">Acción</th>
-                <th className="px-4 py-3">Entidad</th>
-                <th className="px-4 py-3">Actor</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
+          <>
+            <div className="divide-y sm:hidden">
               {data.logs.map((log) => (
-                <tr key={log.id}>
-                  <td className="px-4 py-3 text-xs text-slate-500">
-                    {new Date(log.createdAt).toLocaleString('es-CR')}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-900">
-                    {log.action}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-600">
+                <div key={log.id} className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-mono text-xs font-semibold text-slate-900 break-all">
+                      {log.action}
+                    </span>
+                    <span className="text-[11px] text-slate-500 whitespace-nowrap shrink-0">
+                      {new Date(log.createdAt).toLocaleString('es-CR')}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-600 break-all">
+                    <span className="font-medium text-slate-700">Entidad:</span>{' '}
                     {log.entityType} ({log.entityId})
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-600">
+                  </div>
+                  <div className="text-xs text-slate-600 break-words">
+                    <span className="font-medium text-slate-700">Actor:</span>{' '}
                     {log.actor ? `${log.actor.name} (${log.actor.email})` : 'Sistema'}
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">Fecha</th>
+                    <th className="px-4 py-3">Acción</th>
+                    <th className="px-4 py-3">Entidad</th>
+                    <th className="px-4 py-3">Actor</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {data.logs.map((log) => (
+                    <tr key={log.id}>
+                      <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                        {new Date(log.createdAt).toLocaleString('es-CR')}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-900">
+                        {log.action}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-600">
+                        {log.entityType} ({log.entityId})
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-600">
+                        {log.actor ? `${log.actor.name} (${log.actor.email})` : 'Sistema'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

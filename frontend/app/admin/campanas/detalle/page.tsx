@@ -445,76 +445,140 @@ function CampaignDetailInner() {
             Aún no hay órdenes registradas en esta campaña.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 border-b text-xs uppercase text-slate-500 whitespace-nowrap">
-                <tr>
-                  <th className="px-4 py-3">Referencia</th>
-                  <th className="px-4 py-3">Cliente</th>
-                  <th className="px-4 py-3">Combo</th>
-                  <th className="px-4 py-3">Chances</th>
-                  <th className="px-4 py-3">Monto</th>
-                  <th className="px-4 py-3">Estado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {orders.map((order) => {
-                  const items = order.items ?? [];
-                  const participations = order.participations ?? [];
-                  return (
-                    <tr key={order.id}>
-                      <td className="px-4 py-3 font-mono font-bold text-slate-900 whitespace-nowrap">
-                        {order.publicReference}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-slate-900 whitespace-nowrap">
+          <>
+            <div className="divide-y sm:hidden">
+              {orders.map((order) => {
+                const items = order.items ?? [];
+                const participations = order.participations ?? [];
+                const comboLabel = items.map((i) => i.comboNameSnapshot).join(', ') || '—';
+                return (
+                  <div key={order.id} className="p-4 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-mono font-bold text-sm text-slate-900">
+                          {order.publicReference}
+                        </div>
+                        <div className="text-xs font-medium text-slate-800">
                           {order.customer?.fullName ?? '—'}
                         </div>
-                        <div className="text-xs text-slate-500 whitespace-nowrap">
+                        <div className="text-xs text-slate-500 break-all">
                           {order.customer?.phone ?? '—'} · {order.customer?.email ?? '—'}
                         </div>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-700 whitespace-nowrap">
-                        {items.map((i) => i.comboNameSnapshot).join(', ') || '—'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {participations.length > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setSelectedChances({
-                                title: `${order.publicReference} · ${order.customer?.fullName ?? 'Cliente'}`,
-                                subtitle: campaign.title,
-                                entries: [
-                                  {
-                                    label: items.map((i) => i.comboNameSnapshot).join(', ') || 'Combo',
-                                    sublabel: `${participations.length} chances`,
-                                    numbers: participations,
-                                  },
-                                ],
-                              })
-                            }
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            Ver ({participations.length})
-                          </button>
-                        ) : (
-                          <span className="text-xs text-slate-400">Sin números</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 font-semibold whitespace-nowrap">
-                        {formatCRC(order.totalAmount)}
-                      </td>
-                      <td className="px-4 py-3 text-xs font-semibold whitespace-nowrap">
+                      </div>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 whitespace-nowrap shrink-0">
                         {ORDER_STATUS_LABEL[order.status] ?? order.status}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-slate-600">
+                      <span className="font-medium text-slate-700">Combo:</span> {comboLabel}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <span className="text-sm font-semibold text-slate-900">
+                        {formatCRC(order.totalAmount)}
+                      </span>
+                      {participations.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedChances({
+                              title: `${order.publicReference} · ${order.customer?.fullName ?? 'Cliente'}`,
+                              subtitle: campaign.title,
+                              entries: [
+                                {
+                                  label: items.map((i) => i.comboNameSnapshot).join(', ') || 'Combo',
+                                  sublabel: `${participations.length} chances`,
+                                  numbers: participations,
+                                },
+                              ],
+                            })
+                          }
+                          className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Ver ({participations.length})
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-400">Sin números</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b text-xs uppercase text-slate-500 whitespace-nowrap">
+                  <tr>
+                    <th className="px-4 py-3">Referencia</th>
+                    <th className="px-4 py-3">Cliente</th>
+                    <th className="px-4 py-3">Combo</th>
+                    <th className="px-4 py-3">Chances</th>
+                    <th className="px-4 py-3">Monto</th>
+                    <th className="px-4 py-3">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {orders.map((order) => {
+                    const items = order.items ?? [];
+                    const participations = order.participations ?? [];
+                    return (
+                      <tr key={order.id}>
+                        <td className="px-4 py-3 font-mono font-bold text-slate-900 whitespace-nowrap">
+                          {order.publicReference}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-slate-900 whitespace-nowrap">
+                            {order.customer?.fullName ?? '—'}
+                          </div>
+                          <div className="text-xs text-slate-500 whitespace-nowrap">
+                            {order.customer?.phone ?? '—'} · {order.customer?.email ?? '—'}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-700 whitespace-nowrap">
+                          {items.map((i) => i.comboNameSnapshot).join(', ') || '—'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {participations.length > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedChances({
+                                  title: `${order.publicReference} · ${order.customer?.fullName ?? 'Cliente'}`,
+                                  subtitle: campaign.title,
+                                  entries: [
+                                    {
+                                      label: items.map((i) => i.comboNameSnapshot).join(', ') || 'Combo',
+                                      sublabel: `${participations.length} chances`,
+                                      numbers: participations,
+                                    },
+                                  ],
+                                })
+                              }
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Ver ({participations.length})
+                            </button>
+                          ) : (
+                            <span className="text-xs text-slate-400">Sin números</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 font-semibold whitespace-nowrap">
+                          {formatCRC(order.totalAmount)}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-semibold whitespace-nowrap">
+                          {ORDER_STATUS_LABEL[order.status] ?? order.status}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
 

@@ -154,94 +154,185 @@ export default function AdminPassesPage() {
             No hay pases digitales registrados aún.
           </div>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 border-b text-xs uppercase text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Nombre</th>
-                <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3">Estado</th>
-                <th className="px-4 py-3 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
+          <>
+            <div className="divide-y sm:hidden">
               {passes.map((pass) => (
-                <tr key={pass.id}>
-                  <td className="px-4 py-3 font-medium text-slate-900">{pass.name}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{pass.mimeType}</td>
-                  <td className="px-4 py-3 text-xs">
-                    {pass.isActive ? 'Activo' : 'Inactivo'}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="inline-flex items-center gap-2">
+                <div key={pass.id} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-medium text-slate-900 break-words">{pass.name}</div>
+                      <div className="text-xs text-slate-500 break-all">{pass.mimeType}</div>
+                    </div>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap shrink-0 ${
+                        pass.isActive
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {pass.isActive ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const preview = await getAdminPassPreviewUrl(pass.id);
+                          window.open(preview.url, '_blank', 'noopener,noreferrer');
+                        } catch (err) {
+                          setFeedback(
+                            err instanceof ApiError
+                              ? err.message
+                              : 'No se pudo abrir la vista previa del pase',
+                          );
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      Ver
+                    </button>
+                    {pass.mimeType.startsWith('image/') ? (
                       <button
                         type="button"
                         onClick={async () => {
                           try {
-                            const preview = await getAdminPassPreviewUrl(pass.id);
-                            window.open(preview.url, '_blank', 'noopener,noreferrer');
+                            const token = getAdminSessionToken();
+                            const response = await fetch(
+                              `${API_BASE_URL}/admin/passes/${encodeURIComponent(
+                                pass.id,
+                              )}/preview-stamped?number=12345`,
+                              {
+                                credentials: 'include',
+                                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                              },
+                            );
+                            if (!response.ok) {
+                              throw new Error(`HTTP ${response.status}`);
+                            }
+                            const blob = await response.blob();
+                            const objectUrl = URL.createObjectURL(blob);
+                            window.open(objectUrl, '_blank', 'noopener,noreferrer');
                           } catch (err) {
                             setFeedback(
-                              err instanceof ApiError
-                                ? err.message
-                                : 'No se pudo abrir la vista previa del pase',
+                              err instanceof Error
+                                ? `No se pudo generar el estampado de prueba (${err.message})`
+                                : 'No se pudo generar el estampado de prueba',
                             );
                           }
                         }}
-                        className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                        className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2.5 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100"
                       >
-                        <Eye className="h-3.5 w-3.5" />
-                        Ver
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Probar estampado
                       </button>
-                      {pass.mimeType.startsWith('image/') ? (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              const token = getAdminSessionToken();
-                              const response = await fetch(
-                                `${API_BASE_URL}/admin/passes/${encodeURIComponent(
-                                  pass.id,
-                                )}/preview-stamped?number=12345`,
-                                {
-                                  credentials: 'include',
-                                  headers: token ? { Authorization: `Bearer ${token}` } : {},
-                                },
-                              );
-                              if (!response.ok) {
-                                throw new Error(`HTTP ${response.status}`);
-                              }
-                              const blob = await response.blob();
-                              const objectUrl = URL.createObjectURL(blob);
-                              window.open(objectUrl, '_blank', 'noopener,noreferrer');
-                            } catch (err) {
-                              setFeedback(
-                                err instanceof Error
-                                  ? `No se pudo generar el estampado de prueba (${err.message})`
-                                  : 'No se pudo generar el estampado de prueba',
-                              );
-                            }
-                          }}
-                          className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100"
-                        >
-                          <Sparkles className="h-3.5 w-3.5" />
-                          Probar estampado
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        disabled={deleteMutation.isPending}
-                        onClick={() => deleteMutation.mutate(pass.id)}
-                        className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Eliminar
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={deleteMutation.isPending}
+                      onClick={() => deleteMutation.mutate(pass.id)}
+                      className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">Nombre</th>
+                    <th className="px-4 py-3">Tipo</th>
+                    <th className="px-4 py-3">Estado</th>
+                    <th className="px-4 py-3 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {passes.map((pass) => (
+                    <tr key={pass.id}>
+                      <td className="px-4 py-3 font-medium text-slate-900">{pass.name}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">{pass.mimeType}</td>
+                      <td className="px-4 py-3 text-xs">
+                        {pass.isActive ? 'Activo' : 'Inactivo'}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                const preview = await getAdminPassPreviewUrl(pass.id);
+                                window.open(preview.url, '_blank', 'noopener,noreferrer');
+                              } catch (err) {
+                                setFeedback(
+                                  err instanceof ApiError
+                                    ? err.message
+                                    : 'No se pudo abrir la vista previa del pase',
+                                );
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Ver
+                          </button>
+                          {pass.mimeType.startsWith('image/') ? (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const token = getAdminSessionToken();
+                                  const response = await fetch(
+                                    `${API_BASE_URL}/admin/passes/${encodeURIComponent(
+                                      pass.id,
+                                    )}/preview-stamped?number=12345`,
+                                    {
+                                      credentials: 'include',
+                                      headers: token ? { Authorization: `Bearer ${token}` } : {},
+                                    },
+                                  );
+                                  if (!response.ok) {
+                                    throw new Error(`HTTP ${response.status}`);
+                                  }
+                                  const blob = await response.blob();
+                                  const objectUrl = URL.createObjectURL(blob);
+                                  window.open(objectUrl, '_blank', 'noopener,noreferrer');
+                                } catch (err) {
+                                  setFeedback(
+                                    err instanceof Error
+                                      ? `No se pudo generar el estampado de prueba (${err.message})`
+                                      : 'No se pudo generar el estampado de prueba',
+                                  );
+                                }
+                              }}
+                              className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+                            >
+                              <Sparkles className="h-3.5 w-3.5" />
+                              Probar estampado
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            disabled={deleteMutation.isPending}
+                            onClick={() => deleteMutation.mutate(pass.id)}
+                            className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Eliminar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>
