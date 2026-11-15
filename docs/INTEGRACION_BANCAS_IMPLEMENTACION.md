@@ -304,12 +304,12 @@ Agregar en `AuthService`:
 
 ### Fase 1: `premiatico/backend`
 
-- [ ] Actualizar `prisma/schema.prisma` (`Customer.email` nullable, `OrderChannel`, `PaymentMethod.PARTNER_POS`, campos partner + `idempotencyKey` en `Order`) y aplicar migración.
-- [ ] Agregar `PARTNER_API_KEYS` y `PUBLIC_WEB_URL` en `src/core/env.ts`.
-- [ ] Crear middleware `requirePartnerAuth` (`X-Partner-Id` / `X-Partner-Key` con `timingSafeEqual`).
-- [ ] Adaptar `allocateRandomNumbers` en `src/modules/chances/chances.service.ts` para asignación directa a `Order` (`CONFIRMED`).
-- [ ] Proteger `sendRichOrderEmail` en `src/modules/notifications/chance-card.service.ts` cuando `customer.email` sea `null`.
-- [ ] Implementar `GET /api/v1/partner/campaigns`, `POST /api/v1/partner/orders` y `POST /api/v1/partner/orders/:publicReference/cancel` y montarlos en `src/api/index.ts`.
+- [x] Actualizar `prisma/schema.prisma` (`Customer.email` nullable, `OrderChannel`, `PaymentMethod.PARTNER_POS`, campos partner + `idempotencyKey` en `Order`) y aplicar migración.
+- [x] Agregar `PARTNER_API_KEYS` (reutilizando `FRONTEND_URL`) en `src/core/env.ts`.
+- [x] Crear middleware `requirePartnerAuth` (`X-Partner-Id` / `X-Partner-Key` con `timingSafeEqual`).
+- [x] Adaptar `allocateRandomNumbers` en `src/modules/chances/chances.service.ts` para asignación directa a `Order` (`CONFIRMED`).
+- [x] Proteger `sendRichOrderEmail` en `src/modules/notifications/chance-card.service.ts` cuando `customer.email` sea `null`.
+- [x] Implementar `GET /api/v1/partner/campaigns`, `POST /api/v1/partner/orders` y `POST /api/v1/partner/orders/:publicReference/cancel` y montarlos en `src/api/index.ts`.
 - [ ] Probar idempotencia (doble `POST` con mismo `idempotencyKey`), concurrencia y cancelación.
 
 ### Fase 2: `Bancas/backend` (**sin migración Prisma**)
