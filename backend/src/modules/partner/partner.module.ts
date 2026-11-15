@@ -117,7 +117,14 @@ partnerRouter.post(
     try {
       const parsed = createPartnerOrderSchema.safeParse(req.body);
       if (!parsed.success) {
-        throw new ValidationError('Datos de orden inválidos', parsed.error.flatten());
+        const detail = parsed.error.issues
+          .slice(0, 3)
+          .map((i) => `${i.path.join('.')}: ${i.message}`)
+          .join(' | ');
+        throw new ValidationError(
+          detail ? `Datos de orden inválidos: ${detail}` : 'Datos de orden inválidos',
+          parsed.error.flatten(),
+        );
       }
 
       const partnerCode = req.partnerCode!;
