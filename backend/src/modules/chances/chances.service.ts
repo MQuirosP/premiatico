@@ -100,8 +100,11 @@ export async function allocateRandomNumbers(params: {
   campaignId: string;
   totalChances: number;
   quantity: number;
-  reservationSessionId: string;
-  reservedUntil: Date;
+  reservationSessionId?: string;
+  orderId?: string;
+  status?: 'RESERVED' | 'CONFIRMED';
+  reservedUntil?: Date | null;
+  confirmedAt?: Date | null;
   excludeNumbers?: Set<string>;
 }): Promise<string[]> {
   const {
@@ -110,7 +113,10 @@ export async function allocateRandomNumbers(params: {
     totalChances,
     quantity,
     reservationSessionId,
-    reservedUntil,
+    orderId,
+    status = 'RESERVED',
+    reservedUntil = null,
+    confirmedAt = null,
     excludeNumbers,
   } = params;
 
@@ -162,9 +168,11 @@ export async function allocateRandomNumbers(params: {
       data: candidateArray.map((number) => ({
         campaignId,
         reservationSessionId,
+        orderId,
         number,
-        status: 'RESERVED',
+        status,
         reservedUntil,
+        confirmedAt,
       })),
       skipDuplicates: true,
     });
@@ -172,11 +180,12 @@ export async function allocateRandomNumbers(params: {
     if (result.count === candidateArray.length) {
       assigned.push(...candidateArray);
     } else {
-      // Partial collision with concurrent writer: query exact numbers inserted for this session
+      // Partial collision with concurrent writer: query exact numbers inserted for this session/order
       const persisted = await tx.participation.findMany({
         where: {
-          reservationSessionId,
-          status: 'RESERVED',
+          ...(reservationSessionId ? { reservationSessionId } : {}),
+          ...(orderId ? { orderId } : {}),
+          status,
         },
         select: { number: true },
       });

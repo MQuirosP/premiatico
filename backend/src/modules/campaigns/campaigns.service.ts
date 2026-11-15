@@ -265,7 +265,7 @@ export async function getAdminCampaignById(id: string) {
       comboNames: string[];
       customer: {
         fullName: string;
-        email: string;
+        email: string | null;
         phone: string;
       };
     } | null;

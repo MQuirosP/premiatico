@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { rateLimit } from '../middlewares/rateLimit.js';
+import { requirePartnerAuth } from '../middlewares/authPartner.js';
 import { verifyTurnstile } from '../middlewares/turnstile.js';
 import { adminDashboardRouter } from '../modules/admin/admin-dashboard.module.js';
 import { authRouter } from '../modules/auth/auth.routes.js';
@@ -9,6 +10,7 @@ import {
 } from '../modules/campaigns/campaigns.routes.js';
 import { adminCombosRouter } from '../modules/combos/combos.module.js';
 import { publicOrdersRouter } from '../modules/orders/orders.module.js';
+import { partnerRouter } from '../modules/partner/partner.module.js';
 import { adminPassesRouter } from '../modules/passes/passes.module.js';
 import { adminPaymentsRouter } from '../modules/payments/admin-payments.module.js';
 import { publicPaymentsRouter } from '../modules/payments/payments.module.js';
@@ -47,6 +49,14 @@ apiRouter.use(
   '/payments',
   rateLimit({ keyPrefix: 'payments', windowSeconds: 60, maxRequests: 15 }),
   publicPaymentsRouter,
+);
+
+// Partner B2B endpoints (server-to-server)
+apiRouter.use(
+  '/partner',
+  rateLimit({ keyPrefix: 'partner', windowSeconds: 60, maxRequests: 120 }),
+  requirePartnerAuth,
+  partnerRouter,
 );
 
 // Admin endpoints

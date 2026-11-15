@@ -26,6 +26,9 @@ const envSchema = z.object({
 
   // Cloudflare Turnstile
   TURNSTILE_SECRET_KEY: z.string().optional(),
+
+  // B2B Partner API (JSON map: {"BANCAS": "<secret>"})
+  PARTNER_API_KEYS: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -464,6 +464,9 @@ export async function notifyPrizeWinnerByEmail(prizeId: string, actorId: string)
   }
 
   const { fullName, email } = prize.winningOrder.customer;
+  if (!email) {
+    throw new ConflictError('El cliente ganador no tiene correo electrónico registrado');
+  }
   const subject = `¡Felicidades ${fullName}! Ganaste ${prize.name} en Premiático`;
   const html = `
     <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">

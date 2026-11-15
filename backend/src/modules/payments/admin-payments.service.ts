@@ -227,16 +227,18 @@ export async function rejectPayment(params: {
     };
   });
 
-  await sendOrderNotification({
-    orderId: result.order.id,
-    type: 'PAYMENT_REJECTED',
-    recipientEmail: result.order.customer.email,
-    subject: `Actualización de tu pedido ${result.order.publicReference} — Premiático`,
-    html: `<p>Hola ${result.order.customer.fullName},</p>
+  if (result.order.customer.email) {
+    await sendOrderNotification({
+      orderId: result.order.id,
+      type: 'PAYMENT_REJECTED',
+      recipientEmail: result.order.customer.email,
+      subject: `Actualización de tu pedido ${result.order.publicReference} — Premiático`,
+      html: `<p>Hola ${result.order.customer.fullName},</p>
       <p>No pudimos confirmar tu pago para el pedido <strong>${result.order.publicReference}</strong>.</p>
       <p><strong>Motivo:</strong> ${params.rejectionReason}</p>
       <p>Los chances asociados fueron liberados. Si creés que hubo un error, contactanos para ayudarte.</p>`,
-  });
+    });
+  }
 
   return result.payment;
 }

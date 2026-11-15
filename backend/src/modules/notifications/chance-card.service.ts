@@ -441,7 +441,7 @@ export interface RichOrderEmailOrder {
   id: string;
   publicReference: string;
   totalAmount?: number;
-  customer: { fullName: string; email: string };
+  customer: { fullName: string; email: string | null };
   campaign: { title: string };
   items?: Array<{
     passQuantitySnapshot: number;
@@ -554,6 +554,10 @@ export async function sendRichOrderEmail(params: {
     type === 'PAYMENT_CONFIRMED'
       ? buildPaymentConfirmedEmailHtml(emailInput)
       : buildProofReceivedEmailHtml(emailInput);
+
+  if (!order.customer.email) {
+    return;
+  }
 
   await sendOrderNotification({
     orderId: order.id,

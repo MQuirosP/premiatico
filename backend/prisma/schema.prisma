@@ -45,6 +45,12 @@ enum OrderStatus {
 
 enum PaymentMethod {
   SINPE_MOVIL
+  PARTNER_POS
+}
+
+enum OrderChannel {
+  WEB
+  PARTNER
 }
 
 enum PaymentStatus {
@@ -188,7 +194,7 @@ model ComboPassItem {
 model Customer {
   id        String   @id @default(cuid())
   fullName  String
-  email     String
+  email     String?
   phone     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -227,6 +233,13 @@ model Order {
   customerId           String
   campaignId           String
   reservationSessionId String?     @unique
+  channel              OrderChannel @default(WEB)
+  partnerCode          String?
+  idempotencyKey       String?      @unique
+  externalBancaId      String?
+  externalVentanaId    String?
+  externalSellerId     String?
+  externalSellerName   String?
   status                    OrderStatus @default(PENDING_PAYMENT)
   totalAmount               Int
   sinpeReceiverSnapshotJson Json?
