@@ -314,12 +314,12 @@ Agregar en `AuthService`:
 
 ### Fase 2: `Bancas/backend` (**sin migración Prisma**)
 
-- [ ] Agregar `PREMIATICO_API_URL`, `PREMIATICO_PARTNER_ID`, `PREMIATICO_PARTNER_KEY` en `src/config/env.schema.ts`.
-- [ ] Exponer `premiaticoEnabled` en `AuthService.login` y `AuthController.me` (lotería activa con `rulesJson.isExternalCampaign === true` + `user.settings.premiaticoEnabled`).
-- [ ] Crear helper de resolución de la `Loteria` `"Premiático"` (`rulesJson.isExternalCampaign = true`) y obtención/creación del `Sorteo` asociado a la campaña.
-- [ ] Implementar `/api/v1/premiatico` (`campaigns`, `sales`, `config/banca/:bancaId`, `config/user/:userId`) integrando `VendorCreditService` y `TicketCommissionCalculator`, guardando `Jugada.number` con sus ceros a la izquierda (`2`–`5` dígitos) y la metadata en `Ticket.paymentMethod = 'PREMIATICO_POS'`, `Ticket.paymentNotes` y `Ticket.paymentHistory`.
-- [ ] Excluir la lotería `isExternalCampaign = true` en `DailyNumberSalesService` para no mezclar números de 4–5 dígitos en la exposición de tiempos.
-- [ ] Actualizar `TicketCreationService.create` (bloquear venta directa en `/tickets` para lotería externa) y `TicketOperationsService.cancel` (rechazar `VENDEDOR` con `403`, cancelar en Premiático antes de cancelar localmente).
+- [x] Agregar `PREMIATICO_API_URL`, `PREMIATICO_PARTNER_ID`, `PREMIATICO_PARTNER_KEY` en `src/config/env.schema.ts`.
+- [x] Exponer `premiaticoEnabled` en `AuthService.login` y `AuthController.me` (lotería activa con `rulesJson.isExternalCampaign === true` + `user.settings.premiaticoEnabled`).
+- [x] Crear helper de resolución de la `Loteria` `"Premiático"` (`rulesJson.isExternalCampaign = true`) y obtención/creación del `Sorteo` asociado a la campaña.
+- [x] Implementar `/api/v1/premiatico` (`campaigns`, `sales`, `config/banca/:bancaId`, `config/user/:userId`) integrando `VendorCreditService` y `TicketCommissionCalculator`, guardando `Jugada.number` con sus ceros a la izquierda (`2`–`5` dígitos) y la metadata en `Ticket.paymentMethod = 'PREMIATICO_POS'`, `Ticket.paymentNotes` y `Ticket.paymentHistory`.
+- [x] Excluir la lotería `isExternalCampaign = true` en `DailyNumberSalesService` para no mezclar números de 4–5 dígitos en la exposición de tiempos.
+- [x] Actualizar `TicketCreationService.create` (bloquear venta directa en `/tickets` para lotería externa) y `TicketOperationsService.cancel` (rechazar `VENDEDOR` con `403`, cancelar en Premiático antes de cancelar localmente).
 - [ ] Verificar que `AccountStatement`, `bySorteo`, `evaluated-summary` y `ResumenCierreDiario` reflejan el ticket y su comisión automáticamente sin tocar PL/pgSQL.
 
 ### Fase 3: `Bancas/bancas-admin-app`
