@@ -325,8 +325,8 @@ Agregar en `AuthService`:
 ### Fase 3: `Bancas/bancas-admin-app`
 
 - [ ] Crear la lotería `"Premiático"` y configurar reglas de comisión en `CommissionTab` / `VentanaCommissionTab`.
-- [ ] Agregar switches `premiaticoEnabled` en `app/admin/bancas/[id].tsx` y `app/admin/usuarios/[id].tsx`.
-- [ ] Mostrar referencia `PRM-XXXXXXXX` en detalle/listado de tickets cuando `paymentMethod === 'PREMIATICO_POS'` y verificar anulación desde roles `ADMIN` / `BANCA` / `VENTANA`.
+- [x] Agregar switches `premiaticoEnabled` en `app/admin/bancas/[id].tsx` y `app/admin/usuarios/[id].tsx`.
+- [x] Mostrar referencia `PRM-XXXXXXXX` en detalle/listado de tickets cuando `paymentMethod === 'PREMIATICO_POS'` y verificar anulación desde roles `ADMIN` / `BANCA` / `VENTANA`.
 
 ### Fase 4: `Bancas/native-vendedores` (rama `main`)
 
