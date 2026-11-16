@@ -1,6 +1,12 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
+import { z } from 'zod';
 import { prisma } from '../../core/prisma.js';
 import { requireAdminAuth } from '../../middlewares/authAdmin.js';
+import { cancelOrderTransactional } from '../orders/order-cancel.service.js';
+
+const cancelAdminOrderSchema = z.object({
+  reason: z.string().trim().max(250).optional(),
+});
 
 export const adminDashboardRouter = Router();
 
@@ -144,3 +150,26 @@ adminDashboardRouter.get(
     next(error);
   }
 });
+
+adminDashboardRouter.post(
+  '/orders/:id/cancel',
+  requireAdminAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const orderId = String(req.params.id ?? '').trim();
+      const parsed = cancelAdminOrderSchema.safeParse(req.body ?? {});
+      const reason = parsed.success ? parsed.data.reason : undefined;
+
+      const result = await cancelOrderTransactional({
+        orderId,
+        actorId: req.admin?.id ?? null,
+        reason,
+        auditAction: 'ADMIN_ORDER_CANCELLED',
+      });
+
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+);

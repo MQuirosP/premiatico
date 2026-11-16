@@ -12,6 +12,7 @@ import {
 } from '../chances/chances.service.js';
 import { sendRichOrderEmail } from '../notifications/chance-card.service.js';
 import { hashToken } from '../reservations/reservations.module.js';
+import { cancelOrderTransactional } from '../orders/order-cancel.service.js';
 
 const createPartnerOrderSchema = z.object({
   idempotencyKey: z.string().trim().min(8).max(120),
@@ -476,74 +477,11 @@ partnerRouter.post(
 
       const partnerCode = req.partnerCode!;
 
-      const result = await prisma.$transaction(async (tx) => {
-        const order = await tx.order.findUnique({
-          where: { publicReference },
-          include: {
-            campaign: {
-              select: { id: true, status: true },
-            },
-          },
-        });
-
-        if (!order || order.channel !== 'PARTNER' || order.partnerCode !== partnerCode) {
-          throw new NotFoundError('Orden de partner no encontrada');
-        }
-
-        if (order.status === 'CANCELLED') {
-          return { orderId: order.id, publicReference: order.publicReference, status: order.status };
-        }
-
-        if (order.campaign.status !== 'ACTIVE') {
-          throw new ConflictError('No se puede anular: la campaña ya no está activa');
-        }
-
-        await tx.order.update({
-          where: { id: order.id },
-          data: { status: 'CANCELLED' },
-        });
-
-        await tx.participation.updateMany({
-          where: {
-            orderId: order.id,
-            status: { in: ['RESERVED', 'CONFIRMED'] },
-          },
-          data: {
-            status: 'RELEASED',
-            reservedUntil: null,
-          },
-        });
-
-        await tx.payment.updateMany({
-          where: {
-            orderId: order.id,
-            status: 'APPROVED',
-          },
-          data: {
-            status: 'REJECTED',
-            rejectionReason: parsed.data.reason ?? `Anulado por ${partnerCode}`,
-          },
-        });
-
-        await tx.auditLog.create({
-          data: {
-            action: 'PARTNER_ORDER_CANCELLED',
-            entityType: 'Order',
-            entityId: order.id,
-            metadata: {
-              partnerCode,
-              publicReference: order.publicReference,
-              reason: parsed.data.reason ?? null,
-              cancelledById: parsed.data.cancelledById ?? null,
-            } as Prisma.InputJsonValue,
-          },
-        });
-
-        return {
-          orderId: order.id,
-          publicReference: order.publicReference,
-          status: 'CANCELLED' as const,
-        };
+      const result = await cancelOrderTransactional({
+        publicReference,
+        partnerCode,
+        reason: parsed.data.reason,
+        auditAction: 'PARTNER_ORDER_CANCELLED',
       });
 
       res.status(200).json({

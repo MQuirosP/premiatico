@@ -83,10 +83,12 @@ export interface AdminCampaignDetail extends AdminCampaign {
   orders: Array<{
     id: string;
     publicReference: string;
+    channel?: 'WEB' | 'PARTNER';
+    partnerCode?: string | null;
     status: string;
     totalAmount: number;
     createdAt: string;
-    customer: { id: string; fullName: string; email: string; phone: string };
+    customer: { id: string; fullName: string; email: string | null; phone: string };
     items: Array<{
       comboNameSnapshot: string;
       passQuantitySnapshot: number;
@@ -101,6 +103,19 @@ export async function getAdminCampaignDetail(id: string): Promise<AdminCampaignD
     `/admin/campaigns/${encodeURIComponent(id)}`,
   );
   return res.campaign;
+}
+
+export async function cancelAdminOrder(
+  orderId: string,
+  reason?: string,
+): Promise<{ orderId: string; publicReference: string; status: 'CANCELLED' }> {
+  return apiRequest<{ orderId: string; publicReference: string; status: 'CANCELLED' }>(
+    `/admin/orders/${encodeURIComponent(orderId)}/cancel`,
+    {
+      method: 'POST',
+      body: JSON.stringify(reason ? { reason } : {}),
+    },
+  );
 }
 
 export async function createAdminCampaign(payload: {
