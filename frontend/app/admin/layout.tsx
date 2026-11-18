@@ -17,6 +17,7 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
+import { AdminShellSkeleton } from '@/components/ui/skeleton';
 import { getAdminMeRequest, logoutAdminRequest } from '@/services/auth';
 
 const navItems = [
@@ -76,11 +77,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   if (isLoading || !data) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-sm text-slate-500">
-        Verificando sesión administrativa...
-      </div>
-    );
+    return <AdminShellSkeleton />;
   }
 
   const renderNavLinks = (onNavigate?: () => void) =>

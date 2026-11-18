@@ -1,9 +1,21 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, CheckCircle2, Copy, Save, Smartphone } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Copy,
+  Monitor,
+  Moon,
+  Save,
+  Smartphone,
+  Sun,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTheme } from '@/components/theme-provider';
+import { FormSkeleton } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api';
+import type { ThemePreference } from '@/lib/theme';
 import {
   getAdminPaymentSettingsRequest,
   updateAdminPaymentSettingsRequest,
@@ -17,8 +29,35 @@ function formatSinpePhone(phone: string): string {
   return phone || '8888-7777';
 }
 
+const THEME_OPTIONS: Array<{
+  value: ThemePreference;
+  label: string;
+  description: string;
+  icon: typeof Sun;
+}> = [
+  {
+    value: 'light',
+    label: 'Claro',
+    description: 'Fondo luminoso ideal para ambientes con mucha luz.',
+    icon: Sun,
+  },
+  {
+    value: 'dark',
+    label: 'Oscuro',
+    description: 'Reduce el brillo y descansa la vista en poca luz.',
+    icon: Moon,
+  },
+  {
+    value: 'system',
+    label: 'Sistema / Navegador',
+    description: 'Sigue automáticamente la preferencia de tu dispositivo.',
+    icon: Monitor,
+  },
+];
+
 export default function AdminConfiguracionPage() {
   const queryClient = useQueryClient();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const [sinpePhone, setSinpePhone] = useState('');
   const [sinpeHolderName, setSinpeHolderName] = useState('');
   const [sinpeBankName, setSinpeBankName] = useState('');
@@ -55,18 +94,66 @@ export default function AdminConfiguracionPage() {
   });
 
   if (isLoading) {
-    return <div className="text-sm text-slate-500">Cargando configuración de pagos...</div>;
+    return <FormSkeleton />;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">Configuración de pagos SINPE</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900">Configuración</h1>
         <p className="text-sm text-slate-500">
-          Administrá la cuenta receptora de SINPE Móvil que verán los compradores al finalizar su
-          compra. Cada cambio queda registrado en auditoría.
+          Administrá la apariencia del sitio y la cuenta receptora de SINPE Móvil.
         </p>
       </div>
+
+      {/* Apariencia y tema */}
+      <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Apariencia del sitio</h2>
+            <p className="text-xs text-slate-500">
+              Elegí el tema visual para todo Premiático (Panel administrativo y portal público) en este navegador.
+            </p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+            Activo: {resolvedTheme === 'dark' ? 'Oscuro' : 'Claro'}
+          </span>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {THEME_OPTIONS.map((opt) => {
+            const Icon = opt.icon;
+            const selected = theme === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setTheme(opt.value)}
+                aria-pressed={selected}
+                className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                  selected
+                    ? 'border-blue-500 bg-blue-50/70 ring-2 ring-blue-500/20 dark:border-blue-500 dark:bg-blue-950/50'
+                    : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50 dark:border-slate-700 dark:hover:border-blue-700 dark:hover:bg-slate-800/60'
+                }`}
+              >
+                <span
+                  className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                    selected
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-slate-900">{opt.label}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{opt.description}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
       {savedMsg ? (
         <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">

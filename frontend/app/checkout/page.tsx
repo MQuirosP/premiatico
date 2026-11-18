@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { SinpePaymentStep } from '@/components/checkout/sinpe-payment-step';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
+import { DetailSkeleton, Skeleton } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api';
 import { formatCRC } from '@/lib/utils';
 import {
@@ -417,8 +418,13 @@ function CheckoutContent() {
                 </div>
 
                 {reserveMutation.isPending || !session ? (
-                  <div className="py-8 text-center text-sm text-slate-500">
-                    Cargando tu reserva...
+                  <div className="py-6 space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Skeleton key={i} className="h-9 w-16 rounded-xl" />
+                      ))}
+                    </div>
+                    <Skeleton className="h-4 w-48" />
                   </div>
                 ) : isSessionExpired ? (
                   <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-center space-y-3">
@@ -583,8 +589,8 @@ export default function CheckoutPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">
-          Cargando checkout...
+        <div className="mx-auto max-w-5xl px-4 py-10">
+          <DetailSkeleton />
         </div>
       }
     >

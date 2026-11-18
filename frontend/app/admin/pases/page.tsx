@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, Plus, Sparkles, Ticket, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { TableSkeleton } from '@/components/ui/skeleton';
 import { API_BASE_URL, ApiError, getAdminSessionToken } from '@/lib/api';
 import {
   deleteAdminPass,
@@ -162,7 +163,7 @@ export default function AdminPassesPage() {
 
       <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="p-6 text-sm text-slate-500">Cargando plantillas...</div>
+          <TableSkeleton rows={4} columns={4} />
         ) : !passes || passes.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-500">
             <Ticket className="h-8 w-8 mx-auto mb-2 text-slate-400" />

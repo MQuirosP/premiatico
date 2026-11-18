@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useMemo, useState } from 'react';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
+import { DetailSkeleton } from '@/components/ui/skeleton';
 import {
   getPublicOrderRequest,
   lookupPublicOrdersByCustomerRequest,
@@ -291,8 +292,8 @@ export default function PedidoPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">
-          Cargando...
+        <div className="mx-auto max-w-4xl px-4 py-10">
+          <DetailSkeleton />
         </div>
       }
     >

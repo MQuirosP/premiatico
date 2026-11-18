@@ -2,9 +2,10 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Eye, Search, X, XCircle } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ProofReviewModal } from '@/components/admin/proof-review-modal';
 import { FichasModal, type FichasModalEntry } from '@/components/fichas-modal';
+import { TableSkeleton } from '@/components/ui/skeleton';
 import { apiRequest, ApiError } from '@/lib/api';
 import { formatCRC } from '@/lib/utils';
 import { cancelAdminOrder } from '@/services/campaigns';
@@ -37,10 +38,27 @@ const STATUS_BADGES: Record<string, { label: string; className: string }> = {
   REJECTED: { label: 'Rechazado', className: 'bg-red-100 text-red-700' },
 };
 
+const VALID_STATUS_FILTERS = new Set([
+  'UNDER_REVIEW',
+  'PENDING',
+  'APPROVED',
+  'REJECTED',
+  'CANCELLED',
+  'ALL',
+]);
+
 export default function AdminPedidosPage() {
   const queryClient = useQueryClient();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('UNDER_REVIEW');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const param = new URLSearchParams(window.location.search).get('status');
+    if (param && VALID_STATUS_FILTERS.has(param)) {
+      setStatusFilter(param);
+    }
+  }, []);
   const [campaignFilter, setCampaignFilter] = useState<string>('ACTIVE_ONLY');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [orderToCancel, setOrderToCancel] = useState<{
@@ -216,7 +234,7 @@ export default function AdminPedidosPage() {
 
       <div className="rounded-xl border bg-white shadow-sm">
         {isLoading ? (
-          <div className="p-6 text-sm text-slate-500">Cargando pagos...</div>
+          <TableSkeleton rows={6} columns={7} />
         ) : filteredPayments.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-500">
             No hay pagos que coincidan con los filtros seleccionados.

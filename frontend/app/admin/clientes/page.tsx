@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Eye } from 'lucide-react';
 import { useState } from 'react';
 import { FichasModal, type FichasModalEntry } from '@/components/fichas-modal';
+import { TableSkeleton } from '@/components/ui/skeleton';
 import { apiRequest } from '@/lib/api';
 
 interface CustomerOrderRow {
@@ -46,7 +47,7 @@ export default function AdminClientesPage() {
 
       <div className="rounded-xl border bg-white shadow-sm">
         {isLoading ? (
-          <div className="p-6 text-sm text-slate-500">Cargando clientes...</div>
+          <TableSkeleton rows={5} columns={4} />
         ) : !data || data.customers.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-500">
             No hay clientes registrados aún.

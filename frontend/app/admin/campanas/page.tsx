@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CheckCircle2,
+  Eye,
   PauseCircle,
   Plus,
   ShieldCheck,
@@ -14,6 +15,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { CampaignCombosPanel } from '@/components/admin/campaign-combos-panel';
 import { CampaignCreateForm } from '@/components/admin/campaign-create-form';
+import { TableSkeleton } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api';
 import {
   closeAdminCampaign,
@@ -29,6 +31,35 @@ import {
   uploadAdminCampaignCover,
 } from '@/services/campaigns';
 import type { AdminCampaign } from '@/types/campaign';
+
+const CAMPAIGN_STATUS_META: Record<string, { label: string; className: string }> = {
+  DRAFT: { label: 'Borrador', className: 'bg-slate-100 text-slate-700' },
+  ACTIVE: { label: 'Activa', className: 'bg-emerald-100 text-emerald-800' },
+  PAUSED: { label: 'Pausada', className: 'bg-amber-100 text-amber-800' },
+  CLOSED: { label: 'Cerrada', className: 'bg-slate-200 text-slate-800' },
+  COMPLETED: { label: 'Completada', className: 'bg-blue-100 text-blue-800' },
+  CANCELLED: { label: 'Cancelada', className: 'bg-red-100 text-red-700' },
+};
+
+const LEGAL_STATUS_META: Record<string, { label: string; className: string }> = {
+  PENDING: { label: 'Pendiente', className: 'bg-amber-50 text-amber-700 border-amber-200' },
+  APPROVED: { label: 'Aprobada', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  REJECTED: { label: 'Rechazada', className: 'bg-red-50 text-red-700 border-red-200' },
+  NOT_REQUIRED: { label: 'No requerida', className: 'bg-slate-50 text-slate-600 border-slate-200' },
+};
+
+function getCampaignStatusBadge(status: string) {
+  return CAMPAIGN_STATUS_META[status] ?? { label: status, className: 'bg-slate-100 text-slate-700' };
+}
+
+function getLegalStatusBadge(status: string) {
+  return (
+    LEGAL_STATUS_META[status] ?? {
+      label: status,
+      className: 'bg-slate-50 text-slate-600 border-slate-200',
+    }
+  );
+}
 
 export default function AdminCampaignsPage() {
   const queryClient = useQueryClient();
@@ -206,9 +237,12 @@ export default function AdminCampaignsPage() {
         </button>
       )}
       {isClosed && (
-        <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500">
-          Solo lectura
-        </span>
+        <Link
+          href={`/admin/campanas/detalle?id=${encodeURIComponent(c.id)}`}
+          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+        >
+          <Eye className="h-3.5 w-3.5" /> Ver detalle
+        </Link>
       )}
     </div>
     );
@@ -251,7 +285,7 @@ export default function AdminCampaignsPage() {
 
       <div className="rounded-xl border bg-white shadow-sm">
         {isLoading ? (
-          <div className="p-6 text-sm text-slate-500">Cargando campañas...</div>
+          <TableSkeleton rows={5} columns={5} />
         ) : !campaigns || campaigns.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-500">
             No hay campañas registradas todavía.
@@ -260,7 +294,10 @@ export default function AdminCampaignsPage() {
           <>
             {/* Vista móvil en cards */}
             <div className="divide-y sm:hidden">
-              {campaigns.map((c) => (
+              {campaigns.map((c) => {
+                const statusBadge = getCampaignStatusBadge(c.status);
+                const legalBadge = getLegalStatusBadge(c.legalApprovalStatus);
+                return (
                 <div key={c.id} className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -272,19 +309,26 @@ export default function AdminCampaignsPage() {
                       </Link>
                       <div className="text-xs text-slate-500">/{c.slug}</div>
                     </div>
-                    <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold">
-                      {c.status}
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadge.className}`}
+                    >
+                      {statusBadge.label}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs text-slate-600">
-                    <span>Legal: {c.legalApprovalStatus}</span>
+                    <span
+                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${legalBadge.className}`}
+                    >
+                      Legal: {legalBadge.label}
+                    </span>
                     <span>
                       {c.progress.confirmedFichas}/{c.totalFichas} ({c.progress.soldPercentage}%)
                     </span>
                   </div>
                   <div className="pt-1 flex justify-start">{renderActions(c)}</div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Vista desktop en tabla */}
@@ -300,7 +344,10 @@ export default function AdminCampaignsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {campaigns.map((c) => (
+                  {campaigns.map((c) => {
+                    const statusBadge = getCampaignStatusBadge(c.status);
+                    const legalBadge = getLegalStatusBadge(c.legalApprovalStatus);
+                    return (
                     <tr key={c.id}>
                       <td className="px-4 py-3">
                         <Link
@@ -312,17 +359,26 @@ export default function AdminCampaignsPage() {
                         <div className="text-xs text-slate-500">/{c.slug}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold">
-                          {c.status}
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadge.className}`}
+                        >
+                          {statusBadge.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs">{c.legalApprovalStatus}</td>
+                      <td className="px-4 py-3 text-xs">
+                        <span
+                          className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${legalBadge.className}`}
+                        >
+                          {legalBadge.label}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-xs whitespace-nowrap">
                         {c.progress.confirmedFichas}/{c.totalFichas} ({c.progress.soldPercentage}%)
                       </td>
                       <td className="px-4 py-3 text-right">{renderActions(c)}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

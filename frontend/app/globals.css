@@ -24,7 +24,83 @@
     --radius: 0.75rem;
   }
 
+  .dark {
+    --background: 222.2 47.4% 6.5%;
+    --foreground: 210 40% 96%;
+    --card: 222.2 42% 10.5%;
+    --card-foreground: 210 40% 96%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 16%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 217.2 32.6% 16%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 43 96% 56%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 72.2% 50.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 20%;
+    --input: 217.2 32.6% 22%;
+    --ring: 217.2 91.2% 59.8%;
+  }
+
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground antialiased transition-colors duration-150;
+  }
+}
+
+/* Adaptación global de superficies, bordes y textos para modo oscuro sin romper estilos explícitos */
+@layer utilities {
+  :where(.dark) .bg-white {
+    background-color: rgb(15 23 42);
+  }
+  :where(.dark) .bg-white\/95 {
+    background-color: rgb(15 23 42 / 0.92);
+  }
+  :where(.dark) .bg-slate-50 {
+    background-color: rgb(10 15 28);
+  }
+  :where(.dark) .bg-slate-50\/80 {
+    background-color: rgb(30 41 59 / 0.7);
+  }
+  :where(.dark) .bg-slate-100 {
+    background-color: rgb(30 41 59);
+  }
+  :where(.dark) .text-slate-900 {
+    color: rgb(241 245 249);
+  }
+  :where(.dark) .text-slate-800 {
+    color: rgb(226 232 240);
+  }
+  :where(.dark) .text-slate-700 {
+    color: rgb(203 213 225);
+  }
+  :where(.dark) .text-slate-600 {
+    color: rgb(148 163 184);
+  }
+  :where(.dark) .text-slate-500 {
+    color: rgb(148 163 184);
+  }
+  :where(.dark) .border,
+  :where(.dark) .border-slate-200,
+  :where(.dark) .border-slate-300 {
+    border-color: rgb(51 65 85);
+  }
+  :where(.dark) .divide-y > :not([hidden]) ~ :not([hidden]),
+  :where(.dark) .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+    border-color: rgb(30 41 59);
+  }
+  :where(.dark) input:not([type='checkbox']):not([type='radio']),
+  :where(.dark) select,
+  :where(.dark) textarea {
+    background-color: rgb(15 23 42);
+    color: rgb(241 245 249);
+    border-color: rgb(51 65 85);
+  }
+  :where(.dark) .hover\:bg-slate-50:hover {
+    background-color: rgb(30 41 59 / 0.7);
+  }
+  :where(.dark) .hover\:bg-slate-100:hover {
+    background-color: rgb(30 41 59);
   }
 }

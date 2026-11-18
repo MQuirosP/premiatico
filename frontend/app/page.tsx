@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { CampaignProgressBar } from '@/components/campaign-progress';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
+import { CardGridSkeleton } from '@/components/ui/skeleton';
 import { formatCRC } from '@/lib/utils';
 import { listPublicCampaigns } from '@/services/campaigns';
 
@@ -40,11 +41,7 @@ export default function HomePage() {
           </div>
 
           {isLoading ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {[1, 2, 3].map((n) => (
-                <div key={n} className="h-72 animate-pulse rounded-2xl border bg-white p-5" />
-              ))}
-            </div>
+            <CardGridSkeleton count={3} />
           ) : isError ? (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
               No pudimos cargar las campañas en este momento. Intentá recargar en unos segundos.

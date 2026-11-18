@@ -9,6 +9,7 @@ import { CampaignPrizesPanel } from '@/components/admin/campaign-prizes-panel';
 import { CampaignThemePicker } from '@/components/admin/campaign-theme-picker';
 import { CampaignProgressBar } from '@/components/campaign-progress';
 import { FichasModal, type FichasModalEntry } from '@/components/fichas-modal';
+import { DetailSkeleton } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api';
 import { formatCRC } from '@/lib/utils';
 import { cancelAdminOrder, evaluateAdminCampaignWinner, getAdminCampaignDetail, updateAdminCampaign, type CampaignWinnerResult } from '@/services/campaigns';
@@ -108,7 +109,7 @@ function CampaignDetailInner() {
   }
 
   if (isLoading) {
-    return <div className="text-sm text-slate-500">Cargando detalles de la campaña...</div>;
+    return <DetailSkeleton />;
   }
 
   if (isError || !campaign) {
@@ -737,7 +738,7 @@ function CampaignDetailInner() {
 
 export default function AdminCampaignDetailPage() {
   return (
-    <Suspense fallback={<div className="text-sm text-slate-500">Cargando...</div>}>
+    <Suspense fallback={<DetailSkeleton />}>
       <CampaignDetailInner />
     </Suspense>
   );

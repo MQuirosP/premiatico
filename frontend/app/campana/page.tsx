@@ -11,6 +11,7 @@ import { ComboSelector } from '@/components/combo-selector';
 import { PackageFichasModal } from '@/components/package-fichas-modal';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
+import { DetailSkeleton } from '@/components/ui/skeleton';
 import { getCampaignTheme } from '@/lib/campaign-themes';
 import { formatCRC } from '@/lib/utils';
 import { getPublicCampaignBySlug } from '@/services/campaigns';
@@ -41,8 +42,8 @@ function CampaignDetailContent() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-16 text-center text-slate-500">
-        Cargando campaña...
+      <div className="mx-auto max-w-5xl px-4 py-10">
+        <DetailSkeleton />
       </div>
     );
   }
@@ -199,8 +200,8 @@ export default function CampaignPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">
-          Cargando...
+        <div className="mx-auto max-w-5xl px-4 py-10">
+          <DetailSkeleton />
         </div>
       }
     >

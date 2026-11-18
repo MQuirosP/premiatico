@@ -15,8 +15,12 @@ adminDashboardRouter.get(
   requireAdminAuth,
   async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    // Costa Rica (America/Costa_Rica) es UTC-6 sin horario de verano.
+    const crOffsetMs = 6 * 60 * 60 * 1000;
+    const nowCr = new Date(Date.now() - crOffsetMs);
+    const startOfToday = new Date(
+      Date.UTC(nowCr.getUTCFullYear(), nowCr.getUTCMonth(), nowCr.getUTCDate()) + crOffsetMs,
+    );
 
     const [
       activeCampaigns,
@@ -26,13 +30,27 @@ adminDashboardRouter.get(
       confirmedFichas,
     ] = await Promise.all([
       prisma.campaign.count({ where: { status: 'ACTIVE' } }),
-      prisma.order.count({ where: { createdAt: { gte: startOfToday } } }),
+      prisma.order.count({
+        where: {
+          createdAt: { gte: startOfToday },
+          status: { notIn: ['CANCELLED', 'EXPIRED'] },
+          campaign: { status: 'ACTIVE' },
+        },
+      }),
       prisma.order.aggregate({
-        where: { status: 'CONFIRMED' },
+        where: {
+          status: 'CONFIRMED',
+          campaign: { status: 'ACTIVE' },
+        },
         _sum: { totalAmount: true },
       }),
       prisma.payment.count({ where: { status: 'UNDER_REVIEW' } }),
-      prisma.participation.count({ where: { status: 'CONFIRMED' } }),
+      prisma.participation.count({
+        where: {
+          status: 'CONFIRMED',
+          campaign: { status: 'ACTIVE' },
+        },
+      }),
     ]);
 
     res.status(200).json({
