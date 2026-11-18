@@ -240,14 +240,16 @@ export function CampaignPrizesPanel({
             <span className="font-mono">{maxNumberLabel}</span>).
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowAddForm((v) => !v)}
-          className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-700 whitespace-nowrap"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Agregar premios / sorteos
-        </button>
+        {canDelete ? (
+          <button
+            type="button"
+            onClick={() => setShowAddForm((v) => !v)}
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-700 whitespace-nowrap"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Agregar premios / sorteos
+          </button>
+        ) : null}
       </div>
 
       {errorMsg ? (

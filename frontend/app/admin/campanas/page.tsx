@@ -143,27 +143,31 @@ export default function AdminCampaignsPage() {
     },
   });
 
-  const renderActions = (c: AdminCampaign) => (
-    <div className="flex flex-wrap items-center justify-end gap-1.5">
-      {c.legalApprovalStatus !== 'APPROVED' && (
-        <button
-          type="button"
-          onClick={() => {
-            setLegalCampaignId(c.id);
-            setLegalRef(c.legalApprovalReference ?? '');
-          }}
-          className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
-        >
-          <ShieldCheck className="h-3.5 w-3.5" /> Aprobar legal
-        </button>
-      )}
-      <button
-        type="button"
-        onClick={() => setComboCampaignId(c.id)}
-        className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"
-      >
-        <Ticket className="h-3.5 w-3.5" /> + Combo
-      </button>
+  const renderActions = (c: AdminCampaign) => {
+    const isClosed = c.status === 'CLOSED' || c.status === 'COMPLETED';
+    return (
+      <div className="flex flex-wrap items-center justify-end gap-1.5">
+        {!isClosed && c.legalApprovalStatus !== 'APPROVED' && (
+          <button
+            type="button"
+            onClick={() => {
+              setLegalCampaignId(c.id);
+              setLegalRef(c.legalApprovalReference ?? '');
+            }}
+            className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+          >
+            <ShieldCheck className="h-3.5 w-3.5" /> Aprobar legal
+          </button>
+        )}
+        {!isClosed && (
+          <button
+            type="button"
+            onClick={() => setComboCampaignId(c.id)}
+            className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+          >
+            <Ticket className="h-3.5 w-3.5" /> + Combo
+          </button>
+        )}
       {(c.status === 'DRAFT' || c.status === 'PAUSED') && (
         <button
           type="button"
@@ -192,7 +196,7 @@ export default function AdminCampaignsPage() {
           <Trash2 className="h-3.5 w-3.5" /> Eliminar
         </button>
       )}
-      {c.status !== 'DRAFT' && c.status !== 'CLOSED' && c.status !== 'COMPLETED' && (
+      {c.status !== 'DRAFT' && !isClosed && (
         <button
           type="button"
           onClick={() => transitionMutation.mutate({ id: c.id, action: 'close' })}
@@ -201,8 +205,14 @@ export default function AdminCampaignsPage() {
           <XCircle className="h-3.5 w-3.5" /> Cerrar
         </button>
       )}
+      {isClosed && (
+        <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500">
+          Solo lectura
+        </span>
+      )}
     </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-6">

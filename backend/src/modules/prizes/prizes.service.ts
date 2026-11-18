@@ -18,10 +18,13 @@ export async function createCampaignPrizes(
 ) {
   const campaign = await prisma.campaign.findUnique({
     where: { id: input.campaignId },
-    select: { id: true, _count: { select: { prizes: true } } },
+    select: { id: true, status: true, _count: { select: { prizes: true } } },
   });
   if (!campaign) {
     throw new NotFoundError('Campaña no encontrada');
+  }
+  if (campaign.status === 'CLOSED' || campaign.status === 'COMPLETED') {
+    throw new ConflictError('No se pueden agregar premios a una campaña cerrada o completada');
   }
 
   const quantity = input.quantity ?? 1;
@@ -71,9 +74,15 @@ export async function updateCampaignPrize(
   input: z.infer<typeof updatePrizeSchema>,
   actorId: string,
 ) {
-  const existing = await prisma.campaignPrize.findUnique({ where: { id } });
+  const existing = await prisma.campaignPrize.findUnique({
+    where: { id },
+    include: { campaign: { select: { status: true } } },
+  });
   if (!existing) {
     throw new NotFoundError('Premio no encontrado');
+  }
+  if (existing.campaign.status === 'CLOSED' || existing.campaign.status === 'COMPLETED') {
+    throw new ConflictError('No se pueden editar premios de una campaña cerrada o completada');
   }
 
   const prize = await prisma.campaignPrize.update({
