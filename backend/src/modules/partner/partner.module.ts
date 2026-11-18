@@ -19,6 +19,8 @@ const createPartnerOrderSchema = z.object({
   campaignId: z.string().trim().min(1),
   comboId: z.string().trim().min(1),
   quantity: z.coerce.number().int().min(1).max(10).default(1),
+  selectionMode: z.enum(['RANDOM', 'MANUAL']).optional().default('RANDOM'),
+  selectedNumbers: z.array(z.string().trim().min(1).max(5)).optional(),
   includeInverse: z.boolean().optional().default(false),
   customer: z.object({
     fullName: z.string().trim().min(2).max(120),
@@ -46,6 +48,76 @@ function generatePublicReference(): string {
 function buildTrackingUrl(publicReference: string, accessToken: string): string {
   const baseUrl = (env.FRONTEND_URL ?? 'https://premiatico.mquirosp78.workers.dev').replace(/\/$/, '');
   return `${baseUrl}/pedido?ref=${encodeURIComponent(publicReference)}&token=${encodeURIComponent(accessToken)}`;
+}
+
+async function allocateManualNumbers(params: {
+  tx: Prisma.TransactionClient;
+  campaignId: string;
+  totalFichas: number;
+  expectedQuantity: number;
+  selectedNumbers?: string[];
+  orderId: string;
+  now: Date;
+}): Promise<string[]> {
+  const digits = getCampaignNumberDigits(params.totalFichas);
+  const maxNumberLabel = String(Math.max(0, params.totalFichas - 1)).padStart(digits, '0');
+  const rawList = params.selectedNumbers ?? [];
+
+  if (rawList.length !== params.expectedQuantity) {
+    throw new ValidationError(
+      `Debés indicar exactamente ${params.expectedQuantity} número(s) para este combo`,
+    );
+  }
+
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const raw of rawList) {
+    if (!/^\d+$/.test(raw)) {
+      throw new ValidationError(
+        `El número "${raw}" no es válido. Ingresá solo dígitos (${'0'.repeat(digits)} - ${maxNumberLabel})`,
+      );
+    }
+    const numValue = Number.parseInt(raw, 10);
+    if (!Number.isInteger(numValue) || numValue < 0 || numValue >= params.totalFichas) {
+      throw new ValidationError(
+        `El número "${raw}" está fuera del rango permitido (${'0'.repeat(digits)} - ${maxNumberLabel})`,
+      );
+    }
+    const padded = String(numValue).padStart(digits, '0');
+    if (seen.has(padded)) {
+      throw new ValidationError(`No podés repetir números en la misma orden (duplicado: ${padded})`);
+    }
+    seen.add(padded);
+    normalized.push(padded);
+  }
+
+  const occupied = await params.tx.participation.findMany({
+    where: {
+      campaignId: params.campaignId,
+      number: { in: normalized },
+      status: { in: ['RESERVED', 'CONFIRMED'] },
+    },
+    select: { number: true },
+  });
+
+  if (occupied.length > 0) {
+    const takenList = occupied.map((o) => o.number).sort().join(', ');
+    throw new ConflictError(
+      `Los siguientes números ya no están disponibles: ${takenList}. Elegí otros o usá asignación automática.`,
+    );
+  }
+
+  await params.tx.participation.createMany({
+    data: normalized.map((number) => ({
+      campaignId: params.campaignId,
+      orderId: params.orderId,
+      number,
+      status: 'CONFIRMED',
+      confirmedAt: params.now,
+    })),
+  });
+
+  return [...normalized].sort();
 }
 
 export const partnerRouter = Router();
@@ -308,15 +380,26 @@ partnerRouter.post(
         let assignedNumbers: string[];
         if (applyInverse) {
           const baseQuantity = combo.fichaQuantity * input.quantity;
-          const baseNumbers = await allocateRandomNumbers({
-            tx,
-            campaignId: campaign.id,
-            totalFichas: campaign.totalFichas,
-            quantity: baseQuantity,
-            orderId: order.id,
-            status: 'CONFIRMED',
-            confirmedAt: now,
-          });
+          const baseNumbers =
+            input.selectionMode === 'MANUAL'
+              ? await allocateManualNumbers({
+                  tx,
+                  campaignId: campaign.id,
+                  totalFichas: campaign.totalFichas,
+                  expectedQuantity: baseQuantity,
+                  selectedNumbers: input.selectedNumbers,
+                  orderId: order.id,
+                  now,
+                })
+              : await allocateRandomNumbers({
+                  tx,
+                  campaignId: campaign.id,
+                  totalFichas: campaign.totalFichas,
+                  quantity: baseQuantity,
+                  orderId: order.id,
+                  status: 'CONFIRMED',
+                  confirmedAt: now,
+                });
 
           const seedNumber = baseNumbers[0];
           const extraExclude = new Set<string>(baseNumbers);
@@ -383,15 +466,26 @@ partnerRouter.post(
             assignedNumbers = [...baseNumbers, ...extraNumbers].sort();
           }
         } else {
-          assignedNumbers = await allocateRandomNumbers({
-            tx,
-            campaignId: campaign.id,
-            totalFichas: campaign.totalFichas,
-            quantity: totalFichasToAssign,
-            orderId: order.id,
-            status: 'CONFIRMED',
-            confirmedAt: now,
-          });
+          assignedNumbers =
+            input.selectionMode === 'MANUAL'
+              ? await allocateManualNumbers({
+                  tx,
+                  campaignId: campaign.id,
+                  totalFichas: campaign.totalFichas,
+                  expectedQuantity: totalFichasToAssign,
+                  selectedNumbers: input.selectedNumbers,
+                  orderId: order.id,
+                  now,
+                })
+              : await allocateRandomNumbers({
+                  tx,
+                  campaignId: campaign.id,
+                  totalFichas: campaign.totalFichas,
+                  quantity: totalFichasToAssign,
+                  orderId: order.id,
+                  status: 'CONFIRMED',
+                  confirmedAt: now,
+                });
         }
 
         await tx.auditLog.create({
