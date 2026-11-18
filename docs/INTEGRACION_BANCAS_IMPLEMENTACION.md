@@ -331,8 +331,8 @@ Agregar en `AuthService`:
 
 ### Fase 4: `Bancas/native-vendedores` (rama `main`)
 
-- [ ] Ampliar `IdempotencyInterceptor.kt` (L14) para cubrir `POST .../premiatico/sales`.
-- [ ] Agregar DTOs y endpoints Premiático en `ApiClient.kt` (`AuthService`).
-- [ ] Filtrar loterías con `isExternalCampaign == true` en `CreateTicketScreen` y ocultar anulación en tickets con `paymentMethod == "PREMIATICO_POS"`.
-- [ ] Implementar `Screen.PREMIATICO_SALE` en `MainActivity.kt` (L70, L405–600, L678–683), impresión ESC/POS (`TicketFormatter.kt`) y compartir por WhatsApp (`TicketReceiptImageSharer.kt`).
+- [x] Ampliar `IdempotencyInterceptor.kt` (L14) para cubrir `POST .../premiatico/sales`.
+- [x] Agregar DTOs y endpoints Premiático en `ApiClient.kt` (`AuthService`).
+- [x] Filtrar loterías con `isExternalCampaign == true` en `CreateTicketScreen` y ocultar anulación en tickets con `paymentMethod == "PREMIATICO_POS"`.
+- [x] Implementar `Screen.PREMIATICO_SALE` en `MainActivity.kt` (L70, L405–600, L678–683), impresión ESC/POS (`TicketFormatter.kt`) y compartir por WhatsApp (`TicketReceiptImageSharer.kt`).
 - [ ] Probar flujo E2E en terminal física: venta -> impresión -> WhatsApp -> verificación en `AccountStatement` / `bySorteo` / `evaluated-summary` -> anulación por `VENTANA`/`ADMIN` -> liberación de números en Premiático.
