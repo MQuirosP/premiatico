@@ -6,15 +6,26 @@ import { sendOrderNotification } from '../notifications/notifications.service.js
 import { getSignedDownloadUrl } from '../storage/storage.service.js';
 
 export async function listAdminPayments(statusFilter?: string) {
+  let where: any = undefined;
+  if (statusFilter === 'APPROVED') {
+    where = { status: 'APPROVED', order: { status: 'CONFIRMED' } };
+  } else if (statusFilter === 'CANCELLED') {
+    where = { order: { status: 'CANCELLED' } };
+  } else if (statusFilter === 'REJECTED') {
+    where = { status: 'REJECTED', order: { status: { not: 'CANCELLED' } } };
+  } else if (statusFilter) {
+    where = { status: statusFilter as never };
+  }
+
   const payments = await prisma.payment.findMany({
-    where: statusFilter ? { status: statusFilter as never } : undefined,
+    where,
     orderBy: { createdAt: 'desc' },
     take: 100,
     include: {
       order: {
         include: {
           customer: { select: { fullName: true, email: true, phone: true } },
-          campaign: { select: { title: true, slug: true } },
+          campaign: { select: { title: true, slug: true, status: true } },
           items: { select: { comboNameSnapshot: true, fichaQuantitySnapshot: true } },
           participations: {
             where: { status: { in: ['RESERVED', 'CONFIRMED'] } },

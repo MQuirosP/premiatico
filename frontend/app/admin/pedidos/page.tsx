@@ -1,23 +1,29 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Eye, Search, X } from 'lucide-react';
+import { Check, Eye, Search, X, XCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ProofReviewModal } from '@/components/admin/proof-review-modal';
 import { FichasModal, type FichasModalEntry } from '@/components/fichas-modal';
 import { apiRequest, ApiError } from '@/lib/api';
 import { formatCRC } from '@/lib/utils';
+import { cancelAdminOrder } from '@/services/campaigns';
 
 interface AdminPaymentRow {
   id: string;
   amount: number;
   status: string;
+  method?: string;
+  rejectionReason?: string | null;
   createdAt: string;
   order: {
+    id: string;
     publicReference: string;
     status: string;
-    customer: { fullName: string; email: string; phone: string };
-    campaign: { title: string; slug: string };
+    channel?: 'WEB' | 'PARTNER';
+    partnerCode?: string | null;
+    customer: { fullName: string; email: string | null; phone: string };
+    campaign: { title: string; slug: string; status?: string };
     items?: Array<{ comboNameSnapshot: string; fichaQuantitySnapshot: number }>;
     participations?: Array<{ number: string; status: string }>;
   };
@@ -36,7 +42,17 @@ export default function AdminPedidosPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('UNDER_REVIEW');
   const [campaignFilter, setCampaignFilter] = useState<string>('ALL');
+  const [onlyActiveCampaigns, setOnlyActiveCampaigns] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [orderToCancel, setOrderToCancel] = useState<{
+    id: string;
+    publicReference: string;
+    channel?: 'WEB' | 'PARTNER';
+    partnerCode?: string | null;
+    customerName: string;
+  } | null>(null);
+  const [cancelReason, setCancelReason] = useState<string>('');
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [selectedProof, setSelectedProof] = useState<{
     payment: AdminPaymentRow;
     url: string;
@@ -69,16 +85,34 @@ export default function AdminPedidosPage() {
     const list = data?.payments ?? [];
     const q = searchTerm.trim().toLowerCase();
     return list.filter((p) => {
+      if (onlyActiveCampaigns && p.order.campaign.status && p.order.campaign.status !== 'ACTIVE') {
+        return false;
+      }
       if (campaignFilter !== 'ALL' && p.order.campaign.slug !== campaignFilter) return false;
       if (!q) return true;
       return (
         p.order.publicReference.toLowerCase().includes(q) ||
         p.order.customer.fullName.toLowerCase().includes(q) ||
         p.order.customer.phone.toLowerCase().includes(q) ||
-        p.order.customer.email.toLowerCase().includes(q)
+        (p.order.customer.email ?? '').toLowerCase().includes(q)
       );
     });
-  }, [data?.payments, campaignFilter, searchTerm]);
+  }, [data?.payments, onlyActiveCampaigns, campaignFilter, searchTerm]);
+
+  const cancelOrderMutation = useMutation({
+    mutationFn: (payload: { orderId: string; reason?: string }) =>
+      cancelAdminOrder(payload.orderId, payload.reason),
+    onSuccess: () => {
+      setCancelError(null);
+      setOrderToCancel(null);
+      setCancelReason('');
+      void queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
+    },
+    onError: (err) => {
+      setCancelError(err instanceof ApiError ? err.message : 'No se pudo anular la orden');
+    },
+  });
 
   const approveMutation = useMutation({
     mutationFn: (paymentId: string) =>
@@ -152,14 +186,24 @@ export default function AdminPedidosPage() {
               </option>
             ))}
           </select>
+          <label className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={onlyActiveCampaigns}
+              onChange={(e) => setOnlyActiveCampaigns(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600"
+            />
+            Solo campañas activas
+          </label>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
           {[
-            { key: 'UNDER_REVIEW', label: 'En revisión' },
+            { key: 'UNDER_REVIEW', label: 'En revisión SINPE' },
             { key: 'PENDING', label: 'Pendientes' },
             { key: 'APPROVED', label: 'Aprobados' },
-            { key: 'REJECTED', label: 'Rechazados' },
+            { key: 'REJECTED', label: 'Rechazados SINPE' },
+            { key: 'CANCELLED', label: 'Anulados' },
             { key: 'ALL', label: 'Todos' },
           ].map((tab) => (
             <button
@@ -190,10 +234,16 @@ export default function AdminPedidosPage() {
             {/* Vista móvil en cards */}
             <div className="divide-y sm:hidden">
               {filteredPayments.map((p) => {
-                const badge = STATUS_BADGES[p.status] ?? {
-                  label: p.status,
-                  className: 'bg-slate-100 text-slate-700',
-                };
+                const isOrderCancelled = p.order.status === 'CANCELLED';
+                const badge = isOrderCancelled
+                  ? { label: 'Anulada', className: 'bg-slate-200 text-slate-700' }
+                  : (STATUS_BADGES[p.status] ?? {
+                      label: p.status,
+                      className: 'bg-slate-100 text-slate-700',
+                    });
+                const isPartner = p.order.channel === 'PARTNER';
+                const canCancelOrder =
+                  p.order.status === 'CONFIRMED' && p.order.campaign.status === 'ACTIVE';
                 const proof = p.proofs[0];
                 const comboLabel =
                   p.order.items?.map((item) => item.comboNameSnapshot).join(', ') || 'Combo';
@@ -202,8 +252,19 @@ export default function AdminPedidosPage() {
                   <div key={p.id} className="p-4 space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <div className="font-mono text-sm font-bold text-slate-900">
-                          {p.order.publicReference}
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-sm font-bold text-slate-900">
+                            {p.order.publicReference}
+                          </span>
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                              isPartner
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {isPartner ? (p.order.partnerCode ?? 'BANCAS') : 'WEB'}
+                          </span>
                         </div>
                         <div className="mt-0.5 inline-block rounded bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
                           {p.order.campaign.title}
@@ -219,7 +280,7 @@ export default function AdminPedidosPage() {
                     <div className="text-xs text-slate-600 space-y-0.5">
                       <p className="font-semibold text-slate-900">{p.order.customer.fullName}</p>
                       <p className="break-all">
-                        {p.order.customer.phone} · {p.order.customer.email}
+                        {p.order.customer.phone} · {p.order.customer.email ?? '—'}
                       </p>
                     </div>
 
@@ -271,6 +332,26 @@ export default function AdminPedidosPage() {
                         </button>
                       ) : null}
 
+                      {canCancelOrder ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCancelError(null);
+                            setCancelReason('');
+                            setOrderToCancel({
+                              id: p.order.id,
+                              publicReference: p.order.publicReference,
+                              channel: p.order.channel,
+                              partnerCode: p.order.partnerCode,
+                              customerName: p.order.customer.fullName,
+                            });
+                          }}
+                          className="ml-auto inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+                        >
+                          <XCircle className="h-3.5 w-3.5" /> Anular
+                        </button>
+                      ) : null}
+
                       {p.status === 'UNDER_REVIEW' ? (
                         <div className="ml-auto flex items-center gap-1.5">
                           <button
@@ -295,6 +376,24 @@ export default function AdminPedidosPage() {
                             <X className="h-3.5 w-3.5" /> Rechazar
                           </button>
                         </div>
+                      ) : canCancelOrder ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCancelError(null);
+                            setCancelReason('');
+                            setOrderToCancel({
+                              id: p.order.id,
+                              publicReference: p.order.publicReference,
+                              channel: p.order.channel,
+                              partnerCode: p.order.partnerCode,
+                              customerName: p.order.customer.fullName,
+                            });
+                          }}
+                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+                        >
+                          <XCircle className="h-3.5 w-3.5" /> Anular
+                        </button>
                       ) : null}
                     </div>
                   </div>
@@ -318,16 +417,33 @@ export default function AdminPedidosPage() {
             </thead>
             <tbody className="divide-y">
               {filteredPayments.map((p) => {
-                const badge = STATUS_BADGES[p.status] ?? {
-                  label: p.status,
-                  className: 'bg-slate-100 text-slate-700',
-                };
+                const isOrderCancelled = p.order.status === 'CANCELLED';
+                const badge = isOrderCancelled
+                  ? { label: 'Anulada', className: 'bg-slate-200 text-slate-700' }
+                  : (STATUS_BADGES[p.status] ?? {
+                      label: p.status,
+                      className: 'bg-slate-100 text-slate-700',
+                    });
+                const isPartner = p.order.channel === 'PARTNER';
+                const canCancelOrder =
+                  p.order.status === 'CONFIRMED' && p.order.campaign.status === 'ACTIVE';
                 const proof = p.proofs[0];
                 return (
                   <tr key={p.id} className="hover:bg-slate-50/60">
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="font-mono font-bold text-slate-900">
-                        {p.order.publicReference}
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-bold text-slate-900">
+                          {p.order.publicReference}
+                        </span>
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                            isPartner
+                              ? 'bg-purple-100 text-purple-800'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {isPartner ? (p.order.partnerCode ?? 'BANCAS') : 'WEB'}
+                        </span>
                       </div>
                       <div className="mt-0.5 inline-block rounded bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
                         {p.order.campaign.title}
@@ -338,7 +454,7 @@ export default function AdminPedidosPage() {
                         {p.order.customer.fullName}
                       </div>
                       <div className="text-xs text-slate-500 whitespace-nowrap">
-                        {p.order.customer.phone} · {p.order.customer.email}
+                        {p.order.customer.phone} · {p.order.customer.email ?? '—'}
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -405,6 +521,26 @@ export default function AdminPedidosPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
+                      {canCancelOrder ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCancelError(null);
+                            setCancelReason('');
+                            setOrderToCancel({
+                              id: p.order.id,
+                              publicReference: p.order.publicReference,
+                              channel: p.order.channel,
+                              partnerCode: p.order.partnerCode,
+                              customerName: p.order.customer.fullName,
+                            });
+                          }}
+                          className="ml-auto inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+                        >
+                          <XCircle className="h-3.5 w-3.5" /> Anular
+                        </button>
+                      ) : null}
+
                       {p.status === 'UNDER_REVIEW' ? (
                         <div className="inline-flex items-center gap-1.5">
                           <button
@@ -431,6 +567,24 @@ export default function AdminPedidosPage() {
                             <X className="h-3.5 w-3.5" /> Rechazar
                           </button>
                         </div>
+                      ) : canCancelOrder ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCancelError(null);
+                            setCancelReason('');
+                            setOrderToCancel({
+                              id: p.order.id,
+                              publicReference: p.order.publicReference,
+                              channel: p.order.channel,
+                              partnerCode: p.order.partnerCode,
+                              customerName: p.order.customer.fullName,
+                            });
+                          }}
+                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+                        >
+                          <XCircle className="h-3.5 w-3.5" /> Anular
+                        </button>
                       ) : null}
                     </td>
                   </tr>
@@ -465,6 +619,66 @@ export default function AdminPedidosPage() {
         subtitle={selectedFichas?.subtitle}
         entries={selectedFichas?.entries ?? []}
       />
+
+      {orderToCancel ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4">
+            <h3 className="text-lg font-bold text-slate-900">
+              Anular orden {orderToCancel.publicReference}
+            </h3>
+            <p className="text-sm text-slate-600">
+              Cliente: <span className="font-semibold text-slate-900">{orderToCancel.customerName}</span>.
+              Esta acción cancelará la orden y liberará las fichas asignadas.
+            </p>
+            {orderToCancel.channel === 'PARTNER' ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                Esta orden proviene de <strong>{orderToCancel.partnerCode ?? 'PARTNER'}</strong>.
+                Anularla aquí liberará las fichas en Premiático, pero si el tiquete sigue activo en Bancas
+                debes anularlo también allá para revertir crédito y estado de cuenta.
+              </div>
+            ) : null}
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Motivo (opcional)
+              </label>
+              <input
+                type="text"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Ej: Anulado desde administración"
+                maxLength={250}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+            {cancelError ? (
+              <div className="rounded-lg bg-red-50 p-2.5 text-xs text-red-700">{cancelError}</div>
+            ) : null}
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={cancelOrderMutation.isPending}
+                onClick={() => setOrderToCancel(null)}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                disabled={cancelOrderMutation.isPending}
+                onClick={() =>
+                  cancelOrderMutation.mutate({
+                    orderId: orderToCancel.id,
+                    reason: cancelReason.trim() || undefined,
+                  })
+                }
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {cancelOrderMutation.isPending ? 'Anulando...' : 'Confirmar anulación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
