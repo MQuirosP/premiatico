@@ -60,9 +60,9 @@ export default function AdminPassesPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Pases digitales</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Pases y Fichas</h1>
           <p className="text-sm text-slate-500">
-            Catálogo de pases digitales activos asignables a combos.
+            Fondos y stickers digitales asignables a los combos de cada campaña.
           </p>
         </div>
         <button
@@ -71,7 +71,7 @@ export default function AdminPassesPage() {
           className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 whitespace-nowrap"
         >
           <Plus className="h-4 w-4 shrink-0" />
-          Nuevo pase
+          Nueva plantilla
         </button>
       </div>
 
@@ -162,11 +162,11 @@ export default function AdminPassesPage() {
 
       <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="p-6 text-sm text-slate-500">Cargando pases digitales...</div>
+          <div className="p-6 text-sm text-slate-500">Cargando plantillas...</div>
         ) : !passes || passes.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-500">
             <Ticket className="h-8 w-8 mx-auto mb-2 text-slate-400" />
-            No hay pases digitales registrados aún.
+            No hay plantillas de pases ni fichas registradas aún.
           </div>
         ) : (
           <>

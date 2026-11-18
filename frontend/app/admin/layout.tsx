@@ -22,7 +22,7 @@ import { getAdminMeRequest, logoutAdminRequest } from '@/services/auth';
 const navItems = [
   { href: '/admin', label: 'Resumen', icon: LayoutDashboard },
   { href: '/admin/campanas', label: 'Campañas', icon: Megaphone },
-  { href: '/admin/pases', label: 'Pases digitales', icon: Ticket },
+  { href: '/admin/pases', label: 'Pases y Fichas', icon: Ticket },
   { href: '/admin/pedidos', label: 'Pedidos y pagos', icon: Receipt },
   { href: '/admin/clientes', label: 'Clientes', icon: Users },
   { href: '/admin/auditoria', label: 'Auditoría', icon: ShieldAlert },

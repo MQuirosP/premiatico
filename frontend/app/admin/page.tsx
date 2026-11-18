@@ -87,7 +87,7 @@ export default function AdminDashboardPage() {
       icon: Receipt,
     },
     {
-      label: 'Pases digitales',
+      label: 'Pases y Fichas',
       description: 'Subí o administrá pases del catálogo.',
       href: '/admin/pases',
       icon: Ticket,
