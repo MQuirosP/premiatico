@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { ConflictError, NotFoundError, UnauthorizedError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
-import { generateStampedPassImage } from '../notifications/ficha-card.service.js';
+import { generateStampedPassImage, resolveStickerTemplates } from '../notifications/ficha-card.service.js';
 import { hashToken } from '../reservations/reservations.module.js';
 import { getPaymentSettings, type SinpeReceiverConfig } from '../settings/payment-settings.module.js';
 import { getObjectBuffer, getSignedDownloadUrl } from '../storage/storage.service.js';
@@ -373,40 +373,21 @@ export async function getStampedPassForPublicOrder(
       : [],
   );
 
-  const digitalPassIds = [
-    ...new Set(
-      passSnapshots.map((p) => p.digitalPassId).filter((id): id is string => Boolean(id)),
-    ),
-  ];
+  const { passTemplate, fichaTemplate } = await resolveStickerTemplates(passSnapshots);
+  const selectedTemplate = fichaNumber ? fichaTemplate ?? passTemplate : passTemplate ?? fichaTemplate;
 
-  const dbPasses =
-    digitalPassIds.length > 0
-      ? await prisma.digitalPass.findMany({
-          where: { id: { in: digitalPassIds } },
-          select: { id: true, name: true, fileKey: true, mimeType: true },
-        })
-      : [];
-
-  const imagePass =
-    dbPasses.find((p) => p.mimeType.startsWith('image/')) ??
-    passSnapshots.find(
-      (p) =>
-        p.fileKey &&
-        (p.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(p.fileKey)),
-    );
-
-  if (!imagePass?.fileKey) {
+  if (!selectedTemplate?.fileKey) {
     throw new NotFoundError('Este pedido no tiene un pase de imagen configurable');
   }
 
-  const templateBuffer = await getObjectBuffer(imagePass.fileKey);
+  const templateBuffer = await getObjectBuffer(selectedTemplate.fileKey);
   const stampText = fichaNumber || order.publicReference;
   const buffer = await generateStampedPassImage({
     templateBuffer,
     text: stampText,
   });
 
-  const safeLabel = (imagePass.name || 'Pase').replace(/[^a-zA-Z0-9_-]+/g, '_');
+  const safeLabel = (selectedTemplate.name || (fichaNumber ? 'Ficha' : 'Pase')).replace(/[^a-zA-Z0-9_-]+/g, '_');
   const filename = fichaNumber
     ? `${safeLabel}_${order.publicReference}_${fichaNumber}.png`
     : `${safeLabel}_${order.publicReference}.png`;

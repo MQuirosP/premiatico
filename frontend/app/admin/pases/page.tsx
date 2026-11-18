@@ -17,6 +17,7 @@ export default function AdminPassesPage() {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [kind, setKind] = useState<'PASS' | 'FICHA'>('PASS');
   const [file, setFile] = useState<File | null>(null);
 
   const { data: passes, isLoading } = useQuery({
@@ -30,6 +31,7 @@ export default function AdminPassesPage() {
       setShowForm(false);
       setName('');
       setDescription('');
+      setKind('PASS');
       setFile(null);
       setFeedback('Pase digital guardado correctamente.');
       void queryClient.invalidateQueries({ queryKey: ['admin-passes'] });
@@ -78,21 +80,34 @@ export default function AdminPassesPage() {
           onSubmit={(e) => {
             e.preventDefault();
             if (!file) return;
-            uploadMutation.mutate({ name, description, file });
+            uploadMutation.mutate({ name, description, kind, file });
           }}
           className="rounded-xl border bg-white p-6 shadow-sm space-y-4"
         >
-          <h2 className="text-sm font-bold text-slate-900">Subir nuevo pase digital</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <h2 className="text-sm font-bold text-slate-900">Subir nuevo sticker / pase digital</h2>
+          <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Nombre del pase
+                Uso del archivo
+              </label>
+              <select
+                value={kind}
+                onChange={(e) => setKind(e.target.value === 'FICHA' ? 'FICHA' : 'PASS')}
+                className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+              >
+                <option value="PASS">Sticker de Pase (Tu Pase)</option>
+                <option value="FICHA">Sticker de Ficha (Tu Ficha)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Nombre
               </label>
               <input
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ej. Wallpaper Combo Flash 4K"
+                placeholder={kind === 'FICHA' ? 'Ej. Sticker Tu Ficha' : 'Ej. Sticker Tu Pase'}
                 className="w-full rounded-lg border px-3 py-2 text-sm"
               />
             </div>
@@ -255,7 +270,20 @@ export default function AdminPassesPage() {
                 <tbody className="divide-y">
                   {passes.map((pass) => (
                     <tr key={pass.id}>
-                      <td className="px-4 py-3 font-medium text-slate-900">{pass.name}</td>
+                      <td className="px-4 py-3 font-medium text-slate-900">
+                        <div className="flex items-center gap-2">
+                          <span>{pass.name}</span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                              pass.kind === 'FICHA'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-indigo-100 text-indigo-800'
+                            }`}
+                          >
+                            {pass.kind === 'FICHA' ? 'Ficha' : 'Pase'}
+                          </span>
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-xs text-slate-500">{pass.mimeType}</td>
                       <td className="px-4 py-3 text-xs">
                         {pass.isActive ? 'Activo' : 'Inactivo'}
@@ -287,10 +315,11 @@ export default function AdminPassesPage() {
                               onClick={async () => {
                                 try {
                                   const token = getAdminSessionToken();
+                                  const sampleText = pass.kind === 'FICHA' ? '12345' : 'PRM-A1B2C3D4';
                                   const response = await fetch(
                                     `${API_BASE_URL}/admin/passes/${encodeURIComponent(
                                       pass.id,
-                                    )}/preview-stamped?number=12345`,
+                                    )}/preview-stamped?number=${encodeURIComponent(sampleText)}`,
                                     {
                                       credentials: 'include',
                                       headers: token ? { Authorization: `Bearer ${token}` } : {},

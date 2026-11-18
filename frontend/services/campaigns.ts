@@ -217,11 +217,13 @@ export async function uploadAdminCampaignCover(
 export async function uploadAdminPass(payload: {
   name: string;
   description: string;
+  kind: 'PASS' | 'FICHA';
   file: File;
 }): Promise<DigitalPass> {
   const formData = new FormData();
   formData.append('name', payload.name);
   formData.append('description', payload.description);
+  formData.append('kind', payload.kind);
   formData.append('file', payload.file);
   const res = await apiRequest<{ pass: DigitalPass }>('/admin/passes/upload', {
     method: 'POST',

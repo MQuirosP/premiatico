@@ -41,13 +41,24 @@ export function CampaignCombosPanel({
   const [comboFichaQty, setComboFichaQty] = useState(4);
   const [comboBadge, setComboBadge] = useState('');
   const [comboPassId, setComboPassId] = useState('');
+  const [comboFichaPassId, setComboFichaPassId] = useState('');
 
   if (!campaign) return null;
+
+  const passOptions = (passes ?? []).filter((p) => p.kind !== 'FICHA');
+  const fichaOptions = (passes ?? []).filter((p) => p.kind === 'FICHA');
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
+        const passItems: Array<{ digitalPassId: string; quantity: number }> = [];
+        if (comboPassId) {
+          passItems.push({ digitalPassId: comboPassId, quantity: comboPassQty });
+        }
+        if (comboFichaPassId) {
+          passItems.push({ digitalPassId: comboFichaPassId, quantity: comboFichaQty });
+        }
         onCreateCombo({
           campaignId: campaign.id,
           name: comboName,
@@ -55,9 +66,7 @@ export function CampaignCombosPanel({
           passQuantity: comboPassQty,
           fichaQuantity: comboFichaQty,
           badgeLabel: comboBadge.trim() || undefined,
-          ...(comboPassId
-            ? { passItems: [{ digitalPassId: comboPassId, quantity: comboPassQty }] }
-            : {}),
+          ...(passItems.length > 0 ? { passItems } : {}),
         });
         setComboName('');
         setComboBadge('');
@@ -198,17 +207,34 @@ export function CampaignCombosPanel({
             className="w-full rounded-lg border px-3 py-2 text-sm"
           />
         </div>
-        <div className="sm:col-span-2 lg:col-span-5">
+        <div className="sm:col-span-2 lg:col-span-3">
           <label className="block text-xs font-semibold text-slate-600 mb-1">
-            Pase digital incluido (subilo primero en &ldquo;Pases digitales&rdquo;)
+            Sticker de Pase (Tu Pase)
           </label>
           <select
             value={comboPassId}
             onChange={(e) => setComboPassId(e.target.value)}
             className="w-full rounded-lg border px-3 py-2 text-sm bg-white"
           >
-            <option value="">Sin pase digital vinculado</option>
-            {passes?.map((pass) => (
+            <option value="">Sin sticker de pase vinculado</option>
+            {passOptions.map((pass) => (
+              <option key={pass.id} value={pass.id}>
+                {pass.name} ({pass.mimeType})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="sm:col-span-2 lg:col-span-2">
+          <label className="block text-xs font-semibold text-slate-600 mb-1">
+            Sticker de Ficha (Tu Ficha)
+          </label>
+          <select
+            value={comboFichaPassId}
+            onChange={(e) => setComboFichaPassId(e.target.value)}
+            className="w-full rounded-lg border px-3 py-2 text-sm bg-white"
+          >
+            <option value="">Sin sticker de ficha vinculado</option>
+            {fichaOptions.map((pass) => (
               <option key={pass.id} value={pass.id}>
                 {pass.name} ({pass.mimeType})
               </option>

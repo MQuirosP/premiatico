@@ -66,6 +66,11 @@ enum ParticipationStatus {
   RELEASED
 }
 
+enum DigitalPassKind {
+  PASS
+  FICHA
+}
+
 model AdminUser {
   id           String    @id @default(cuid())
   name         String
@@ -144,9 +149,10 @@ model CampaignPrize {
 }
 
 model DigitalPass {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
   name        String
   description String
+  kind        DigitalPassKind @default(PASS)
   fileKey     String
   mimeType    String
   fileSize    Int

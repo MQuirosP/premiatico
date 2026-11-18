@@ -19,6 +19,7 @@ import {
 const createPassSchema = z.object({
   name: z.string().trim().min(2).max(140),
   description: z.string().trim().min(5).max(2000),
+  kind: z.enum(['PASS', 'FICHA']).default('PASS'),
   fileKey: z.string().trim().min(3).max(300),
   mimeType: z.string().trim().min(3).max(100),
   fileSize: z.coerce.number().int().positive().max(100 * 1024 * 1024),
@@ -73,6 +74,7 @@ adminPassesRouter.post(
         typeof req.body?.description === 'string' && req.body.description.trim().length >= 5
           ? req.body.description.trim().slice(0, 2000)
           : `Pase digital: ${name}`;
+      const kind = req.body?.kind === 'FICHA' ? 'FICHA' : 'PASS';
 
       const key = r2KeyBuilders.passFile('catalog', file.originalname);
       await uploadObject({ key, body: file.buffer, contentType: file.mimetype });
@@ -82,6 +84,7 @@ adminPassesRouter.post(
         data: {
           name,
           description,
+          kind,
           fileKey: key,
           mimeType: file.mimetype,
           fileSize: file.size,
@@ -179,7 +182,7 @@ adminPassesRouter.get(
     try {
       const existing = await prisma.digitalPass.findUnique({
         where: { id: req.params.id },
-        select: { id: true, name: true, fileKey: true, mimeType: true },
+        select: { id: true, name: true, kind: true, fileKey: true, mimeType: true },
       });
       if (!existing) throw new NotFoundError('Pase digital no encontrado');
 
@@ -210,17 +213,18 @@ adminPassesRouter.get(
     try {
       const existing = await prisma.digitalPass.findUnique({
         where: { id: req.params.id },
-        select: { id: true, name: true, fileKey: true, mimeType: true },
+        select: { id: true, name: true, kind: true, fileKey: true, mimeType: true },
       });
       if (!existing) throw new NotFoundError('Pase digital no encontrado');
       if (!existing.mimeType.startsWith('image/')) {
         throw new ValidationError('Solo se puede previsualizar estampado en pases de imagen');
       }
 
+      const defaultText = existing.kind === 'FICHA' ? '12345' : 'PRM-A1B2C3D4';
       const rawNumber =
         typeof req.query.number === 'string' && /^[a-zA-Z0-9-]{1,16}$/.test(req.query.number)
           ? req.query.number
-          : '12345';
+          : defaultText;
 
       const templateBuffer = await getObjectBuffer(existing.fileKey);
       const buffer = await generateStampedPassImage({

@@ -25,6 +25,7 @@ export interface DigitalPass {
   id: string;
   name: string;
   description: string;
+  kind?: 'PASS' | 'FICHA';
   fileKey: string;
   mimeType: string;
   fileSize: number;

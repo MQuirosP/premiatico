@@ -12,6 +12,29 @@ export interface StampedFichaCard {
   base64: string;
 }
 
+export interface StampedPaseCard {
+  publicReference: string;
+  filename: string;
+  contentId: string;
+  base64: string;
+}
+
+export interface PassSnapshotLike {
+  digitalPassId?: string;
+  name?: string;
+  kind?: 'PASS' | 'FICHA';
+  fileKey?: string;
+  mimeType?: string;
+}
+
+export interface ResolvedStickerTemplate {
+  id?: string;
+  name?: string;
+  kind: 'PASS' | 'FICHA';
+  fileKey: string;
+  mimeType?: string;
+}
+
 export interface OrderEmailCommonInput {
   customerName: string;
   campaignTitle: string;
@@ -22,6 +45,7 @@ export interface OrderEmailCommonInput {
   totalPasses: number;
   totalFichas: number;
   orderLookupUrl: string;
+  paseCard?: StampedPaseCard | null;
   cards: StampedFichaCard[];
   allNumbers: string[];
 }
@@ -192,12 +216,133 @@ export async function generateStampedFichaCards(params: {
 
       return {
         number,
-        filename: `ficha-${number}.png`,
+        filename: `Ficha-${number}.png`,
         contentId: `ficha-${number}`,
         base64: outputBuffer.toString('base64'),
       };
     }),
   );
+}
+
+export async function generateStampedPaseCard(params: {
+  templateBuffer: Buffer;
+  publicReference: string;
+  resizeTo?: number;
+}): Promise<StampedPaseCard> {
+  const outputBuffer = await generateStampedPassImage({
+    templateBuffer: params.templateBuffer,
+    text: params.publicReference,
+    resizeTo: params.resizeTo ?? 480,
+  });
+
+  return {
+    publicReference: params.publicReference,
+    filename: `Pase-${params.publicReference}.png`,
+    contentId: `pase-${params.publicReference}`,
+    base64: outputBuffer.toString('base64'),
+  };
+}
+
+function isImagePassLike(item: { fileKey?: string | null; mimeType?: string | null }): boolean {
+  if (!item.fileKey) return false;
+  if (item.mimeType?.startsWith('image/')) return true;
+  return /\.(png|jpe?g|webp)$/i.test(item.fileKey);
+}
+
+export async function resolveStickerTemplates(
+  passSnapshots: PassSnapshotLike[],
+): Promise<{
+  passTemplate: ResolvedStickerTemplate | null;
+  fichaTemplate: ResolvedStickerTemplate | null;
+  passLabel: string;
+}> {
+  const digitalPassIds = [
+    ...new Set(
+      passSnapshots.map((p) => p.digitalPassId).filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const dbPasses =
+    digitalPassIds.length > 0 && typeof prisma.digitalPass?.findMany === 'function'
+      ? await prisma.digitalPass.findMany({
+          where: { id: { in: digitalPassIds } },
+          select: { id: true, name: true, kind: true, fileKey: true, mimeType: true },
+        })
+      : [];
+
+  const dbImagePasses: ResolvedStickerTemplate[] = dbPasses
+    .filter((p) => isImagePassLike(p))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      kind: p.kind === 'FICHA' ? 'FICHA' : 'PASS',
+      fileKey: p.fileKey,
+      mimeType: p.mimeType,
+    }));
+
+  const snapshotImagePasses: ResolvedStickerTemplate[] = passSnapshots
+    .filter((p): p is PassSnapshotLike & { fileKey: string } => isImagePassLike(p))
+    .map((p) => ({
+      id: p.digitalPassId,
+      name: p.name,
+      kind: p.kind === 'FICHA' ? 'FICHA' : 'PASS',
+      fileKey: p.fileKey,
+      mimeType: p.mimeType,
+    }));
+
+  const combined = dbImagePasses.length > 0 ? dbImagePasses : snapshotImagePasses;
+
+  let passTemplate = combined.find((p) => p.kind === 'PASS') ?? combined[0] ?? null;
+  let fichaTemplate = combined.find((p) => p.kind === 'FICHA') ?? null;
+
+  // Fallback al catálogo activo de stickers si falta alguno en el combo
+  if ((!passTemplate || !fichaTemplate) && typeof prisma.digitalPass?.findMany === 'function') {
+    const activeCatalog = await prisma.digitalPass.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, name: true, kind: true, fileKey: true, mimeType: true },
+    });
+    const catalogImages = activeCatalog.filter((p) => isImagePassLike(p));
+    if (!passTemplate) {
+      const catPass = catalogImages.find((p) => p.kind === 'PASS') ?? catalogImages[0];
+      if (catPass) {
+        passTemplate = {
+          id: catPass.id,
+          name: catPass.name,
+          kind: 'PASS',
+          fileKey: catPass.fileKey,
+          mimeType: catPass.mimeType,
+        };
+      }
+    }
+    if (!fichaTemplate) {
+      const catFicha = catalogImages.find((p) => p.kind === 'FICHA');
+      if (catFicha) {
+        fichaTemplate = {
+          id: catFicha.id,
+          name: catFicha.name,
+          kind: 'FICHA',
+          fileKey: catFicha.fileKey,
+          mimeType: catFicha.mimeType,
+        };
+      }
+    }
+  }
+
+  if (!fichaTemplate && passTemplate) {
+    fichaTemplate = passTemplate;
+  }
+
+  const passLabel =
+    dbPasses.filter((p) => p.kind !== 'FICHA').map((p) => p.name).join(', ') ||
+    dbPasses.map((p) => p.name).join(', ') ||
+    passSnapshots
+      .map((p) => p.name)
+      .filter((name): name is string => Boolean(name))
+      .join(', ') ||
+    'tu pase digital';
+
+  return { passTemplate, fichaTemplate, passLabel };
 }
 
 function renderOrderCardsGrid(input: OrderEmailCommonInput): string {
@@ -223,6 +368,9 @@ function renderOrderCardsGrid(input: OrderEmailCommonInput): string {
             height="110"
             style="display: block; width: 110px; height: 110px; border-radius: 9999px; border: 0;"
           />
+          <p style="margin: 4px 0 0 0; font-family: monospace; font-size: 11px; font-weight: 700; color: #334155;">
+            Ficha #${escapeHtml(card.number)}
+          </p>
         </td>`,
     );
   }
@@ -264,12 +412,36 @@ function renderOrderEmailShell(params: {
   const safeRef = escapeHtml(input.publicReference);
   const cardsHtml = renderOrderCardsGrid(input);
 
+  const pasePreviewHtml = input.paseCard
+    ? `
+      <div style="margin: 14px 0 6px 0; text-align: center;">
+        <img
+          src="cid:${escapeHtml(input.paseCard.contentId)}"
+          alt="Tu Pase ${safeRef}"
+          width="150"
+          height="150"
+          style="display: inline-block; width: 150px; height: 150px; border-radius: 9999px; border: 0;"
+        />
+        <p style="margin: 6px 0 0 0; font-family: monospace; font-size: 12px; font-weight: 700; color: #e2e8f0;">
+          Tu Pase · ${safeRef}
+        </p>
+      </div>
+    `
+    : '';
+
   const remainingCount = input.allNumbers.length - input.cards.length;
+  const attachmentParts: string[] = [];
+  if (input.paseCard) attachmentParts.push(`1 Pase (${input.paseCard.filename})`);
+  if (input.cards.length > 0) {
+    attachmentParts.push(
+      `${input.cards.length} ${input.cards.length === 1 ? 'Ficha' : 'Fichas'} en PNG`,
+    );
+  }
   const attachmentNote =
-    input.cards.length > 0
+    attachmentParts.length > 0
       ? remainingCount > 0
-        ? `Adjuntamos ${input.cards.length} imágenes de tus fichas de regalo. Podés ver los ${input.allNumbers.length} números completos en tu pedido.`
-        : `Adjuntamos ${input.cards.length} ${input.cards.length === 1 ? 'imagen' : 'imágenes'} de tus fichas de regalo.`
+        ? `Adjuntos descargables incluidos en este correo: ${attachmentParts.join(' + ')}. Podés ver las ${input.allNumbers.length} fichas completas en tu pedido.`
+        : `Adjuntos descargables incluidos en este correo: ${attachmentParts.join(' + ')}.`
       : '';
 
   return `
@@ -303,9 +475,10 @@ function renderOrderEmailShell(params: {
               <tr>
                 <td style="padding: 20px;">
                   <p style="margin: 0 0 6px 0; color: #fb923c; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;">
-                    TU COMPRA
+                    TU PASE DIGITAL
                   </p>
                   ${params.purchaseCardBody}
+                  ${pasePreviewHtml}
                 </td>
               </tr>
             </table>
@@ -325,7 +498,7 @@ function renderOrderEmailShell(params: {
             </table>
 
             <p style="margin: 0 0 4px 0; color: #4f46e5; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;">
-              BONIFICACIÓN DEL EVENTO
+              TUS FICHAS DE REGALO
             </p>
             <p style="margin: 0 0 10px 0; font-size: 13px; color: #475569;">
               ${escapeHtml(params.fichasIntro)}
@@ -462,63 +635,60 @@ export async function sendRichOrderEmail(params: {
 
   const passSnapshots = orderItems.flatMap((item) =>
     Array.isArray(item.passesSnapshotJson)
-      ? (item.passesSnapshotJson as Array<{
-          digitalPassId?: string;
-          name?: string;
-          fileKey?: string;
-          mimeType?: string;
-        }>)
+      ? (item.passesSnapshotJson as PassSnapshotLike[])
       : [],
   );
 
-  const digitalPassIds = [
-    ...new Set(
-      passSnapshots.map((p) => p.digitalPassId).filter((id): id is string => Boolean(id)),
-    ),
-  ];
-
-  const dbPasses =
-    digitalPassIds.length > 0 && typeof prisma.digitalPass?.findMany === 'function'
-      ? await prisma.digitalPass.findMany({
-          where: { id: { in: digitalPassIds } },
-          select: { id: true, name: true, fileKey: true, mimeType: true },
-        })
-      : [];
-
-  const passLabel =
-    dbPasses.map((p) => p.name).join(', ') ||
-    passSnapshots
-      .map((p) => p.name)
-      .filter((name): name is string => Boolean(name))
-      .join(', ') ||
-    'tu pase digital';
   const totalPasses = orderItems.reduce(
     (sum, item) => sum + item.passQuantitySnapshot * item.quantity,
     0,
   );
 
-  const imagePass =
-    dbPasses.find((p) => p.mimeType.startsWith('image/')) ??
-    passSnapshots.find(
-      (p) =>
-        p.fileKey &&
-        (p.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(p.fileKey)),
-    );
+  const { passTemplate, fichaTemplate, passLabel } = await resolveStickerTemplates(passSnapshots);
 
+  let paseCard: StampedPaseCard | null = null;
   let cards: StampedFichaCard[] = [];
-  if (env.RESEND_API_KEY && imagePass?.fileKey && allNumbers.length > 0) {
-    try {
-      const templateBuffer = await getObjectBuffer(imagePass.fileKey);
-      cards = await generateStampedFichaCards({
-        templateBuffer,
-        numbers: allNumbers,
-        maxCards: 25,
-      });
-    } catch (error) {
-      logger.warn(
-        { err: error, orderId: order.id, fileKey: imagePass.fileKey },
-        'Could not generate stamped ficha images from R2 template; using text badges fallback',
-      );
+
+  if (env.RESEND_API_KEY) {
+    const bufferCache = new Map<string, Buffer>();
+    const loadTemplateBuffer = async (fileKey: string): Promise<Buffer> => {
+      const cached = bufferCache.get(fileKey);
+      if (cached) return cached;
+      const buf = await getObjectBuffer(fileKey);
+      bufferCache.set(fileKey, buf);
+      return buf;
+    };
+
+    if (passTemplate?.fileKey) {
+      try {
+        const passTemplateBuffer = await loadTemplateBuffer(passTemplate.fileKey);
+        paseCard = await generateStampedPaseCard({
+          templateBuffer: passTemplateBuffer,
+          publicReference: order.publicReference,
+          resizeTo: 480,
+        });
+      } catch (error) {
+        logger.warn(
+          { err: error, orderId: order.id, fileKey: passTemplate.fileKey },
+          'Could not generate stamped pase image from R2 template',
+        );
+      }
+    }
+
+    if (fichaTemplate?.fileKey && allNumbers.length > 0) {
+      try {
+        const fichaTemplateBuffer = await loadTemplateBuffer(fichaTemplate.fileKey);
+        cards = await generateStampedFichaCards({
+          templateBuffer: fichaTemplateBuffer,
+          numbers: allNumbers,
+          maxCards: 25,
+        });
+      } catch (error) {
+        logger.warn(
+          { err: error, orderId: order.id, fileKey: fichaTemplate.fileKey },
+          'Could not generate stamped ficha images from R2 template; using text badges fallback',
+        );
+      }
     }
   }
 
@@ -541,14 +711,15 @@ export async function sendRichOrderEmail(params: {
     totalPasses,
     totalFichas: allNumbers.length,
     orderLookupUrl: passDownloadUrl,
+    paseCard,
     cards,
     allNumbers,
   };
 
   const subject =
     type === 'PAYMENT_CONFIRMED'
-      ? `Tus pases están listos — Pedido ${order.publicReference}`
-      : `Recibimos tu compra — Pedido ${order.publicReference}`;
+      ? `Tus pases y fichas están listos — Pedido ${order.publicReference}`
+      : `Recibimos tu compra (Pase y Fichas) — Pedido ${order.publicReference}`;
 
   const html =
     type === 'PAYMENT_CONFIRMED'
@@ -559,16 +730,40 @@ export async function sendRichOrderEmail(params: {
     return;
   }
 
+  const attachments: Array<{ filename: string; content: string; content_id?: string }> = [];
+
+  if (paseCard) {
+    // Inline preview en el correo + adjunto descargable explícito
+    attachments.push({
+      filename: paseCard.filename,
+      content: paseCard.base64,
+      content_id: paseCard.contentId,
+    });
+    attachments.push({
+      filename: paseCard.filename,
+      content: paseCard.base64,
+    });
+  }
+
+  for (const card of cards) {
+    // Inline preview en el correo + adjunto descargable explícito
+    attachments.push({
+      filename: card.filename,
+      content: card.base64,
+      content_id: card.contentId,
+    });
+    attachments.push({
+      filename: card.filename,
+      content: card.base64,
+    });
+  }
+
   await sendOrderNotification({
     orderId: order.id,
     type,
     recipientEmail: order.customer.email,
     subject,
     html,
-    attachments: cards.map((card) => ({
-      filename: card.filename,
-      content: card.base64,
-      content_id: card.contentId,
-    })),
+    attachments,
   });
 }
