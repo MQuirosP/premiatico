@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
 import { validate } from '../../middlewares/validate.js';
-import { allocateRandomNumbers, releaseExpiredReservations } from '../chances/chances.service.js';
+import { allocateRandomNumbers, releaseExpiredReservations } from '../fichas/fichas.service.js';
 
 export function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -28,16 +28,16 @@ function reverseNumberString(num: string): string {
 async function computeAvailableInverses(params: {
   tx: Prisma.TransactionClient;
   campaignId: string;
-  totalChances: number;
+  totalFichas: number;
   enableInverseNumbers: boolean;
   numbers: string[];
 }): Promise<InverseOffer[]> {
-  const { tx, campaignId, totalChances, enableInverseNumbers, numbers } = params;
+  const { tx, campaignId, totalFichas, enableInverseNumbers, numbers } = params;
   if (!enableInverseNumbers || numbers.length === 0) {
     return [];
   }
 
-  const maxPool = Math.min(100000, Math.max(10, totalChances));
+  const maxPool = Math.min(100000, Math.max(10, totalFichas));
   const ownSet = new Set(numbers);
   const candidates: InverseOffer[] = [];
   const seenInverses = new Set<string>();
@@ -138,8 +138,8 @@ export async function createReservationSession(input: {
     const numbers = await allocateRandomNumbers({
       tx,
       campaignId: campaign.id,
-      totalChances: campaign.totalChances,
-      quantity: combo.chanceQuantity,
+      totalFichas: campaign.totalFichas,
+      quantity: combo.fichaQuantity,
       reservationSessionId: session.id,
       reservedUntil: expiresAt,
     });
@@ -147,7 +147,7 @@ export async function createReservationSession(input: {
     const availableInverses = await computeAvailableInverses({
       tx,
       campaignId: campaign.id,
-      totalChances: campaign.totalChances,
+      totalFichas: campaign.totalFichas,
       enableInverseNumbers: campaign.enableInverseNumbers,
       numbers,
     });
@@ -161,11 +161,11 @@ export async function createReservationSession(input: {
       comboName: combo.name,
       unitPrice: combo.price,
       unitPassQuantity: combo.passQuantity,
-      unitChanceQuantity: combo.chanceQuantity,
+      unitFichaQuantity: combo.fichaQuantity,
       packageCount: 1,
       price: combo.price,
       passQuantity: combo.passQuantity,
-      chanceQuantity: combo.chanceQuantity,
+      fichaQuantity: combo.fichaQuantity,
       numbers,
       enableInverseNumbers: campaign.enableInverseNumbers,
       availableInverses,
@@ -252,8 +252,8 @@ export async function regenerateReservationNumbers(input: {
     const numbers = await allocateRandomNumbers({
       tx,
       campaignId: session.campaignId,
-      totalChances: session.campaign.totalChances,
-      quantity: session.combo.chanceQuantity,
+      totalFichas: session.campaign.totalFichas,
+      quantity: session.combo.fichaQuantity,
       reservationSessionId: session.id,
       reservedUntil: session.expiresAt,
       excludeNumbers: previousNumbers,
@@ -262,7 +262,7 @@ export async function regenerateReservationNumbers(input: {
     const availableInverses = await computeAvailableInverses({
       tx,
       campaignId: session.campaignId,
-      totalChances: session.campaign.totalChances,
+      totalFichas: session.campaign.totalFichas,
       enableInverseNumbers: session.campaign.enableInverseNumbers,
       numbers,
     });
@@ -272,7 +272,7 @@ export async function regenerateReservationNumbers(input: {
       packageCount: 1,
       price: session.combo.price,
       passQuantity: session.combo.passQuantity,
-      chanceQuantity: session.combo.chanceQuantity,
+      fichaQuantity: session.combo.fichaQuantity,
       numbers,
       enableInverseNumbers: session.campaign.enableInverseNumbers,
       availableInverses,
@@ -340,7 +340,7 @@ export async function addInversePackageToSession(input: {
     }
 
     const inverseNumber = reverseNumberString(input.sourceNumber);
-    const maxPool = Math.min(100000, Math.max(10, session.campaign.totalChances));
+    const maxPool = Math.min(100000, Math.max(10, session.campaign.totalFichas));
     const numericInverse = Number.parseInt(inverseNumber, 10);
 
     if (
@@ -372,8 +372,8 @@ export async function addInversePackageToSession(input: {
       },
     });
 
-    if (activeCount + session.combo.chanceQuantity > session.campaign.totalChances) {
-      throw new ConflictError('No hay suficientes chances disponibles para agregar otro paquete');
+    if (activeCount + session.combo.fichaQuantity > session.campaign.totalFichas) {
+      throw new ConflictError('No hay suficientes fichas disponibles para agregar otro paquete');
     }
 
     await tx.participation.create({
@@ -386,12 +386,12 @@ export async function addInversePackageToSession(input: {
       },
     });
 
-    const extraNeeded = Math.max(0, session.combo.chanceQuantity - 1);
+    const extraNeeded = Math.max(0, session.combo.fichaQuantity - 1);
     if (extraNeeded > 0) {
       await allocateRandomNumbers({
         tx,
         campaignId: session.campaignId,
-        totalChances: session.campaign.totalChances,
+        totalFichas: session.campaign.totalFichas,
         quantity: extraNeeded,
         reservationSessionId: session.id,
         reservedUntil: session.expiresAt,
@@ -428,7 +428,7 @@ export async function addInversePackageToSession(input: {
     const availableInverses = await computeAvailableInverses({
       tx,
       campaignId: session.campaignId,
-      totalChances: session.campaign.totalChances,
+      totalFichas: session.campaign.totalFichas,
       enableInverseNumbers: session.campaign.enableInverseNumbers,
       numbers: updatedNumbers,
     });
@@ -438,7 +438,7 @@ export async function addInversePackageToSession(input: {
       packageCount: nextPackageCount,
       price: session.combo.price * nextPackageCount,
       passQuantity: session.combo.passQuantity * nextPackageCount,
-      chanceQuantity: session.combo.chanceQuantity * nextPackageCount,
+      fichaQuantity: session.combo.fichaQuantity * nextPackageCount,
       numbers: updatedNumbers,
       enableInverseNumbers: session.campaign.enableInverseNumbers,
       availableInverses,

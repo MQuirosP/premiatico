@@ -14,7 +14,7 @@ export interface CampaignCreatePayload {
   drawAt: string | null;
   drawReference: string | null;
   coverImageKey: string | null;
-  totalChances: number;
+  totalFichas: number;
   maxNumberChanges: number;
   enableInverseNumbers: boolean;
   themeColor: CampaignThemeColor;
@@ -42,7 +42,7 @@ export function CampaignCreateForm({
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Vehículos');
   const [description, setDescription] = useState('');
-  const [totalChances, setTotalChances] = useState(10000);
+  const [totalFichas, setTotalFichas] = useState(10000);
   const [maxNumberChanges, setMaxNumberChanges] = useState(5);
   const [enableInverseNumbers, setEnableInverseNumbers] = useState(false);
   const [themeColor, setThemeColor] = useState<CampaignThemeColor>('classic');
@@ -72,7 +72,7 @@ export function CampaignCreateForm({
           drawAt: drawIso,
           drawReference: drawReference.trim() || null,
           coverImageKey,
-          totalChances,
+          totalFichas,
           maxNumberChanges,
           enableInverseNumbers,
           themeColor,
@@ -115,15 +115,15 @@ export function CampaignCreateForm({
         </div>
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1">
-            Total de chances
+            Total de fichas
           </label>
           <input
             type="number"
             min={1}
             max={100000}
             required
-            value={totalChances}
-            onChange={(e) => setTotalChances(Number(e.target.value))}
+            value={totalFichas}
+            onChange={(e) => setTotalFichas(Number(e.target.value))}
             className="w-full rounded-lg border px-3 py-2 text-sm"
           />
         </div>

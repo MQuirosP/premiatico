@@ -94,7 +94,7 @@ model Campaign {
   drawAt                 DateTime?
   drawReference          String?
   publishedAt            DateTime?
-  totalChances           Int
+  totalFichas            Int
   maxNumberChanges       Int                 @default(5)
   enableInverseNumbers   Boolean             @default(false)
   themeColor             String              @default("classic")
@@ -164,7 +164,7 @@ model CampaignCombo {
   description    String?
   price          Int
   passQuantity   Int
-  chanceQuantity Int
+  fichaQuantity Int
   badgeLabel     String?
   sortOrder      Int      @default(0)
   isActive       Boolean  @default(true)
@@ -270,7 +270,7 @@ model OrderItem {
   quantity               Int
   unitPrice              Int
   passQuantitySnapshot   Int
-  chanceQuantitySnapshot Int
+  fichaQuantitySnapshot Int
   totalPrice             Int
   passesSnapshotJson     Json
 

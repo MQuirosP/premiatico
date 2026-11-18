@@ -34,13 +34,13 @@ function formatCampaignStatusBadge(status?: string): { label: string; className:
 }
 
 function OrdersSummaryView({ orders }: { orders: PublicOrderDetail[] }) {
-  const { customerName, totalChances, activeCampaigns, finishedCampaigns, pendingOrders, grouped } =
+  const { customerName, totalFichas, activeCampaigns, finishedCampaigns, pendingOrders, grouped } =
     useMemo(() => {
       const map = new Map<
         string,
         {
           campaign: PublicOrderDetail['campaign'];
-          chances: string[];
+          fichas: string[];
           orders: PublicOrderDetail[];
         }
       >();
@@ -56,17 +56,17 @@ function OrdersSummaryView({ orders }: { orders: PublicOrderDetail[] }) {
         if (order.status !== 'CONFIRMED' || order.payment?.status !== 'APPROVED') {
           pending += 1;
         }
-        total += order.chances.length;
+        total += order.fichas.length;
 
         const existing = map.get(order.campaign.id);
-        const orderNumbers = order.chances.map((c) => c.number);
+        const orderNumbers = order.fichas.map((c) => c.number);
         if (existing) {
-          existing.chances.push(...orderNumbers);
+          existing.fichas.push(...orderNumbers);
           existing.orders.push(order);
         } else {
           map.set(order.campaign.id, {
             campaign: order.campaign,
-            chances: [...orderNumbers],
+            fichas: [...orderNumbers],
             orders: [order],
           });
         }
@@ -74,7 +74,7 @@ function OrdersSummaryView({ orders }: { orders: PublicOrderDetail[] }) {
 
       const groups = Array.from(map.values()).map((g) => ({
         ...g,
-        chances: [...g.chances].sort(),
+        fichas: [...g.fichas].sort(),
       }));
 
       const activeCount = groups.filter(
@@ -84,7 +84,7 @@ function OrdersSummaryView({ orders }: { orders: PublicOrderDetail[] }) {
 
       return {
         customerName: resolvedName,
-        totalChances: total,
+        totalFichas: total,
         activeCampaigns: activeCount,
         finishedCampaigns: finishedCount,
         pendingOrders: pending,
@@ -102,7 +102,7 @@ function OrdersSummaryView({ orders }: { orders: PublicOrderDetail[] }) {
             </p>
           ) : null}
           <h2 className="text-2xl font-extrabold text-slate-900 mt-1">
-            {totalChances} {totalChances === 1 ? 'chance' : 'chances'} en {grouped.length}{' '}
+            {totalFichas} {totalFichas === 1 ? 'ficha' : 'fichas'} en {grouped.length}{' '}
             {grouped.length === 1 ? 'campaña' : 'campañas'}
           </h2>
         </div>
@@ -149,10 +149,10 @@ function OrdersSummaryView({ orders }: { orders: PublicOrderDetail[] }) {
 
             <div className="space-y-2 border-t pt-4">
               <p className="text-xs font-bold text-slate-700">
-                Tus chances ({group.chances.length})
+                Tus fichas ({group.fichas.length})
               </p>
               <div className="flex flex-wrap gap-2">
-                {group.chances.map((num, idx) => (
+                {group.fichas.map((num, idx) => (
                   <span
                     key={`${num}-${idx}`}
                     className="rounded-lg bg-blue-50 px-3 py-1.5 font-mono text-xs font-bold text-blue-700"
@@ -180,7 +180,7 @@ function OrdersSummaryView({ orders }: { orders: PublicOrderDetail[] }) {
                       <span className="text-slate-400">{dateStr}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {order.chances.map((c) => (
+                      {order.fichas.map((c) => (
                         <span
                           key={c.number}
                           className="rounded-lg bg-blue-50 px-3 py-1.5 font-mono text-xs font-bold text-blue-700"
@@ -263,7 +263,7 @@ function OrderLookupContent() {
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 whitespace-nowrap"
             >
               <Search className="h-4 w-4" />
-              Buscar chances
+              Buscar fichas
             </button>
           </div>
         </form>

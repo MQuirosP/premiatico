@@ -99,7 +99,7 @@ describe('Campaigns & Legal Gate & Progress', () => {
         category: 'Vehículos',
         startAt: '2026-11-01T00:00:00Z',
         endAt: '2026-12-31T23:59:59Z',
-        totalChances: 1000,
+        totalFichas: 1000,
         requiresLegalApproval: true,
         legalApprovalStatus: 'PENDING',
         terms: 'Términos y condiciones completos de la promoción en Costa Rica.',
@@ -116,7 +116,7 @@ describe('Campaigns & Legal Gate & Progress', () => {
     expect(publishRes.body.error.message).toContain('autorización legal');
   });
 
-  it('calculates progress using only confirmed chances and caps at 100%', async () => {
+  it('calculates progress using only confirmed fichas and caps at 100%', async () => {
     mockCampaigns.push({
       id: 'camp_active',
       slug: 'promo-casa',
@@ -126,9 +126,9 @@ describe('Campaigns & Legal Gate & Progress', () => {
       status: 'ACTIVE',
       startAt: new Date('2026-01-01T00:00:00Z'),
       endAt: new Date('2027-01-01T00:00:00Z'),
-      totalChances: 100,
+      totalFichas: 100,
       prizes: [],
-      combos: [{ id: 'combo_1', name: '1 Pase', price: 4000, passQuantity: 1, chanceQuantity: 4, isActive: true }],
+      combos: [{ id: 'combo_1', name: '1 Pase', price: 4000, passQuantity: 1, fichaQuantity: 4, isActive: true }],
     });
 
     mockParticipations.confirmed = 69;
@@ -137,6 +137,6 @@ describe('Campaigns & Legal Gate & Progress', () => {
     const res = await request(app).get('/api/v1/campaigns/promo-casa');
     expect(res.status).toBe(200);
     expect(res.body.data.campaign.progress.soldPercentage).toBe(69);
-    expect(res.body.data.campaign.progress.availableChances).toBe(11);
+    expect(res.body.data.campaign.progress.availableFichas).toBe(11);
   });
 });

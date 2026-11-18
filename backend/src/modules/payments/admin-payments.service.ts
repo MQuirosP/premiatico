@@ -1,7 +1,7 @@
 import { ConflictError, NotFoundError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
 import { recordAuditLog } from '../audit/audit.service.js';
-import { sendRichOrderEmail } from '../notifications/chance-card.service.js';
+import { sendRichOrderEmail } from '../notifications/ficha-card.service.js';
 import { sendOrderNotification } from '../notifications/notifications.service.js';
 import { getSignedDownloadUrl } from '../storage/storage.service.js';
 
@@ -15,7 +15,7 @@ export async function listAdminPayments(statusFilter?: string) {
         include: {
           customer: { select: { fullName: true, email: true, phone: true } },
           campaign: { select: { title: true, slug: true } },
-          items: { select: { comboNameSnapshot: true, chanceQuantitySnapshot: true } },
+          items: { select: { comboNameSnapshot: true, fichaQuantitySnapshot: true } },
           participations: {
             where: { status: { in: ['RESERVED', 'CONFIRMED'] } },
             orderBy: { number: 'asc' },
@@ -236,7 +236,7 @@ export async function rejectPayment(params: {
       html: `<p>Hola ${result.order.customer.fullName},</p>
       <p>No pudimos confirmar tu pago para el pedido <strong>${result.order.publicReference}</strong>.</p>
       <p><strong>Motivo:</strong> ${params.rejectionReason}</p>
-      <p>Los chances asociados fueron liberados. Si creés que hubo un error, contactanos para ayudarte.</p>`,
+      <p>Las fichas asociados fueron liberados. Si creés que hubo un error, contactanos para ayudarte.</p>`,
     });
   }
 

@@ -1,8 +1,8 @@
 export interface CampaignProgress {
-  totalChances: number;
-  confirmedChances: number;
-  reservedChances: number;
-  availableChances: number;
+  totalFichas: number;
+  confirmedFichas: number;
+  reservedFichas: number;
+  availableFichas: number;
   soldPercentage: number;
 }
 
@@ -38,7 +38,7 @@ export interface CampaignCombo {
   description: string | null;
   price: number;
   passQuantity: number;
-  chanceQuantity: number;
+  fichaQuantity: number;
   badgeLabel: string | null;
   sortOrder: number;
   isActive: boolean;
@@ -69,7 +69,7 @@ export interface PublicCampaign {
   endAt: string;
   drawAt: string | null;
   drawReference: string | null;
-  totalChances: number;
+  totalFichas: number;
   maxNumberChanges: number;
   enableInverseNumbers: boolean;
   themeColor?: string;

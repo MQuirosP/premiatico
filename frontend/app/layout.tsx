@@ -3,9 +3,9 @@ import { Providers } from '@/components/providers';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Premiático — ¡Más chances, más emoción!',
+  title: 'Premiático — ¡Más fichas, más emoción!',
   description:
-    'Elegí tu combo de pases digitales, descubrí tus chances y participá por increíbles premios en Costa Rica.',
+    'Elegí tu combo de pases digitales, descubrí tus fichas y participá por increíbles premios en Costa Rica.',
 };
 
 export default function RootLayout({

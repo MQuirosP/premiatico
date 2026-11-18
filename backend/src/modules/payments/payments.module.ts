@@ -5,7 +5,7 @@ import { prisma } from '../../core/prisma.js';
 import { createMemoryUpload } from '../../middlewares/upload.js';
 import { validate } from '../../middlewares/validate.js';
 import { hashToken } from '../reservations/reservations.module.js';
-import { sendRichOrderEmail } from '../notifications/chance-card.service.js';
+import { sendRichOrderEmail } from '../notifications/ficha-card.service.js';
 import { deleteObject, r2KeyBuilders, uploadObject } from '../storage/storage.service.js';
 
 const MAX_PROOF_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -136,7 +136,7 @@ publicPaymentsRouter.post(
             data: { status: 'UNDER_REVIEW' },
           });
 
-          // Protect chances from automatic expiration while under manual review
+          // Protect fichas from automatic expiration while under manual review
           await tx.participation.updateMany({
             where: {
               orderId: order.id,

@@ -269,7 +269,7 @@ export default function AdminCampaignsPage() {
                   <div className="flex items-center justify-between text-xs text-slate-600">
                     <span>Legal: {c.legalApprovalStatus}</span>
                     <span>
-                      {c.progress.confirmedChances}/{c.totalChances} ({c.progress.soldPercentage}%)
+                      {c.progress.confirmedFichas}/{c.totalFichas} ({c.progress.soldPercentage}%)
                     </span>
                   </div>
                   <div className="pt-1 flex justify-start">{renderActions(c)}</div>
@@ -308,7 +308,7 @@ export default function AdminCampaignsPage() {
                       </td>
                       <td className="px-4 py-3 text-xs">{c.legalApprovalStatus}</td>
                       <td className="px-4 py-3 text-xs whitespace-nowrap">
-                        {c.progress.confirmedChances}/{c.totalChances} ({c.progress.soldPercentage}%)
+                        {c.progress.confirmedFichas}/{c.totalFichas} ({c.progress.soldPercentage}%)
                       </td>
                       <td className="px-4 py-3 text-right">{renderActions(c)}</td>
                     </tr>

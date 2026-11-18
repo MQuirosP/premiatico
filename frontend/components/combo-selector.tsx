@@ -96,8 +96,8 @@ export function ComboSelector({
                   Tu compra incluye
                 </p>
                 <p className="text-sm font-extrabold">
-                  {combo.chanceQuantity}{' '}
-                  {combo.chanceQuantity === 1 ? 'chance de regalo' : 'chances de regalo'}
+                  {combo.fichaQuantity}{' '}
+                  {combo.fichaQuantity === 1 ? 'ficha de regalo' : 'fichas de regalo'}
                 </p>
               </div>
             </div>

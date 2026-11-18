@@ -129,7 +129,7 @@ export function SinpePaymentStep({
           <p className="text-sm text-slate-600 leading-relaxed">
             Recibimos tu comprobante para el pedido{' '}
             <strong className="font-mono text-slate-900">{order.publicReference}</strong>. Tus
-            chances quedan protegidos mientras nuestro equipo confirma el ingreso bancario y envía
+            fichas quedan protegidos mientras nuestro equipo confirma el ingreso bancario y envía
             tus pases digitales al correo.
           </p>
         </div>
@@ -407,13 +407,13 @@ export function SinpePaymentStep({
             <p className="font-bold text-slate-900">{order.campaign.title}</p>
             <p className="text-xs text-slate-500">
               {order.numbers.length}{' '}
-              {order.numbers.length === 1 ? 'chance reservado' : 'chances reservados'}
+              {order.numbers.length === 1 ? 'ficha reservada' : 'fichas reservadas'}
             </p>
           </div>
 
           <div className="space-y-2">
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Tus chances reservados
+              Tus fichas reservadas
             </p>
             <div className="flex flex-wrap gap-1.5">
               {order.numbers.map((num) => (
@@ -445,7 +445,7 @@ export function SinpePaymentStep({
             {isCancelling ? 'Cancelando pedido...' : 'Cancelar compra'}
           </button>
           <p className="mt-0.5 text-[11px] text-slate-400">
-            Libera tus chances y vuelve al inicio.
+            Libera tus fichas y vuelve al inicio.
           </p>
         </div>
       </aside>

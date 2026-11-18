@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { ConflictError, NotFoundError, UnauthorizedError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
-import { generateStampedPassImage } from '../notifications/chance-card.service.js';
+import { generateStampedPassImage } from '../notifications/ficha-card.service.js';
 import { hashToken } from '../reservations/reservations.module.js';
 import { getPaymentSettings, type SinpeReceiverConfig } from '../settings/payment-settings.module.js';
 import { getObjectBuffer, getSignedDownloadUrl } from '../storage/storage.service.js';
@@ -48,7 +48,7 @@ async function formatPublicOrder(order: {
   items: Array<{
     comboNameSnapshot: string;
     passQuantitySnapshot: number;
-    chanceQuantitySnapshot: number;
+    fichaQuantitySnapshot: number;
     totalPrice: number;
     passesSnapshotJson: unknown;
   }>;
@@ -102,10 +102,10 @@ async function formatPublicOrder(order: {
     items: order.items.map((i) => ({
       comboName: i.comboNameSnapshot,
       passQuantity: i.passQuantitySnapshot,
-      chanceQuantity: i.chanceQuantitySnapshot,
+      fichaQuantity: i.fichaQuantitySnapshot,
       totalPrice: i.totalPrice,
     })),
-    chances: order.participations,
+    fichas: order.participations,
     payment: order.payments[0] ?? null,
     passDownloads,
   };
@@ -174,10 +174,10 @@ export async function createOrderFromSession(input: z.infer<typeof createOrderSc
     });
 
     const packageCount = Math.max(1, session.packageCount || 1);
-    const expectedChances = session.combo.chanceQuantity * packageCount;
+    const expectedFichas = session.combo.fichaQuantity * packageCount;
 
-    if (participations.length !== expectedChances) {
-      throw new ConflictError('Los chances reservados no coinciden con el combo seleccionado');
+    if (participations.length !== expectedFichas) {
+      throw new ConflictError('Las fichas reservadas no coinciden con el combo seleccionado');
     }
 
     let customer = await tx.customer.findFirst({
@@ -200,7 +200,7 @@ export async function createOrderFromSession(input: z.infer<typeof createOrderSc
 
     const totalAmount = session.combo.price * packageCount;
     const totalPasses = session.combo.passQuantity * packageCount;
-    const totalChances = session.combo.chanceQuantity * packageCount;
+    const totalFichas = session.combo.fichaQuantity * packageCount;
 
     const passesSnapshot = session.combo.passItems.map((item) => ({
       digitalPassId: item.digitalPass.id,
@@ -228,7 +228,7 @@ export async function createOrderFromSession(input: z.infer<typeof createOrderSc
             quantity: packageCount,
             unitPrice: session.combo.price,
             passQuantitySnapshot: totalPasses,
-            chanceQuantitySnapshot: totalChances,
+            fichaQuantitySnapshot: totalFichas,
             totalPrice: totalAmount,
             passesSnapshotJson: passesSnapshot,
           },
@@ -337,7 +337,7 @@ export async function lookupPublicOrdersByCustomer(identifier: string) {
 
 export async function getStampedPassForPublicOrder(
   publicReference: string,
-  chanceNumber?: string,
+  fichaNumber?: string,
 ): Promise<{ buffer: Buffer; filename: string }> {
   const order = await prisma.order.findUnique({
     where: { publicReference },
@@ -353,12 +353,12 @@ export async function getStampedPassForPublicOrder(
     throw new ConflictError('El pase estará disponible cuando el pago sea aprobado');
   }
 
-  if (chanceNumber) {
-    const ownsChance = order.participations.some(
-      (p) => p.status === 'CONFIRMED' && p.number === chanceNumber,
+  if (fichaNumber) {
+    const ownsFicha = order.participations.some(
+      (p) => p.status === 'CONFIRMED' && p.number === fichaNumber,
     );
-    if (!ownsChance) {
-      throw new NotFoundError('Chance no encontrado en este pedido');
+    if (!ownsFicha) {
+      throw new NotFoundError('Ficha no encontrado en este pedido');
     }
   }
 
@@ -400,15 +400,15 @@ export async function getStampedPassForPublicOrder(
   }
 
   const templateBuffer = await getObjectBuffer(imagePass.fileKey);
-  const stampText = chanceNumber || order.publicReference;
+  const stampText = fichaNumber || order.publicReference;
   const buffer = await generateStampedPassImage({
     templateBuffer,
     text: stampText,
   });
 
   const safeLabel = (imagePass.name || 'Pase').replace(/[^a-zA-Z0-9_-]+/g, '_');
-  const filename = chanceNumber
-    ? `${safeLabel}_${order.publicReference}_${chanceNumber}.png`
+  const filename = fichaNumber
+    ? `${safeLabel}_${order.publicReference}_${fichaNumber}.png`
     : `${safeLabel}_${order.publicReference}.png`;
 
   return { buffer, filename };

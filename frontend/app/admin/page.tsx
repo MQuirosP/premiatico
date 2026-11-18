@@ -21,7 +21,7 @@ interface DashboardStats {
   todayOrders: number;
   confirmedSalesTotal: number;
   pendingPayments: number;
-  confirmedChances: number;
+  confirmedFichas: number;
 }
 
 export default function AdminDashboardPage() {
@@ -64,8 +64,8 @@ export default function AdminDashboardPage() {
       highlight: Boolean(data && data.pendingPayments > 0),
     },
     {
-      label: 'Chances confirmados',
-      value: data ? data.confirmedChances.toLocaleString('es-CR') : '—',
+      label: 'Fichas confirmadas',
+      value: data ? data.confirmedFichas.toLocaleString('es-CR') : '—',
       href: '/admin/campanas',
       action: 'Ver progreso',
       icon: Sparkles,
@@ -105,7 +105,7 @@ export default function AdminDashboardPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Panel Administrativo</h1>
         <p className="text-sm text-slate-500">
-          Resumen operativo en tiempo real de campañas, pedidos, pagos SINPE y chances confirmados.
+          Resumen operativo en tiempo real de campañas, pedidos, pagos SINPE y fichas confirmadas.
         </p>
       </div>
 

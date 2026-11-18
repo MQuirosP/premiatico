@@ -110,7 +110,7 @@ export function SiteHeader() {
           </nav>
 
           <div className="border-t px-4 py-3 text-xs text-slate-500">
-            Costa Rica · ¡Más chances, más emoción!
+            Costa Rica · ¡Más fichas, más emoción!
           </div>
         </aside>
       </div>

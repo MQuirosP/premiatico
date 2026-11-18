@@ -2,7 +2,7 @@ import { CampaignStatus, LegalApprovalStatus } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
 import { recordAuditLog } from '../audit/audit.service.js';
-import { getCampaignNumberDigits } from '../chances/chances.service.js';
+import { getCampaignNumberDigits } from '../fichas/fichas.service.js';
 import { getSignedDownloadUrl } from '../storage/storage.service.js';
 import type {
   CreateCampaignInput,
@@ -20,16 +20,16 @@ async function resolveCoverImageUrl(coverImageKey: string | null): Promise<strin
 }
 
 export interface CampaignProgress {
-  totalChances: number;
-  confirmedChances: number;
-  reservedChances: number;
-  availableChances: number;
+  totalFichas: number;
+  confirmedFichas: number;
+  reservedFichas: number;
+  availableFichas: number;
   soldPercentage: number;
 }
 
-export async function getCampaignProgress(campaignId: string, totalChances: number): Promise<CampaignProgress> {
+export async function getCampaignProgress(campaignId: string, totalFichas: number): Promise<CampaignProgress> {
   const now = new Date();
-  const [confirmedChances, reservedChances] = await Promise.all([
+  const [confirmedFichas, reservedFichas] = await Promise.all([
     prisma.participation.count({
       where: {
         campaignId,
@@ -48,15 +48,15 @@ export async function getCampaignProgress(campaignId: string, totalChances: numb
     }),
   ]);
 
-  const rawPercentage = totalChances > 0 ? (confirmedChances / totalChances) * 100 : 0;
+  const rawPercentage = totalFichas > 0 ? (confirmedFichas / totalFichas) * 100 : 0;
   const soldPercentage = Math.min(100, Math.floor(rawPercentage * 100) / 100);
-  const availableChances = Math.max(0, totalChances - confirmedChances - reservedChances);
+  const availableFichas = Math.max(0, totalFichas - confirmedFichas - reservedFichas);
 
   return {
-    totalChances,
-    confirmedChances,
-    reservedChances,
-    availableChances,
+    totalFichas,
+    confirmedFichas,
+    reservedFichas,
+    availableFichas,
     soldPercentage,
   };
 }
@@ -97,7 +97,7 @@ export async function listPublicCampaigns() {
   return Promise.all(
     campaigns.map(async (campaign) => {
       const [progress, coverImageUrl] = await Promise.all([
-        getCampaignProgress(campaign.id, campaign.totalChances),
+        getCampaignProgress(campaign.id, campaign.totalFichas),
         resolveCoverImageUrl(campaign.coverImageKey),
       ]);
       return {
@@ -154,7 +154,7 @@ export async function getPublicCampaignBySlug(slug: string) {
   }
 
   const [progress, coverImageUrl] = await Promise.all([
-    getCampaignProgress(campaign.id, campaign.totalChances),
+    getCampaignProgress(campaign.id, campaign.totalFichas),
     resolveCoverImageUrl(campaign.coverImageKey),
   ]);
   return {
@@ -185,7 +185,7 @@ export async function listAdminCampaigns() {
   return Promise.all(
     campaigns.map(async (campaign) => ({
       ...campaign,
-      progress: await getCampaignProgress(campaign.id, campaign.totalChances),
+      progress: await getCampaignProgress(campaign.id, campaign.totalFichas),
     })),
   );
 }
@@ -229,7 +229,7 @@ export async function getAdminCampaignById(id: string) {
             select: {
               comboNameSnapshot: true,
               passQuantitySnapshot: true,
-              chanceQuantitySnapshot: true,
+              fichaQuantitySnapshot: true,
             },
           },
           participations: {
@@ -247,11 +247,11 @@ export async function getAdminCampaignById(id: string) {
   }
 
   const [progress, coverImageUrl] = await Promise.all([
-    getCampaignProgress(campaign.id, campaign.totalChances),
+    getCampaignProgress(campaign.id, campaign.totalFichas),
     resolveCoverImageUrl(campaign.coverImageKey),
   ]);
 
-  const numberDigits = getCampaignNumberDigits(campaign.totalChances);
+  const numberDigits = getCampaignNumberDigits(campaign.totalFichas);
   let winnerResult: {
     winningNumber: string;
     digits: number;
@@ -289,7 +289,7 @@ export async function getAdminCampaignById(id: string) {
             select: {
               comboNameSnapshot: true,
               passQuantitySnapshot: true,
-              chanceQuantitySnapshot: true,
+              fichaQuantitySnapshot: true,
             },
           },
           participations: {
@@ -348,7 +348,7 @@ export async function createCampaign(input: CreateCampaignInput, actorId: string
       endAt: input.endAt,
       drawAt: input.drawAt ?? null,
       drawReference: input.drawReference ?? null,
-      totalChances: input.totalChances,
+      totalFichas: input.totalFichas,
       maxNumberChanges: input.maxNumberChanges,
       enableInverseNumbers: input.enableInverseNumbers,
       themeColor: input.themeColor,
@@ -368,7 +368,7 @@ export async function createCampaign(input: CreateCampaignInput, actorId: string
     action: 'CAMPAIGN_CREATED',
     entityType: 'Campaign',
     entityId: campaign.id,
-    metadata: { slug: campaign.slug, totalChances: campaign.totalChances },
+    metadata: { slug: campaign.slug, totalFichas: campaign.totalFichas },
   });
 
   return campaign;
@@ -407,17 +407,17 @@ export async function updateCampaign(
   if (
     existing.status === CampaignStatus.ACTIVE &&
     activeParticipations > 0 &&
-    ((input.totalChances !== undefined && input.totalChances < activeParticipations) ||
+    ((input.totalFichas !== undefined && input.totalFichas < activeParticipations) ||
       (input.maxNumberChanges !== undefined && input.maxNumberChanges !== existing.maxNumberChanges))
   ) {
     throw new ConflictError(
-      'No se pueden modificar parámetros críticos mientras existan chances reservados o confirmados',
+      'No se pueden modificar parámetros críticos mientras existan fichas reservadas o confirmadas',
     );
   }
 
-  if (input.totalChances !== undefined && input.totalChances < activeParticipations) {
+  if (input.totalFichas !== undefined && input.totalFichas < activeParticipations) {
     throw new ConflictError(
-      `El total de chances no puede ser menor a los ${activeParticipations} chances ya asignados`,
+      `El total de fichas no puede ser menor a los ${activeParticipations} fichas ya asignados`,
     );
   }
 
@@ -582,14 +582,14 @@ export async function evaluateCampaignWinner(
 ) {
   const campaign = await prisma.campaign.findUnique({
     where: { id },
-    select: { id: true, title: true, totalChances: true },
+    select: { id: true, title: true, totalFichas: true },
   });
 
   if (!campaign) {
     throw new NotFoundError('Campaña no encontrada');
   }
 
-  const digits = getCampaignNumberDigits(campaign.totalChances);
+  const digits = getCampaignNumberDigits(campaign.totalFichas);
   const rawNumber = input.winningNumber.trim();
 
   if (rawNumber.length !== digits) {
@@ -599,9 +599,9 @@ export async function evaluateCampaignWinner(
   }
 
   const numericValue = Number(rawNumber);
-  if (!Number.isInteger(numericValue) || numericValue < 0 || numericValue >= campaign.totalChances) {
+  if (!Number.isInteger(numericValue) || numericValue < 0 || numericValue >= campaign.totalFichas) {
     throw new ValidationError(
-      `El número ganador debe estar dentro del rango permitido (0 a ${String(campaign.totalChances - 1).padStart(digits, '0')})`,
+      `El número ganador debe estar dentro del rango permitido (0 a ${String(campaign.totalFichas - 1).padStart(digits, '0')})`,
     );
   }
 

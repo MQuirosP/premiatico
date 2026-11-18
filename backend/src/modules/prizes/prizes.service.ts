@@ -3,7 +3,7 @@ import type { z } from 'zod';
 import { ConflictError, NotFoundError, ValidationError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
 import { recordAuditLog } from '../audit/audit.service.js';
-import { getCampaignNumberDigits } from '../chances/chances.service.js';
+import { getCampaignNumberDigits } from '../fichas/fichas.service.js';
 import { sendPrizeWinnerEmail } from '../notifications/notifications.service.js';
 import type {
   createPrizeSchema,
@@ -143,7 +143,7 @@ export async function evaluatePrizeWinner(
     where: { id: prizeId },
     include: {
       campaign: {
-        select: { id: true, title: true, totalChances: true },
+        select: { id: true, title: true, totalFichas: true },
       },
     },
   });
@@ -154,7 +154,7 @@ export async function evaluatePrizeWinner(
 
   assertPrizeDrawTimeReached(prize.drawAt);
 
-  const digits = getCampaignNumberDigits(prize.campaign.totalChances);
+  const digits = getCampaignNumberDigits(prize.campaign.totalFichas);
   const rawNumber = input.winningNumber.trim();
 
   if (rawNumber.length !== digits) {
@@ -167,10 +167,10 @@ export async function evaluatePrizeWinner(
   if (
     !Number.isInteger(numericValue) ||
     numericValue < 0 ||
-    numericValue >= prize.campaign.totalChances
+    numericValue >= prize.campaign.totalFichas
   ) {
     throw new ValidationError(
-      `El número ganador debe estar dentro del rango permitido (0 a ${String(prize.campaign.totalChances - 1).padStart(digits, '0')})`,
+      `El número ganador debe estar dentro del rango permitido (0 a ${String(prize.campaign.totalFichas - 1).padStart(digits, '0')})`,
     );
   }
 
@@ -269,7 +269,7 @@ export async function drawRandomPrizeWinner(
     where: { id: prizeId },
     include: {
       campaign: {
-        select: { id: true, title: true, totalChances: true },
+        select: { id: true, title: true, totalFichas: true },
       },
     },
   });
@@ -318,15 +318,15 @@ export async function drawRandomPrizeWinner(
   if (eligibleParticipations.length === 0) {
     throw new ConflictError(
       excludedOrderIds.length > 0
-        ? 'No quedan chances confirmados elegibles sin haber ganado otro premio. Activá "Permitir ganador repetido" si aplica.'
-        : 'No hay chances confirmados en esta campaña para sortear.',
+        ? 'No quedan fichas confirmadas elegibles sin haber ganado otro premio. Activá "Permitir ganador repetido" si aplica.'
+        : 'No hay fichas confirmadas en esta campaña para sortear.',
     );
   }
 
   const selected = eligibleParticipations[crypto.randomInt(0, eligibleParticipations.length)]!;
-  const digits = getCampaignNumberDigits(prize.campaign.totalChances);
+  const digits = getCampaignNumberDigits(prize.campaign.totalFichas);
   const evaluatedAt = new Date();
-  const notes = input.notes?.trim() || 'Sorteo aleatorio entre chances confirmados';
+  const notes = input.notes?.trim() || 'Sorteo aleatorio entre fichas confirmadas';
 
   await prisma.campaignPrize.update({
     where: { id: prizeId },

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Eye, Search, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ProofReviewModal } from '@/components/admin/proof-review-modal';
-import { ChancesModal, type ChancesModalEntry } from '@/components/chances-modal';
+import { FichasModal, type FichasModalEntry } from '@/components/fichas-modal';
 import { apiRequest, ApiError } from '@/lib/api';
 import { formatCRC } from '@/lib/utils';
 
@@ -18,7 +18,7 @@ interface AdminPaymentRow {
     status: string;
     customer: { fullName: string; email: string; phone: string };
     campaign: { title: string; slug: string };
-    items?: Array<{ comboNameSnapshot: string; chanceQuantitySnapshot: number }>;
+    items?: Array<{ comboNameSnapshot: string; fichaQuantitySnapshot: number }>;
     participations?: Array<{ number: string; status: string }>;
   };
   proofs: Array<{ id: string; mimeType: string; signedUrl: string | null }>;
@@ -42,10 +42,10 @@ export default function AdminPedidosPage() {
     url: string;
     mimeType: string;
   } | null>(null);
-  const [selectedChances, setSelectedChances] = useState<{
+  const [selectedFichas, setSelectedFichas] = useState<{
     title: string;
     subtitle: string;
-    entries: ChancesModalEntry[];
+    entries: FichasModalEntry[];
   } | null>(null);
   const [rejectReason, setRejectReason] = useState('Comprobante rechazado en revisión manual');
 
@@ -119,7 +119,7 @@ export default function AdminPedidosPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Pedidos y revisión SINPE</h1>
         <p className="text-sm text-slate-500">
-          Verificá comprobantes bancarios antes de confirmar los chances del cliente.
+          Verificá comprobantes bancarios antes de confirmar las fichas del cliente.
         </p>
       </div>
 
@@ -235,13 +235,13 @@ export default function AdminPedidosPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            setSelectedChances({
+                            setSelectedFichas({
                               title: `${p.order.publicReference} · ${p.order.customer.fullName}`,
                               subtitle: p.order.campaign.title,
                               entries: [
                                 {
                                   label: comboLabel,
-                                  sublabel: `${p.order.participations!.length} chances`,
+                                  sublabel: `${p.order.participations!.length} fichas`,
                                   numbers: p.order.participations!,
                                 },
                               ],
@@ -250,7 +250,7 @@ export default function AdminPedidosPage() {
                           className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
                         >
                           <Eye className="h-3.5 w-3.5" />
-                          Chances ({p.order.participations.length})
+                          Fichas ({p.order.participations.length})
                         </button>
                       ) : null}
 
@@ -309,7 +309,7 @@ export default function AdminPedidosPage() {
               <tr>
                 <th className="px-4 py-3">Pedido y campaña</th>
                 <th className="px-4 py-3">Cliente</th>
-                <th className="px-4 py-3">Combo / Chances</th>
+                <th className="px-4 py-3">Combo / Fichas</th>
                 <th className="px-4 py-3">Monto</th>
                 <th className="px-4 py-3">Comprobante</th>
                 <th className="px-4 py-3">Estado</th>
@@ -350,7 +350,7 @@ export default function AdminPedidosPage() {
                           <button
                             type="button"
                             onClick={() =>
-                              setSelectedChances({
+                              setSelectedFichas({
                                 title: `${p.order.publicReference} · ${p.order.customer.fullName}`,
                                 subtitle: p.order.campaign.title,
                                 entries: [
@@ -358,7 +358,7 @@ export default function AdminPedidosPage() {
                                     label:
                                       p.order.items?.map((item) => item.comboNameSnapshot).join(', ') ||
                                       'Combo',
-                                    sublabel: `${p.order.participations!.length} chances`,
+                                    sublabel: `${p.order.participations!.length} fichas`,
                                     numbers: p.order.participations!,
                                   },
                                 ],
@@ -458,12 +458,12 @@ export default function AdminPedidosPage() {
         isSubmitting={approveMutation.isPending || rejectMutation.isPending}
       />
 
-      <ChancesModal
-        open={Boolean(selectedChances)}
-        onClose={() => setSelectedChances(null)}
-        title={selectedChances?.title ?? ''}
-        subtitle={selectedChances?.subtitle}
-        entries={selectedChances?.entries ?? []}
+      <FichasModal
+        open={Boolean(selectedFichas)}
+        onClose={() => setSelectedFichas(null)}
+        title={selectedFichas?.title ?? ''}
+        subtitle={selectedFichas?.subtitle}
+        entries={selectedFichas?.entries ?? []}
       />
     </div>
   );

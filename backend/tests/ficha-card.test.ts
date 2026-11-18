@@ -1,8 +1,8 @@
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { generateStampedChanceCards } from '../src/modules/notifications/chance-card.service.js';
+import { generateStampedFichaCards } from '../src/modules/notifications/ficha-card.service.js';
 
-describe('Chance card stamping', () => {
+describe('Ficha card stamping', () => {
   it('stamps 5-digit numbers onto a PNG buffer using vector SVG paths', async () => {
     const templateBuffer = await sharp({
       create: {
@@ -15,14 +15,14 @@ describe('Chance card stamping', () => {
       .png()
       .toBuffer();
 
-    const cards = await generateStampedChanceCards({
+    const cards = await generateStampedFichaCards({
       templateBuffer,
       numbers: ['01216', '58186'],
     });
 
     expect(cards).toHaveLength(2);
-    expect(cards[0]?.filename).toBe('chance-01216.png');
-    expect(cards[0]?.contentId).toBe('chance-01216');
+    expect(cards[0]?.filename).toBe('ficha-01216.png');
+    expect(cards[0]?.contentId).toBe('ficha-01216');
     expect(cards[0]?.base64.length).toBeGreaterThan(100);
   });
 });

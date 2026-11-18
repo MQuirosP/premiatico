@@ -141,7 +141,7 @@ describe('Admin Payments Approval, Rejection & Double-Approval Prevention', () =
     expect(res.status).toBe(401);
   });
 
-  it('approves payment atomically, confirms chances, and prevents double approval', async () => {
+  it('approves payment atomically, confirms fichas, and prevents double approval', async () => {
     const first = await request(app)
       .post('/api/v1/admin/payments/pay_1/approve')
       .set('Cookie', authCookies)
@@ -162,7 +162,7 @@ describe('Admin Payments Approval, Rejection & Double-Approval Prevention', () =
     expect(second.status).toBe(409);
   });
 
-  it('rejects payment terminally and releases chances', async () => {
+  it('rejects payment terminally and releases fichas', async () => {
     const res = await request(app)
       .post('/api/v1/admin/payments/pay_1/reject')
       .set('Cookie', authCookies)

@@ -3,8 +3,8 @@ import { Prisma } from '@prisma/client';
 import { ConflictError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
 
-export function getCampaignNumberDigits(totalChances: number): number {
-  const safeTotal = Math.max(10, Math.min(100000, Math.trunc(totalChances)));
+export function getCampaignNumberDigits(totalFichas: number): number {
+  const safeTotal = Math.max(10, Math.min(100000, Math.trunc(totalFichas)));
   return Math.min(5, Math.max(2, String(safeTotal - 1).length));
 }
 
@@ -98,7 +98,7 @@ export async function releaseExpiredReservations(
 export async function allocateRandomNumbers(params: {
   tx: Prisma.TransactionClient;
   campaignId: string;
-  totalChances: number;
+  totalFichas: number;
   quantity: number;
   reservationSessionId?: string;
   orderId?: string;
@@ -110,7 +110,7 @@ export async function allocateRandomNumbers(params: {
   const {
     tx,
     campaignId,
-    totalChances,
+    totalFichas,
     quantity,
     reservationSessionId,
     orderId,
@@ -127,8 +127,8 @@ export async function allocateRandomNumbers(params: {
     },
   });
 
-  if (activeCount + quantity > totalChances) {
-    throw new ConflictError('No hay suficientes chances disponibles en esta campaña');
+  if (activeCount + quantity > totalFichas) {
+    throw new ConflictError('No hay suficientes fichas disponibles en esta campaña');
   }
 
   const activeRows = await tx.participation.findMany({
@@ -141,8 +141,8 @@ export async function allocateRandomNumbers(params: {
 
   const taken = new Set<string>(activeRows.map((r) => r.number));
   const assigned: string[] = [];
-  const maxPool = Math.min(100000, Math.max(10, totalChances));
-  const digits = getCampaignNumberDigits(totalChances);
+  const maxPool = Math.min(100000, Math.max(10, totalFichas));
+  const digits = getCampaignNumberDigits(totalFichas);
 
   for (let attempt = 0; attempt < 5 && assigned.length < quantity; attempt++) {
     const needed = quantity - assigned.length;
@@ -197,7 +197,7 @@ export async function allocateRandomNumbers(params: {
   }
 
   if (assigned.length < quantity) {
-    throw new ConflictError('No se pudieron asignar todos los chances por alta concurrencia. Intentá de nuevo.');
+    throw new ConflictError('No se pudieron asignar todos las fichas por alta concurrencia. Intentá de nuevo.');
   }
 
   return assigned.slice(0, quantity).sort();

@@ -9,7 +9,7 @@ export interface ComboCreatePayload {
   name: string;
   price: number;
   passQuantity: number;
-  chanceQuantity: number;
+  fichaQuantity: number;
   badgeLabel?: string;
   passItems?: Array<{ digitalPassId: string; quantity: number }>;
 }
@@ -38,7 +38,7 @@ export function CampaignCombosPanel({
   const [comboName, setComboName] = useState('');
   const [comboPrice, setComboPrice] = useState(4000);
   const [comboPassQty, setComboPassQty] = useState(1);
-  const [comboChanceQty, setComboChanceQty] = useState(4);
+  const [comboFichaQty, setComboFichaQty] = useState(4);
   const [comboBadge, setComboBadge] = useState('');
   const [comboPassId, setComboPassId] = useState('');
 
@@ -53,7 +53,7 @@ export function CampaignCombosPanel({
           name: comboName,
           price: comboPrice,
           passQuantity: comboPassQty,
-          chanceQuantity: comboChanceQty,
+          fichaQuantity: comboFichaQty,
           badgeLabel: comboBadge.trim() || undefined,
           ...(comboPassId
             ? { passItems: [{ digitalPassId: comboPassId, quantity: comboPassQty }] }
@@ -101,7 +101,7 @@ export function CampaignCombosPanel({
                     ) : null}
                   </p>
                   <p className="text-slate-500">
-                    {combo.passQuantity} pases · {combo.chanceQuantity} chances
+                    {combo.passQuantity} pases · {combo.fichaQuantity} fichas
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -175,14 +175,14 @@ export function CampaignCombosPanel({
         </div>
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1">
-            Chances de regalo
+            Fichas de regalo
           </label>
           <input
             type="number"
             min={1}
             required
-            value={comboChanceQty}
-            onChange={(e) => setComboChanceQty(Number(e.target.value))}
+            value={comboFichaQty}
+            onChange={(e) => setComboFichaQty(Number(e.target.value))}
             placeholder="8"
             className="w-full rounded-lg border px-3 py-2 text-sm"
           />

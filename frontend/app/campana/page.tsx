@@ -8,7 +8,7 @@ import { Suspense, useState } from 'react';
 import { CampaignCountdown } from '@/components/campaign-countdown';
 import { CampaignProgressBar } from '@/components/campaign-progress';
 import { ComboSelector } from '@/components/combo-selector';
-import { PackageChancesModal } from '@/components/package-chances-modal';
+import { PackageFichasModal } from '@/components/package-fichas-modal';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { getCampaignTheme } from '@/lib/campaign-themes';
@@ -59,8 +59,8 @@ function CampaignDetailContent() {
   }
 
   const theme = getCampaignTheme(campaign.themeColor);
-  const safeTotalChances = Math.max(10, Math.min(100000, Math.trunc(campaign.totalChances)));
-  const numberDigits = Math.min(5, Math.max(2, String(safeTotalChances - 1).length));
+  const safeTotalFichas = Math.max(10, Math.min(100000, Math.trunc(campaign.totalFichas)));
+  const numberDigits = Math.min(5, Math.max(2, String(safeTotalFichas - 1).length));
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -105,7 +105,7 @@ function CampaignDetailContent() {
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
                     <Hash className="h-3.5 w-3.5 text-slate-500" />
-                    Chances de {numberDigits} dígitos
+                    Fichas de {numberDigits} dígitos
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
@@ -141,7 +141,7 @@ function CampaignDetailContent() {
           <div>
             <h2 className="text-xl font-bold text-slate-900">1. Elegí tu combo</h2>
             <p className="text-sm text-slate-500">
-              Seleccioná la cantidad de pases digitales que querés adquirir y recibí tus chances de regalo.
+              Seleccioná la cantidad de pases digitales que querés adquirir y recibí tus fichas de regalo.
             </p>
           </div>
 
@@ -164,7 +164,7 @@ function CampaignDetailContent() {
                   Combo seleccionado: {selectedCombo.name} ({formatCRC(selectedCombo.price)})
                 </p>
                 <p className="text-sm text-slate-600">
-                  Incluye {selectedCombo.passQuantity} pases y {selectedCombo.chanceQuantity} chances de regalo (hasta {campaign.maxNumberChanges} cambios de números).
+                  Incluye {selectedCombo.passQuantity} pases y {selectedCombo.fichaQuantity} fichas de regalo (hasta {campaign.maxNumberChanges} cambios de números).
                 </p>
               </div>
               <button
@@ -172,7 +172,7 @@ function CampaignDetailContent() {
                 onClick={() => setModalOpen(true)}
                 className={`inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-bold shadow-sm transition ${theme.ctaButton}`}
               >
-                Descubrí tus chances
+                Descubrí tus fichas
               </button>
             </div>
           ) : null}
@@ -183,7 +183,7 @@ function CampaignDetailContent() {
           <p className="text-xs text-slate-600 whitespace-pre-line">{campaign.terms}</p>
         </section>
       </main>
-      <PackageChancesModal
+      <PackageFichasModal
         campaignId={campaign.id}
         campaignTitle={campaign.title}
         combo={selectedCombo}

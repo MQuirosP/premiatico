@@ -5,7 +5,7 @@ export function SiteFooter() {
   return (
     <footer className="border-t bg-white py-6 text-xs text-slate-500">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4">
-        <p>© {new Date().getFullYear()} Premiático · Costa Rica · ¡Más chances, más emoción!</p>
+        <p>© {new Date().getFullYear()} Premiático · Costa Rica · ¡Más fichas, más emoción!</p>
         <Link
           href="/admin"
           aria-label="Administración"

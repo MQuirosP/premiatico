@@ -15,7 +15,7 @@ export function CampaignProgressBar({
         <span className="text-blue-700">{Math.round(clamped)} % vendido</span>
         {showAvailable ? (
           <span className="text-slate-500">
-            {progress.availableChances.toLocaleString('es-CR')} disponibles
+            {progress.availableFichas.toLocaleString('es-CR')} disponibles
           </span>
         ) : null}
       </div>

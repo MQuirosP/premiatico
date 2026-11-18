@@ -47,7 +47,7 @@ export function ReservationSummaryCard({
     <section className="rounded-2xl border bg-white p-5 sm:p-6 shadow-sm space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Descubrí tus chances</h1>
+          <h1 className="text-xl font-bold text-slate-900">Descubrí tus fichas</h1>
           {session ? (
             <p className="text-sm text-slate-500">
               {session.comboName} · {formatCRC(session.price)}

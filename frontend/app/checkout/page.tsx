@@ -115,7 +115,7 @@ function CheckoutContent() {
       }
     },
     onError: (err) => {
-      setErrorMsg(err instanceof ApiError ? err.message : 'No pudimos reservar tus chances');
+      setErrorMsg(err instanceof ApiError ? err.message : 'No pudimos reservar tus fichas');
     },
   });
 
@@ -293,7 +293,7 @@ function CheckoutContent() {
               Finalizá tu compra
             </h1>
             <p className="text-sm text-slate-600">
-              Completá tus datos y confirmá el pago para asegurar tus pases digitales y chances.
+              Completá tus datos y confirmá el pago para asegurar tus pases digitales y fichas.
             </p>
           </div>
           <CheckoutStepper step={currentStep} />
@@ -455,15 +455,15 @@ function CheckoutContent() {
                       <p className="text-xs text-slate-500">
                         {session.passQuantity}{' '}
                         {session.passQuantity === 1 ? 'pase digital' : 'pases digitales'} ·{' '}
-                        {session.chanceQuantity}{' '}
-                        {session.chanceQuantity === 1 ? 'chance' : 'chances'}
+                        {session.fichaQuantity}{' '}
+                        {session.fichaQuantity === 1 ? 'ficha' : 'fichas'}
                       </p>
                     </div>
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                          Tus chances
+                          Tus fichas
                         </span>
                         {session.remainingChanges > 0 ? (
                           <button
@@ -539,11 +539,11 @@ function CheckoutContent() {
                     className="text-xs font-bold text-red-600 hover:text-red-700 hover:underline disabled:opacity-50"
                   >
                     {cancelReservationMutation.isPending
-                      ? 'Liberando chances...'
+                      ? 'Liberando fichas...'
                       : 'Cancelar compra'}
                   </button>
                   <p className="mt-0.5 text-[11px] text-slate-400">
-                    Libera tus chances y vuelve al inicio.
+                    Libera tus fichas y vuelve al inicio.
                   </p>
                 </div>
               ) : null}

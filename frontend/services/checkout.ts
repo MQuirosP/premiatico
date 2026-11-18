@@ -14,11 +14,11 @@ export interface ReservationSessionData {
   comboName: string;
   unitPrice: number;
   unitPassQuantity: number;
-  unitChanceQuantity: number;
+  unitFichaQuantity: number;
   packageCount: number;
   price: number;
   passQuantity: number;
-  chanceQuantity: number;
+  fichaQuantity: number;
   numbers: string[];
   enableInverseNumbers: boolean;
   availableInverses: InverseOffer[];
@@ -71,10 +71,10 @@ export interface PublicOrderDetail {
   items: Array<{
     comboName: string;
     passQuantity: number;
-    chanceQuantity: number;
+    fichaQuantity: number;
     totalPrice: number;
   }>;
-  chances: Array<{ number: string; status: string }>;
+  fichas: Array<{ number: string; status: string }>;
   payment: {
     id: string;
     method: string;
@@ -100,7 +100,7 @@ export interface ReservationMutationResult {
   packageCount: number;
   price: number;
   passQuantity: number;
-  chanceQuantity: number;
+  fichaQuantity: number;
   numbers: string[];
   enableInverseNumbers: boolean;
   availableInverses: InverseOffer[];

@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Eye } from 'lucide-react';
 import { useState } from 'react';
-import { ChancesModal, type ChancesModalEntry } from '@/components/chances-modal';
+import { FichasModal, type FichasModalEntry } from '@/components/fichas-modal';
 import { apiRequest } from '@/lib/api';
 
 interface CustomerOrderRow {
@@ -29,7 +29,7 @@ export default function AdminClientesPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<{
     title: string;
     subtitle: string;
-    entries: ChancesModalEntry[];
+    entries: FichasModalEntry[];
   } | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -87,7 +87,7 @@ export default function AdminClientesPage() {
                         className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
                       >
                         <Eye className="h-3.5 w-3.5" />
-                        Ver chances ({orders.length})
+                        Ver fichas ({orders.length})
                       </button>
                     ) : null}
                   </div>
@@ -103,7 +103,7 @@ export default function AdminClientesPage() {
                     <th className="px-4 py-3">Nombre</th>
                     <th className="px-4 py-3">Correo</th>
                     <th className="px-4 py-3">Teléfono</th>
-                    <th className="px-4 py-3">Pedidos / Chances</th>
+                    <th className="px-4 py-3">Pedidos / Fichas</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -155,7 +155,7 @@ export default function AdminClientesPage() {
         )}
       </div>
 
-      <ChancesModal
+      <FichasModal
         open={Boolean(selectedCustomer)}
         onClose={() => setSelectedCustomer(null)}
         title={selectedCustomer?.title ?? ''}

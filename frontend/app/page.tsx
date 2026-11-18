@@ -23,13 +23,13 @@ export default function HomePage() {
         <section className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white py-16 px-4">
           <div className="mx-auto max-w-4xl text-center space-y-5">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider">
-              Costa Rica · ¡Más chances, más emoción!
+              Costa Rica · ¡Más fichas, más emoción!
             </span>
             <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">
-              Elegí tu combo, descubrí tus chances y participá por grandes premios
+              Elegí tu combo, descubrí tus fichas y participá por grandes premios
             </h1>
             <p className="text-blue-100 text-lg max-w-2xl mx-auto">
-              Adquirí tus pases digitales, recibí tus chances asignados al instante y pagá fácil con SINPE Móvil.
+              Adquirí tus pases digitales, recibí tus fichas asignadas al instante y pagá fácil con SINPE Móvil.
             </p>
           </div>
         </section>
@@ -56,7 +56,7 @@ export default function HomePage() {
                 No hay campañas activas en este momento.
               </p>
               <p className="text-sm mt-1">
-                Muy pronto publicaremos nuevas promociones. ¡Más chances, más emoción!
+                Muy pronto publicaremos nuevas promociones. ¡Más fichas, más emoción!
               </p>
             </div>
           ) : (

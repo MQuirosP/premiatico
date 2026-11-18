@@ -15,7 +15,7 @@ import {
 } from '@/services/checkout';
 import type { CampaignCombo } from '@/types/campaign';
 
-interface PackageChancesModalProps {
+interface PackageFichasModalProps {
   campaignId: string;
   campaignTitle: string;
   combo: CampaignCombo | null;
@@ -30,13 +30,13 @@ function formatRemaining(ms: number): string {
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
-export function PackageChancesModal({
+export function PackageFichasModal({
   campaignId,
   campaignTitle,
   combo,
   open,
   onClose,
-}: PackageChancesModalProps) {
+}: PackageFichasModalProps) {
   const router = useRouter();
   const [session, setSession] = useState<ReservationSessionData | null>(null);
   const [selectedInverseSource, setSelectedInverseSource] = useState<string>('');
@@ -64,7 +64,7 @@ export function PackageChancesModal({
       setSelectedInverseSource(data.availableInverses[0]?.sourceNumber ?? '');
     },
     onError: (err) => {
-      setErrorMsg(err instanceof ApiError ? err.message : 'No pudimos reservar tus chances');
+      setErrorMsg(err instanceof ApiError ? err.message : 'No pudimos reservar tus fichas');
     },
   });
 
@@ -172,7 +172,7 @@ export function PackageChancesModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="package-chances-modal-title"
+      aria-labelledby="package-fichas-modal-title"
     >
       <div className="relative w-full max-w-xl rounded-3xl border border-slate-200 bg-white shadow-2xl flex flex-col max-h-[88vh] overflow-hidden">
         <button
@@ -189,8 +189,8 @@ export function PackageChancesModal({
           <p className="text-[11px] font-bold uppercase tracking-wider text-blue-600">
             Tu paquete · {campaignTitle}
           </p>
-          <h2 id="package-chances-modal-title" className="text-2xl font-extrabold text-slate-900">
-            Estos son tus chances
+          <h2 id="package-fichas-modal-title" className="text-2xl font-extrabold text-slate-900">
+            Estos son tus fichas
           </h2>
           <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
             <span>
@@ -198,7 +198,7 @@ export function PackageChancesModal({
               {(session?.passQuantity ?? combo.passQuantity) === 1
                 ? 'pase digital'
                 : 'pases digitales'}{' '}
-              · {session ? session.chanceQuantity : combo.chanceQuantity} chances
+              · {session ? session.fichaQuantity : combo.fichaQuantity} fichas
               {session && session.packageCount > 1
                 ? ` (${session.packageCount} paquetes)`
                 : ''}
@@ -304,7 +304,7 @@ export function PackageChancesModal({
                     </div>
                     <div className="space-y-1 text-xs sm:text-sm text-slate-700">
                       <p>
-                        El chance{' '}
+                        La ficha{' '}
                         <strong className="font-mono text-blue-700">
                           {activeOffer.sourceNumber}
                         </strong>{' '}

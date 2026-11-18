@@ -3,21 +3,21 @@
 import { Ticket, X } from 'lucide-react';
 import { useEffect } from 'react';
 
-export interface ChancesModalEntry {
+export interface FichasModalEntry {
   label: string;
   sublabel?: string;
   numbers: Array<{ number: string; status: string }>;
 }
 
-interface ChancesModalProps {
+interface FichasModalProps {
   open: boolean;
   onClose: () => void;
   title: string;
   subtitle?: string;
-  entries: ChancesModalEntry[];
+  entries: FichasModalEntry[];
 }
 
-export function ChancesModal({ open, onClose, title, subtitle, entries }: ChancesModalProps) {
+export function FichasModal({ open, onClose, title, subtitle, entries }: FichasModalProps) {
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {

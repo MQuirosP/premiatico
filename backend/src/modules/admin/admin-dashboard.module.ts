@@ -23,7 +23,7 @@ adminDashboardRouter.get(
       todayOrders,
       confirmedSalesAgg,
       pendingPayments,
-      confirmedChances,
+      confirmedFichas,
     ] = await Promise.all([
       prisma.campaign.count({ where: { status: 'ACTIVE' } }),
       prisma.order.count({ where: { createdAt: { gte: startOfToday } } }),
@@ -42,7 +42,7 @@ adminDashboardRouter.get(
         todayOrders,
         confirmedSalesTotal: confirmedSalesAgg._sum.totalAmount ?? 0,
         pendingPayments,
-        confirmedChances,
+        confirmedFichas,
       },
     });
   } catch (error) {

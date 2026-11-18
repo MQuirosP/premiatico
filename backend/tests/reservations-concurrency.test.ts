@@ -7,7 +7,7 @@ const { state, txMock, withLock } = vi.hoisted(() => {
       status: 'ACTIVE',
       startAt: new Date('2026-01-01T00:00:00Z'),
       endAt: new Date('2027-01-01T00:00:00Z'),
-      totalChances: 100,
+      totalFichas: 100,
       maxNumberChanges: 5,
       reservationMinutes: 15,
       paymentWindowMinutes: 60,
@@ -15,10 +15,10 @@ const { state, txMock, withLock } = vi.hoisted(() => {
     combo: {
       id: 'combo_1',
       campaignId: 'camp_1',
-      name: 'Combo 4 Chances',
+      name: 'Combo 4 Fichas',
       price: 4000,
       passQuantity: 1,
-      chanceQuantity: 4,
+      fichaQuantity: 4,
       isActive: true,
     },
     sessions: [] as Array<Record<string, unknown>>,
@@ -205,15 +205,15 @@ vi.mock('../src/core/prisma.js', () => ({
   },
 }));
 
-import { releaseExpiredReservations } from '../src/modules/chances/chances.service.js';
+import { releaseExpiredReservations } from '../src/modules/fichas/fichas.service.js';
 import {
   createReservationSession,
   regenerateReservationNumbers,
 } from '../src/modules/reservations/reservations.module.js';
 
-describe('Chances Engine & Concurrency', () => {
+describe('Fichas Engine & Concurrency', () => {
   beforeEach(() => {
-    state.campaign.totalChances = 100;
+    state.campaign.totalFichas = 100;
     state.sessions.length = 0;
     state.orders.length = 0;
     state.participations.length = 0;
@@ -234,10 +234,10 @@ describe('Chances Engine & Concurrency', () => {
       expect(num).toMatch(/^\d{2}$/);
     }
 
-    // 26th request must fail because totalChances (100) is exhausted
+    // 26th request must fail because totalFichas (100) is exhausted
     await expect(
       createReservationSession({ campaignId: 'camp_1', comboId: 'combo_1' }),
-    ).rejects.toThrow('No hay suficientes chances disponibles');
+    ).rejects.toThrow('No hay suficientes fichas disponibles');
   });
 
   it('allows regenerating up to 5 times and blocks the 6th attempt', async () => {

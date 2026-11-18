@@ -8,7 +8,7 @@ import { Suspense, useState } from 'react';
 import { CampaignPrizesPanel } from '@/components/admin/campaign-prizes-panel';
 import { CampaignThemePicker } from '@/components/admin/campaign-theme-picker';
 import { CampaignProgressBar } from '@/components/campaign-progress';
-import { ChancesModal, type ChancesModalEntry } from '@/components/chances-modal';
+import { FichasModal, type FichasModalEntry } from '@/components/fichas-modal';
 import { ApiError } from '@/lib/api';
 import { formatCRC } from '@/lib/utils';
 import { cancelAdminOrder, evaluateAdminCampaignWinner, getAdminCampaignDetail, updateAdminCampaign, type CampaignWinnerResult } from '@/services/campaigns';
@@ -30,10 +30,10 @@ function CampaignDetailInner() {
   const [winnerNotes, setWinnerNotes] = useState('');
   const [evalError, setEvalError] = useState<string | null>(null);
   const [latestResult, setLatestResult] = useState<CampaignWinnerResult | null>(null);
-  const [selectedChances, setSelectedChances] = useState<{
+  const [selectedFichas, setSelectedFichas] = useState<{
     title: string;
     subtitle: string;
-    entries: ChancesModalEntry[];
+    entries: FichasModalEntry[];
   } | null>(null);
   const [orderToCancel, setOrderToCancel] = useState<{
     id: string;
@@ -130,7 +130,7 @@ function CampaignDetailInner() {
   const combos = campaign.combos ?? [];
   const orders = campaign.orders ?? [];
   const digits = campaign.numberDigits ?? 5;
-  const maxNumberLabel = String(Math.max(0, campaign.totalChances - 1)).padStart(digits, '0');
+  const maxNumberLabel = String(Math.max(0, campaign.totalFichas - 1)).padStart(digits, '0');
   const activeWinnerResult = latestResult ?? campaign.winnerResult ?? null;
 
   return (
@@ -434,7 +434,7 @@ function CampaignDetailInner() {
                   <span className="font-extrabold text-blue-700">{formatCRC(combo.price)}</span>
                 </div>
                 <p className="text-slate-600">
-                  {combo.passQuantity} pases · {combo.chanceQuantity} chances de regalo
+                  {combo.passQuantity} pases · {combo.fichaQuantity} fichas de regalo
                 </p>
                 {combo.passItems && combo.passItems.length > 0 ? (
                   <div className="pt-1 border-t space-y-1">
@@ -506,13 +506,13 @@ function CampaignDetailInner() {
                           <button
                             type="button"
                             onClick={() =>
-                              setSelectedChances({
+                              setSelectedFichas({
                                 title: `${order.publicReference} · ${order.customer?.fullName ?? 'Cliente'}`,
                                 subtitle: campaign.title,
                                 entries: [
                                   {
                                     label: items.map((i) => i.comboNameSnapshot).join(', ') || 'Combo',
-                                    sublabel: `${participations.length} chances`,
+                                    sublabel: `${participations.length} fichas`,
                                     numbers: participations,
                                   },
                                 ],
@@ -563,7 +563,7 @@ function CampaignDetailInner() {
                     <th className="px-4 py-3">Referencia</th>
                     <th className="px-4 py-3">Cliente</th>
                     <th className="px-4 py-3">Combo</th>
-                    <th className="px-4 py-3">Chances</th>
+                    <th className="px-4 py-3">Fichas</th>
                     <th className="px-4 py-3">Monto</th>
                     <th className="px-4 py-3">Estado</th>
                     <th className="px-4 py-3 text-right">Acciones</th>
@@ -594,13 +594,13 @@ function CampaignDetailInner() {
                             <button
                               type="button"
                               onClick={() =>
-                                setSelectedChances({
+                                setSelectedFichas({
                                   title: `${order.publicReference} · ${order.customer?.fullName ?? 'Cliente'}`,
                                   subtitle: campaign.title,
                                   entries: [
                                     {
                                       label: items.map((i) => i.comboNameSnapshot).join(', ') || 'Combo',
-                                      sublabel: `${participations.length} chances`,
+                                      sublabel: `${participations.length} fichas`,
                                       numbers: participations,
                                     },
                                   ],
@@ -658,12 +658,12 @@ function CampaignDetailInner() {
         )}
       </section>
 
-      <ChancesModal
-        open={Boolean(selectedChances)}
-        onClose={() => setSelectedChances(null)}
-        title={selectedChances?.title ?? ''}
-        subtitle={selectedChances?.subtitle}
-        entries={selectedChances?.entries ?? []}
+      <FichasModal
+        open={Boolean(selectedFichas)}
+        onClose={() => setSelectedFichas(null)}
+        title={selectedFichas?.title ?? ''}
+        subtitle={selectedFichas?.subtitle}
+        entries={selectedFichas?.entries ?? []}
       />
 
       {orderToCancel && (

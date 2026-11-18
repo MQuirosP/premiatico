@@ -92,7 +92,7 @@ export interface AdminCampaignDetail extends AdminCampaign {
     items: Array<{
       comboNameSnapshot: string;
       passQuantitySnapshot: number;
-      chanceQuantitySnapshot: number;
+      fichaQuantitySnapshot: number;
     }>;
     participations: Array<{ number: string; status: string }>;
   }>;
@@ -127,7 +127,7 @@ export async function createAdminCampaign(payload: {
   endAt: string;
   drawAt?: string | null;
   drawReference?: string | null;
-  totalChances: number;
+  totalFichas: number;
   maxNumberChanges: number;
   requiresLegalApproval: boolean;
   legalApprovalStatus: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -235,7 +235,7 @@ export async function createAdminCombo(payload: {
   name: string;
   price: number;
   passQuantity: number;
-  chanceQuantity: number;
+  fichaQuantity: number;
   badgeLabel?: string;
   passItems?: Array<{ digitalPassId: string; quantity: number }>;
 }): Promise<unknown> {

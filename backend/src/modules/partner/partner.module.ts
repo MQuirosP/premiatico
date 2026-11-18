@@ -9,8 +9,8 @@ import {
   allocateRandomNumbers,
   getCampaignNumberDigits,
   releaseExpiredReservations,
-} from '../chances/chances.service.js';
-import { sendRichOrderEmail } from '../notifications/chance-card.service.js';
+} from '../fichas/fichas.service.js';
+import { sendRichOrderEmail } from '../notifications/ficha-card.service.js';
 import { hashToken } from '../reservations/reservations.module.js';
 import { cancelOrderTransactional } from '../orders/order-cancel.service.js';
 
@@ -72,7 +72,7 @@ partnerRouter.get(
               description: true,
               price: true,
               passQuantity: true,
-              chanceQuantity: true,
+              fichaQuantity: true,
               badgeLabel: true,
             },
           },
@@ -93,10 +93,10 @@ partnerRouter.get(
             title: campaign.title,
             drawAt: campaign.drawAt,
             drawReference: campaign.drawReference,
-            totalChances: campaign.totalChances,
-            digits: getCampaignNumberDigits(campaign.totalChances),
+            totalFichas: campaign.totalFichas,
+            digits: getCampaignNumberDigits(campaign.totalFichas),
             enableInverseNumbers: campaign.enableInverseNumbers,
-            remainingChances: Math.max(0, campaign.totalChances - occupied),
+            remainingFichas: Math.max(0, campaign.totalFichas - occupied),
             combos: campaign.combos,
           };
         }),
@@ -138,7 +138,7 @@ partnerRouter.post(
         where: { idempotencyKey: input.idempotencyKey },
         include: {
           campaign: {
-            select: { id: true, title: true, drawAt: true, totalChances: true },
+            select: { id: true, title: true, drawAt: true, totalFichas: true },
           },
           items: true,
           participations: {
@@ -172,8 +172,8 @@ partnerRouter.post(
               id: existingOrder.campaign.id,
               title: existingOrder.campaign.title,
               drawAt: existingOrder.campaign.drawAt,
-              totalChances: existingOrder.campaign.totalChances,
-              digits: getCampaignNumberDigits(existingOrder.campaign.totalChances),
+              totalFichas: existingOrder.campaign.totalFichas,
+              digits: getCampaignNumberDigits(existingOrder.campaign.totalFichas),
             },
             combo: {
               id: firstItem?.comboId ?? input.comboId,
@@ -228,7 +228,7 @@ partnerRouter.post(
 
         const applyInverse = Boolean(input.includeInverse && campaign.enableInverseNumbers);
         const packageCount = applyInverse ? input.quantity * 2 : input.quantity;
-        const totalChancesToAssign = combo.chanceQuantity * packageCount;
+        const totalFichasToAssign = combo.fichaQuantity * packageCount;
         const totalPasses = combo.passQuantity * packageCount;
         const totalAmount = combo.price * packageCount;
 
@@ -279,7 +279,7 @@ partnerRouter.post(
                 quantity: packageCount,
                 unitPrice: combo.price,
                 passQuantitySnapshot: totalPasses,
-                chanceQuantitySnapshot: totalChancesToAssign,
+                fichaQuantitySnapshot: totalFichasToAssign,
                 totalPrice: totalAmount,
                 passesSnapshotJson: passesSnapshot as Prisma.InputJsonValue,
               },
@@ -307,11 +307,11 @@ partnerRouter.post(
 
         let assignedNumbers: string[];
         if (applyInverse) {
-          const baseQuantity = combo.chanceQuantity * input.quantity;
+          const baseQuantity = combo.fichaQuantity * input.quantity;
           const baseNumbers = await allocateRandomNumbers({
             tx,
             campaignId: campaign.id,
-            totalChances: campaign.totalChances,
+            totalFichas: campaign.totalFichas,
             quantity: baseQuantity,
             orderId: order.id,
             status: 'CONFIRMED',
@@ -341,13 +341,13 @@ partnerRouter.post(
                 },
               });
               extraExclude.add(inverseNumber);
-              const remaining = Math.max(0, totalChancesToAssign - baseNumbers.length - 1);
+              const remaining = Math.max(0, totalFichasToAssign - baseNumbers.length - 1);
               const extraNumbers =
                 remaining > 0
                   ? await allocateRandomNumbers({
                       tx,
                       campaignId: campaign.id,
-                      totalChances: campaign.totalChances,
+                      totalFichas: campaign.totalFichas,
                       quantity: remaining,
                       orderId: order.id,
                       status: 'CONFIRMED',
@@ -360,8 +360,8 @@ partnerRouter.post(
               const extraNumbers = await allocateRandomNumbers({
                 tx,
                 campaignId: campaign.id,
-                totalChances: campaign.totalChances,
-                quantity: totalChancesToAssign - baseNumbers.length,
+                totalFichas: campaign.totalFichas,
+                quantity: totalFichasToAssign - baseNumbers.length,
                 orderId: order.id,
                 status: 'CONFIRMED',
                 confirmedAt: now,
@@ -373,8 +373,8 @@ partnerRouter.post(
             const extraNumbers = await allocateRandomNumbers({
               tx,
               campaignId: campaign.id,
-              totalChances: campaign.totalChances,
-              quantity: totalChancesToAssign - baseNumbers.length,
+              totalFichas: campaign.totalFichas,
+              quantity: totalFichasToAssign - baseNumbers.length,
               orderId: order.id,
               status: 'CONFIRMED',
               confirmedAt: now,
@@ -386,8 +386,8 @@ partnerRouter.post(
           assignedNumbers = await allocateRandomNumbers({
             tx,
             campaignId: campaign.id,
-            totalChances: campaign.totalChances,
-            quantity: totalChancesToAssign,
+            totalFichas: campaign.totalFichas,
+            quantity: totalFichasToAssign,
             orderId: order.id,
             status: 'CONFIRMED',
             confirmedAt: now,
@@ -447,8 +447,8 @@ partnerRouter.post(
             id: created.campaign.id,
             title: created.campaign.title,
             drawAt: created.campaign.drawAt,
-            totalChances: created.campaign.totalChances,
-            digits: getCampaignNumberDigits(created.campaign.totalChances),
+            totalFichas: created.campaign.totalFichas,
+            digits: getCampaignNumberDigits(created.campaign.totalFichas),
           },
           combo: {
             id: created.combo.id,

@@ -6,7 +6,7 @@ import { requireAdminAuth } from '../../middlewares/authAdmin.js';
 import { createMemoryUpload } from '../../middlewares/upload.js';
 import { validate } from '../../middlewares/validate.js';
 import { recordAuditLog } from '../audit/audit.service.js';
-import { generateStampedPassImage } from '../notifications/chance-card.service.js';
+import { generateStampedPassImage } from '../notifications/ficha-card.service.js';
 import {
   deleteObject,
   getObjectBuffer,

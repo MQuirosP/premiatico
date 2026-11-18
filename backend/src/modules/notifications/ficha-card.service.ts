@@ -5,7 +5,7 @@ import { prisma } from '../../core/prisma.js';
 import { getObjectBuffer } from '../storage/storage.service.js';
 import { sendOrderNotification } from './notifications.service.js';
 
-export interface StampedChanceCard {
+export interface StampedFichaCard {
   number: string;
   filename: string;
   contentId: string;
@@ -20,9 +20,9 @@ export interface OrderEmailCommonInput {
   totalAmount?: number;
   passLabel: string;
   totalPasses: number;
-  totalChances: number;
+  totalFichas: number;
   orderLookupUrl: string;
-  cards: StampedChanceCard[];
+  cards: StampedFichaCard[];
   allNumbers: string[];
 }
 
@@ -129,7 +129,7 @@ function buildVectorTextSvg(params: {
 
 /**
  * Stamps arbitrary alphanumeric text (e.g. a 5-digit number or order reference)
- * centered inside the white pill box of the pass/chance PNG without relying on system fonts.
+ * centered inside the white pill box of the pass/ficha PNG without relying on system fonts.
  */
 export async function generateStampedPassImage(params: {
   templateBuffer: Buffer;
@@ -171,13 +171,13 @@ export async function generateStampedPassImage(params: {
 }
 
 /**
- * Stamps each lottery number centered inside the white pill box of the pass/chance PNG.
+ * Stamps each lottery number centered inside the white pill box of the pass/ficha PNG.
  */
-export async function generateStampedChanceCards(params: {
+export async function generateStampedFichaCards(params: {
   templateBuffer: Buffer;
   numbers: string[];
   maxCards?: number;
-}): Promise<StampedChanceCard[]> {
+}): Promise<StampedFichaCard[]> {
   const maxCards = params.maxCards ?? 25;
   const targetNumbers = params.numbers.slice(0, maxCards);
   if (targetNumbers.length === 0) return [];
@@ -192,8 +192,8 @@ export async function generateStampedChanceCards(params: {
 
       return {
         number,
-        filename: `chance-${number}.png`,
-        contentId: `chance-${number}`,
+        filename: `ficha-${number}.png`,
+        contentId: `ficha-${number}`,
         base64: outputBuffer.toString('base64'),
       };
     }),
@@ -218,7 +218,7 @@ function renderOrderCardsGrid(input: OrderEmailCommonInput): string {
         <td align="center" style="padding: 6px;">
           <img
             src="cid:${escapeHtml(card.contentId)}"
-            alt="Chance ${escapeHtml(card.number)}"
+            alt="Ficha ${escapeHtml(card.number)}"
             width="110"
             height="110"
             style="display: block; width: 110px; height: 110px; border-radius: 9999px; border: 0;"
@@ -249,7 +249,7 @@ function renderOrderEmailShell(params: {
   purchaseCardBody: string;
   extraNoticesHtml?: string;
   summaryTotalRow?: string;
-  chancesIntro: string;
+  fichasIntro: string;
   footerNote: string;
 }): string {
   const { input } = params;
@@ -268,8 +268,8 @@ function renderOrderEmailShell(params: {
   const attachmentNote =
     input.cards.length > 0
       ? remainingCount > 0
-        ? `Adjuntamos ${input.cards.length} imágenes de tus chances de regalo. Podés ver los ${input.allNumbers.length} números completos en tu pedido.`
-        : `Adjuntamos ${input.cards.length} ${input.cards.length === 1 ? 'imagen' : 'imágenes'} de tus chances de regalo.`
+        ? `Adjuntamos ${input.cards.length} imágenes de tus fichas de regalo. Podés ver los ${input.allNumbers.length} números completos en tu pedido.`
+        : `Adjuntamos ${input.cards.length} ${input.cards.length === 1 ? 'imagen' : 'imágenes'} de tus fichas de regalo.`
       : '';
 
   return `
@@ -319,7 +319,7 @@ function renderOrderEmailShell(params: {
                   <div><strong>Fecha:</strong> ${formattedDate}</div>
                   ${params.summaryTotalRow ?? ''}
                   <div><strong>Pases digitales:</strong> ${input.totalPasses}</div>
-                  <div><strong>Chances de regalo:</strong> ${input.totalChances}</div>
+                  <div><strong>Fichas de regalo:</strong> ${input.totalFichas}</div>
                 </td>
               </tr>
             </table>
@@ -328,7 +328,7 @@ function renderOrderEmailShell(params: {
               BONIFICACIÓN DEL EVENTO
             </p>
             <p style="margin: 0 0 10px 0; font-size: 13px; color: #475569;">
-              ${escapeHtml(params.chancesIntro)}
+              ${escapeHtml(params.fichasIntro)}
             </p>
             <p style="margin: 0 0 12px 0; color: #4f46e5; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">
               ${safeCampaign}
@@ -367,7 +367,7 @@ export function buildPaymentConfirmedEmailHtml(input: PaymentConfirmedEmailInput
     bannerBadge: 'PAGO CONFIRMADO',
     bannerTitle: 'Tus pases están listos',
     introParagraph:
-      'Confirmamos tu pago. Ya podés descargar los pases digitales de tu compra. Como bonificación, tus chances para la campaña quedaron confirmados.',
+      'Confirmamos tu pago. Ya podés descargar los pases digitales de tu compra. Como bonificación, tus fichas para la campaña quedaron confirmados.',
     purchaseCardBody: `
       <p style="margin: 0 0 4px 0; color: #ffffff; font-size: 18px; font-weight: 800;">
         Tu compra incluye ${input.totalPasses === 1 ? 'tu pase digital' : `${input.totalPasses} pases digitales`}
@@ -384,7 +384,7 @@ export function buildPaymentConfirmedEmailHtml(input: PaymentConfirmedEmailInput
         ${input.totalPasses === 1 ? 'Descargar pase' : 'Descargar pases'}
       </a>
     `,
-    chancesIntro: 'Además de tus pases, estos son tus chances confirmados para el sorteo:',
+    fichasIntro: 'Además de tus pases, estos son tus fichas confirmadas para el sorteo:',
     footerNote: 'Conservá este correo y tus pases digitales.',
   });
 }
@@ -403,7 +403,7 @@ export function buildProofReceivedEmailHtml(input: ProofReceivedEmailInput): str
     bannerBadge: 'COMPRA RECIBIDA',
     bannerTitle: 'Recibimos tu compra',
     introParagraph:
-      'Recibimos tu compra de pases digitales y el comprobante de pago. Lo estamos validando. Como bonificación, tus chances para el sorteo quedaron reservados.',
+      'Recibimos tu compra de pases digitales y el comprobante de pago. Lo estamos validando. Como bonificación, tus fichas para el sorteo quedaron reservados.',
     purchaseCardBody: `
       <p style="margin: 0 0 4px 0; color: #ffffff; font-size: 18px; font-weight: 800;">
         Tu compra incluye ${input.totalPasses === 1 ? 'tu pase digital' : `${input.totalPasses} pases digitales`}
@@ -419,7 +419,7 @@ export function buildProofReceivedEmailHtml(input: ProofReceivedEmailInput): str
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; margin-bottom: 12px;">
         <tr>
           <td style="padding: 12px 14px; font-size: 12px; color: #92400e; line-height: 1.55;">
-            <strong>Importante:</strong> Cuando confirmemos el pago te enviaremos otro correo. Ahí estará el enlace para descargar tu pase, junto con tus chances de regalo confirmados.
+            <strong>Importante:</strong> Cuando confirmemos el pago te enviaremos otro correo. Ahí estará el enlace para descargar tu pase, junto con tus fichas de regalo confirmados.
           </td>
         </tr>
       </table>
@@ -432,7 +432,7 @@ export function buildProofReceivedEmailHtml(input: ProofReceivedEmailInput): str
       </table>
     `,
     summaryTotalRow: formattedTotal,
-    chancesIntro: 'Además de tus pases, reservamos estos chances para el sorteo:',
+    fichasIntro: 'Además de tus pases, reservamos estos fichas para el sorteo:',
     footerNote: 'Gracias por tu compra. Conservá este correo mientras validamos tu pago.',
   });
 }
@@ -505,11 +505,11 @@ export async function sendRichOrderEmail(params: {
         (p.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(p.fileKey)),
     );
 
-  let cards: StampedChanceCard[] = [];
+  let cards: StampedFichaCard[] = [];
   if (env.RESEND_API_KEY && imagePass?.fileKey && allNumbers.length > 0) {
     try {
       const templateBuffer = await getObjectBuffer(imagePass.fileKey);
-      cards = await generateStampedChanceCards({
+      cards = await generateStampedFichaCards({
         templateBuffer,
         numbers: allNumbers,
         maxCards: 25,
@@ -517,7 +517,7 @@ export async function sendRichOrderEmail(params: {
     } catch (error) {
       logger.warn(
         { err: error, orderId: order.id, fileKey: imagePass.fileKey },
-        'Could not generate stamped chance images from R2 template; using text badges fallback',
+        'Could not generate stamped ficha images from R2 template; using text badges fallback',
       );
     }
   }
@@ -539,7 +539,7 @@ export async function sendRichOrderEmail(params: {
     totalAmount: order.totalAmount,
     passLabel,
     totalPasses,
-    totalChances: allNumbers.length,
+    totalFichas: allNumbers.length,
     orderLookupUrl: passDownloadUrl,
     cards,
     allNumbers,

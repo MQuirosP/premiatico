@@ -17,7 +17,7 @@ const createComboSchema = z.object({
   description: z.string().trim().max(500).optional().nullable(),
   price: z.coerce.number().int().positive(),
   passQuantity: z.coerce.number().int().min(1),
-  chanceQuantity: z.coerce.number().int().min(1),
+  fichaQuantity: z.coerce.number().int().min(1),
   badgeLabel: z.string().trim().max(40).optional().nullable(),
   sortOrder: z.coerce.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
@@ -56,7 +56,7 @@ adminCombosRouter.post(
           description: data.description ?? null,
           price: data.price,
           passQuantity: data.passQuantity,
-          chanceQuantity: data.chanceQuantity,
+          fichaQuantity: data.fichaQuantity,
           badgeLabel: data.badgeLabel ?? null,
           sortOrder: data.sortOrder,
           isActive: data.isActive,
@@ -81,7 +81,7 @@ adminCombosRouter.post(
         action: 'COMBO_CREATED',
         entityType: 'CampaignCombo',
         entityId: combo.id,
-        metadata: { campaignId: data.campaignId, price: combo.price, chanceQuantity: combo.chanceQuantity },
+        metadata: { campaignId: data.campaignId, price: combo.price, fichaQuantity: combo.fichaQuantity },
       });
 
       res.status(201).json({ success: true, data: { combo } });
