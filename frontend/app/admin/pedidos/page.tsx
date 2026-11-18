@@ -180,7 +180,7 @@ export default function AdminPedidosPage() {
             className="rounded-lg border bg-white px-3 py-1.5 text-xs text-slate-700"
           >
             <option value="ACTIVE_ONLY">Campañas activas</option>
-            <option value="ALL">Todas las campañas (incl. cerradas)</option>
+            <option value="ALL">Todas las campañas</option>
             {campaignOptions.map(([slug, title]) => (
               <option key={slug} value={slug}>
                 {title}
