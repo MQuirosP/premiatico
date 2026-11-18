@@ -41,8 +41,7 @@ export default function AdminPedidosPage() {
   const queryClient = useQueryClient();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('UNDER_REVIEW');
-  const [campaignFilter, setCampaignFilter] = useState<string>('ALL');
-  const [onlyActiveCampaigns, setOnlyActiveCampaigns] = useState<boolean>(true);
+  const [campaignFilter, setCampaignFilter] = useState<string>('ACTIVE_ONLY');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [orderToCancel, setOrderToCancel] = useState<{
     id: string;
@@ -85,10 +84,11 @@ export default function AdminPedidosPage() {
     const list = data?.payments ?? [];
     const q = searchTerm.trim().toLowerCase();
     return list.filter((p) => {
-      if (onlyActiveCampaigns && p.order.campaign.status && p.order.campaign.status !== 'ACTIVE') {
+      if (campaignFilter === 'ACTIVE_ONLY') {
+        if (p.order.campaign.status && p.order.campaign.status !== 'ACTIVE') return false;
+      } else if (campaignFilter !== 'ALL' && p.order.campaign.slug !== campaignFilter) {
         return false;
       }
-      if (campaignFilter !== 'ALL' && p.order.campaign.slug !== campaignFilter) return false;
       if (!q) return true;
       return (
         p.order.publicReference.toLowerCase().includes(q) ||
@@ -97,7 +97,7 @@ export default function AdminPedidosPage() {
         (p.order.customer.email ?? '').toLowerCase().includes(q)
       );
     });
-  }, [data?.payments, onlyActiveCampaigns, campaignFilter, searchTerm]);
+  }, [data?.payments, campaignFilter, searchTerm]);
 
   const cancelOrderMutation = useMutation({
     mutationFn: (payload: { orderId: string; reason?: string }) =>
@@ -163,9 +163,9 @@ export default function AdminPedidosPage() {
         </div>
       ) : null}
 
-      <div className="rounded-xl border bg-white p-4 shadow-sm flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-2 flex-1">
-          <div className="relative flex-1 min-w-[200px] max-w-xs">
+      <div className="rounded-xl border bg-white p-4 shadow-sm space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1 sm:max-w-xs">
             <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               value={searchTerm}
@@ -179,22 +179,14 @@ export default function AdminPedidosPage() {
             onChange={(e) => setCampaignFilter(e.target.value)}
             className="rounded-lg border bg-white px-3 py-1.5 text-xs text-slate-700"
           >
-            <option value="ALL">Todas las campañas</option>
+            <option value="ACTIVE_ONLY">Campañas activas</option>
+            <option value="ALL">Todas las campañas (incl. cerradas)</option>
             {campaignOptions.map(([slug, title]) => (
               <option key={slug} value={slug}>
                 {title}
               </option>
             ))}
           </select>
-          <label className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={onlyActiveCampaigns}
-              onChange={(e) => setOnlyActiveCampaigns(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600"
-            />
-            Solo campañas activas
-          </label>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
