@@ -310,7 +310,7 @@ export default function AdminPedidosPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border bg-white shadow-sm">
+      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
         {isLoading ? (
           <TableSkeleton rows={6} columns={7} />
         ) : filteredPayments.length === 0 ? (

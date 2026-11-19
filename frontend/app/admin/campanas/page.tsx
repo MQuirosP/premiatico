@@ -279,7 +279,7 @@ export default function AdminCampaignsPage() {
         />
       ) : null}
 
-      <div className="rounded-xl border bg-white shadow-sm">
+      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
         {isLoading ? (
           <TableSkeleton rows={5} columns={5} />
         ) : !campaigns || campaigns.length === 0 ? (

@@ -45,7 +45,7 @@ export default function AdminClientesPage() {
         <p className="text-sm text-slate-500">Listado de compradores registrados en Premiático.</p>
       </div>
 
-      <div className="rounded-xl border bg-white shadow-sm">
+      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
         {isLoading ? (
           <TableSkeleton rows={5} columns={4} />
         ) : !data || data.customers.length === 0 ? (
