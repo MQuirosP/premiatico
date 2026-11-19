@@ -49,8 +49,9 @@
   }
 }
 
-/* Adaptación global de superficies, bordes y textos para modo oscuro sin romper estilos explícitos */
+/* Adaptación temática integral para modo oscuro (respetando clases dark: explícitas) */
 @layer utilities {
+  /* Superficies neutras */
   :where(.dark) .bg-white {
     background-color: rgb(15 23 42);
   }
@@ -60,12 +61,34 @@
   :where(.dark) .bg-slate-50 {
     background-color: rgb(10 15 28);
   }
-  :where(.dark) .bg-slate-50\/80 {
-    background-color: rgb(30 41 59 / 0.7);
+  :where(.dark) .bg-slate-50\/50,
+  :where(.dark) .bg-slate-50\/60,
+  :where(.dark) .bg-slate-50\/70,
+  :where(.dark) .bg-slate-50\/80,
+  :where(.dark) .bg-slate-50\/90 {
+    background-color: rgb(30 41 59 / 0.65);
   }
   :where(.dark) .bg-slate-100 {
     background-color: rgb(30 41 59);
   }
+  :where(.dark) .bg-slate-200,
+  :where(.dark) .bg-slate-200\/80,
+  :where(.dark) .bg-slate-300 {
+    background-color: rgb(51 65 85);
+  }
+
+  /* Hovers neutros */
+  :where(.dark) .hover\:bg-slate-50:hover,
+  :where(.dark) .hover\:bg-slate-50\/60:hover,
+  :where(.dark) .hover\:bg-slate-100:hover {
+    background-color: rgb(30 41 59 / 0.8);
+  }
+  :where(.dark) .hover\:bg-slate-200:hover,
+  :where(.dark) .hover\:bg-slate-300:hover {
+    background-color: rgb(71 85 105);
+  }
+
+  /* Textos neutros */
   :where(.dark) .text-slate-900 {
     color: rgb(241 245 249);
   }
@@ -75,21 +98,32 @@
   :where(.dark) .text-slate-700 {
     color: rgb(203 213 225);
   }
-  :where(.dark) .text-slate-600 {
-    color: rgb(148 163 184);
-  }
+  :where(.dark) .text-slate-600,
   :where(.dark) .text-slate-500 {
     color: rgb(148 163 184);
   }
+  :where(.dark) .hover\:text-slate-700:hover,
+  :where(.dark) .hover\:text-slate-800:hover,
+  :where(.dark) .hover\:text-slate-900:hover {
+    color: rgb(241 245 249);
+  }
+
+  /* Bordes y divisores neutros */
   :where(.dark) .border,
   :where(.dark) .border-slate-200,
+  :where(.dark) .border-slate-200\/80,
   :where(.dark) .border-slate-300 {
     border-color: rgb(51 65 85);
+  }
+  :where(.dark) .border-slate-100 {
+    border-color: rgb(30 41 59);
   }
   :where(.dark) .divide-y > :not([hidden]) ~ :not([hidden]),
   :where(.dark) .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
     border-color: rgb(30 41 59);
   }
+
+  /* Controles de formulario */
   :where(.dark) input:not([type='checkbox']):not([type='radio']),
   :where(.dark) select,
   :where(.dark) textarea {
@@ -97,10 +131,124 @@
     color: rgb(241 245 249);
     border-color: rgb(51 65 85);
   }
-  :where(.dark) .hover\:bg-slate-50:hover {
-    background-color: rgb(30 41 59 / 0.7);
+  :where(.dark) input::placeholder,
+  :where(.dark) textarea::placeholder {
+    color: rgb(100 116 139);
   }
-  :where(.dark) .hover\:bg-slate-100:hover {
-    background-color: rgb(30 41 59);
+
+  /* Azul */
+  :where(.dark) .bg-blue-50,
+  :where(.dark) .bg-blue-50\/50,
+  :where(.dark) .bg-blue-50\/70,
+  :where(.dark) .bg-blue-100 {
+    background-color: rgb(30 58 138 / 0.28);
+  }
+  :where(.dark) .hover\:bg-blue-50:hover,
+  :where(.dark) .hover\:bg-blue-50\/30:hover,
+  :where(.dark) .hover\:bg-blue-100:hover {
+    background-color: rgb(30 58 138 / 0.45);
+  }
+  :where(.dark) .border-blue-200,
+  :where(.dark) .border-blue-200\/70,
+  :where(.dark) .border-blue-200\/80,
+  :where(.dark) .border-blue-300 {
+    border-color: rgb(37 99 235 / 0.45);
+  }
+  :where(.dark) .text-blue-600,
+  :where(.dark) .text-blue-700,
+  :where(.dark) .text-blue-800 {
+    color: rgb(147 197 253);
+  }
+  :where(.dark) .hover\:text-blue-700:hover,
+  :where(.dark) .hover\:text-blue-800:hover {
+    color: rgb(191 219 254);
+  }
+
+  /* Índigo */
+  :where(.dark) .bg-indigo-100 {
+    background-color: rgb(49 46 129 / 0.35);
+  }
+  :where(.dark) .text-indigo-700,
+  :where(.dark) .text-indigo-800 {
+    color: rgb(165 180 252);
+  }
+
+  /* Morado y Violeta */
+  :where(.dark) .bg-purple-50,
+  :where(.dark) .bg-purple-100 {
+    background-color: rgb(88 28 135 / 0.32);
+  }
+  :where(.dark) .hover\:bg-purple-100:hover {
+    background-color: rgb(88 28 135 / 0.48);
+  }
+  :where(.dark) .text-purple-700,
+  :where(.dark) .text-purple-800 {
+    color: rgb(216 180 254);
+  }
+  :where(.dark) .bg-violet-100 {
+    background-color: rgb(76 29 149 / 0.32);
+  }
+  :where(.dark) .text-violet-700 {
+    color: rgb(196 181 253);
+  }
+
+  /* Esmeralda / Verde */
+  :where(.dark) .bg-emerald-50,
+  :where(.dark) .bg-emerald-50\/70,
+  :where(.dark) .bg-emerald-100 {
+    background-color: rgb(6 78 59 / 0.32);
+  }
+  :where(.dark) .hover\:bg-emerald-100:hover,
+  :where(.dark) .hover\:bg-emerald-200:hover {
+    background-color: rgb(6 78 59 / 0.5);
+  }
+  :where(.dark) .border-emerald-100,
+  :where(.dark) .border-emerald-200,
+  :where(.dark) .border-emerald-300 {
+    border-color: rgb(16 185 129 / 0.4);
+  }
+  :where(.dark) .text-emerald-700,
+  :where(.dark) .text-emerald-800,
+  :where(.dark) .text-emerald-900 {
+    color: rgb(110 231 183);
+  }
+
+  /* Ámbar */
+  :where(.dark) .bg-amber-50,
+  :where(.dark) .bg-amber-50\/70,
+  :where(.dark) .bg-amber-100 {
+    background-color: rgb(120 53 15 / 0.28);
+  }
+  :where(.dark) .hover\:bg-amber-100:hover,
+  :where(.dark) .hover\:bg-amber-200:hover {
+    background-color: rgb(120 53 15 / 0.45);
+  }
+  :where(.dark) .border-amber-200,
+  :where(.dark) .border-amber-300 {
+    border-color: rgb(245 158 11 / 0.4);
+  }
+  :where(.dark) .text-amber-700,
+  :where(.dark) .text-amber-800,
+  :where(.dark) .text-amber-900,
+  :where(.dark) .text-amber-950 {
+    color: rgb(252 211 77);
+  }
+
+  /* Rojo */
+  :where(.dark) .bg-red-50,
+  :where(.dark) .bg-red-100 {
+    background-color: rgb(127 29 29 / 0.32);
+  }
+  :where(.dark) .hover\:bg-red-50:hover,
+  :where(.dark) .hover\:bg-red-100:hover {
+    background-color: rgb(127 29 29 / 0.48);
+  }
+  :where(.dark) .border-red-200 {
+    border-color: rgb(239 68 68 / 0.4);
+  }
+  :where(.dark) .text-red-600,
+  :where(.dark) .text-red-700,
+  :where(.dark) .text-red-800 {
+    color: rgb(252 165 165);
   }
 }
