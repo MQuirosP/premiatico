@@ -8,6 +8,7 @@ import {
   Check,
   Loader2,
   Lock,
+  Plus,
   Save,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -26,7 +27,9 @@ import {
 } from '@/lib/domain-constants';
 import {
   createAdminCampaign,
+  createAdminCategory,
   getAdminCampaignDetail,
+  listAdminCategories,
   updateAdminCampaign,
   uploadAdminCampaignCover,
   type AdminCampaignDetail,
@@ -93,10 +96,18 @@ export function CampaignWizard({
   const isEditMode = Boolean(activeCampaign);
   const isReadOnly = activeCampaign ? isCampaignReadOnly(activeCampaign.status) : false;
 
+  const { data: categories = [] } = useQuery({
+    queryKey: ['admin-categories', 'active'],
+    queryFn: () => listAdminCategories(true),
+  });
+
   // Campos del wizard
   const [slug, setSlug] = useState('');
   const [title, setTitle] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   const [category, setCategory] = useState('Vehículos');
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
   const [description, setDescription] = useState('');
   const [terms, setTerms] = useState('Aplican restricciones. Promoción válida en Costa Rica.');
   const [endAt, setEndAt] = useState('');
@@ -115,6 +126,7 @@ export function CampaignWizard({
     if (!activeCampaign) return;
     setSlug(activeCampaign.slug);
     setTitle(activeCampaign.title);
+    setCategoryId(activeCampaign.categoryId ?? '');
     setCategory(activeCampaign.category);
     setDescription(activeCampaign.description);
     setTerms(activeCampaign.terms ?? '');
@@ -145,6 +157,28 @@ export function CampaignWizard({
     }
   }, [activeCampaign]);
 
+  useEffect(() => {
+    if (isEditMode || categoryId || categories.length === 0) return;
+    setCategoryId(categories[0]!.id);
+    setCategory(categories[0]!.name);
+  }, [categories, categoryId, isEditMode]);
+
+  const createCategoryMutation = useMutation({
+    mutationFn: (name: string) => createAdminCategory({ name }),
+    onSuccess: (created) => {
+      setCategoryId(created.id);
+      setCategory(created.name);
+      setNewCategoryName('');
+      setShowNewCategoryInput(false);
+      setErrorMsg(null);
+      setStatusMsg(`Categoría "${created.name}" creada y seleccionada.`);
+      void queryClient.invalidateQueries({ queryKey: ['admin-categories'] });
+    },
+    onError: (err) => {
+      setErrorMsg(err instanceof ApiError ? err.message : 'No se pudo crear la categoría');
+    },
+  });
+
   const invalidateCampaign = (id: string) => {
     void queryClient.invalidateQueries({ queryKey: ['admin-campaign-detail', id] });
     void queryClient.invalidateQueries({ queryKey: ['admin-campaigns'] });
@@ -165,6 +199,7 @@ export function CampaignWizard({
         title: title.trim(),
         description: description.trim(),
         category: category.trim(),
+        categoryId: categoryId || null,
         startAt: now.toISOString(),
         endAt: resolvedEndAt,
         drawAt: drawIso,
@@ -203,6 +238,7 @@ export function CampaignWizard({
       return updateAdminCampaign(activeCampaign.id, {
         title: title.trim(),
         category: category.trim(),
+        categoryId: categoryId || null,
         description: description.trim(),
         terms: terms.trim() || undefined,
         endAt: endAt ? new Date(endAt).toISOString() : undefined,
@@ -433,14 +469,59 @@ export function CampaignWizard({
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Categoría</label>
-              <input
-                required
-                disabled={isReadOnly}
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm disabled:opacity-60"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-600">Categoría</label>
+                {!isReadOnly ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowNewCategoryInput((v) => !v)}
+                    className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-blue-600 hover:underline"
+                  >
+                    <Plus className="h-3 w-3" />
+                    {showNewCategoryInput ? 'Cancelar' : 'Nueva'}
+                  </button>
+                ) : null}
+              </div>
+
+              {showNewCategoryInput && !isReadOnly ? (
+                <div className="flex gap-2">
+                  <input
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="Nombre de nueva categoría"
+                    className="flex-1 rounded-lg border px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    disabled={createCategoryMutation.isPending || newCategoryName.trim().length < 2}
+                    onClick={() => createCategoryMutation.mutate(newCategoryName.trim())}
+                    className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60 active:scale-95 transition"
+                  >
+                    {createCategoryMutation.isPending ? 'Creando...' : 'Crear'}
+                  </button>
+                </div>
+              ) : (
+                <select
+                  disabled={isReadOnly}
+                  value={categoryId}
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    setCategoryId(selectedId);
+                    const matched = categories.find((c) => c.id === selectedId);
+                    if (matched) setCategory(matched.name);
+                  }}
+                  className="w-full rounded-lg border bg-white px-3 py-2 text-sm disabled:opacity-60"
+                >
+                  {!categoryId && category ? (
+                    <option value="">{category}</option>
+                  ) : null}
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div>

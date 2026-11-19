@@ -11,6 +11,7 @@ import type {
   PrizeDrawWeightMode,
   PublicCampaign,
 } from '@/types/campaign';
+import type { WinnerDeliveryStatus, WinnerSourceType } from '@/lib/domain-constants';
 
 export async function listPublicCampaigns(): Promise<PublicCampaign[]> {
   const res = await apiRequest<{ campaigns: PublicCampaign[] }>('/campaigns');
@@ -146,7 +147,8 @@ export async function createAdminCampaign(payload: {
   slug: string;
   title: string;
   description: string;
-  category: string;
+  category?: string;
+  categoryId?: string | null;
   startAt: string;
   endAt: string;
   drawAt?: string | null;
@@ -177,6 +179,7 @@ export async function updateAdminCampaign(
     title?: string;
     description?: string;
     category?: string;
+    categoryId?: string | null;
     endAt?: string;
     terms?: string;
     legalApprovalStatus?: LegalApprovalStatus;
@@ -533,4 +536,112 @@ export async function getAdminPassPreviewUrl(passId: string): Promise<{
     name: string;
     mimeType: string;
   }>(`/admin/passes/${encodeURIComponent(passId)}/preview`);
+}
+
+export interface CampaignCategoryItem {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  sortOrder: number;
+  _count?: { campaigns: number };
+}
+
+export async function listAdminCategories(activeOnly = false): Promise<CampaignCategoryItem[]> {
+  const res = await apiRequest<{ categories: CampaignCategoryItem[] }>(
+    `/admin/categories${activeOnly ? '?activeOnly=true' : ''}`,
+  );
+  return res.categories;
+}
+
+export async function createAdminCategory(payload: {
+  name: string;
+  sortOrder?: number;
+}): Promise<CampaignCategoryItem> {
+  const res = await apiRequest<{ category: CampaignCategoryItem }>('/admin/categories', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res.category;
+}
+
+export async function updateAdminCategory(
+  id: string,
+  payload: { name?: string; isActive?: boolean; sortOrder?: number },
+): Promise<CampaignCategoryItem> {
+  const res = await apiRequest<{ category: CampaignCategoryItem }>(
+    `/admin/categories/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  );
+  return res.category;
+}
+
+export interface DrawWinnerItem {
+  id: string;
+  campaignId: string;
+  prizeId: string | null;
+  orderId: string | null;
+  sourceType: WinnerSourceType;
+  winningNumber: string;
+  evaluatedAt: string;
+  deliveryStatus: WinnerDeliveryStatus;
+  contactedAt: string | null;
+  deliveredAt: string | null;
+  deliveryNotes: string | null;
+  campaign: {
+    id: string;
+    title: string;
+    slug: string;
+    drawReference: string | null;
+  };
+  prize: {
+    id: string;
+    name: string;
+    description: string;
+    estimatedValue: number | null;
+    drawReference: string | null;
+  } | null;
+  order: {
+    id: string;
+    publicReference: string;
+    totalAmount: number;
+    customer: {
+      fullName: string;
+      phone: string;
+      email: string | null;
+    };
+  } | null;
+}
+
+export async function listAdminDrawWinners(filters?: {
+  campaignId?: string;
+  deliveryStatus?: WinnerDeliveryStatus;
+  includeReverted?: boolean;
+}): Promise<DrawWinnerItem[]> {
+  const params = new URLSearchParams();
+  if (filters?.campaignId) params.set('campaignId', filters.campaignId);
+  if (filters?.deliveryStatus) params.set('deliveryStatus', filters.deliveryStatus);
+  if (filters?.includeReverted) params.set('includeReverted', 'true');
+  const query = params.toString();
+  const res = await apiRequest<{ winners: DrawWinnerItem[] }>(
+    `/admin/winners${query ? `?${query}` : ''}`,
+  );
+  return res.winners;
+}
+
+export async function updateAdminWinnerDelivery(
+  winnerId: string,
+  payload: { deliveryStatus: WinnerDeliveryStatus; deliveryNotes?: string | null },
+): Promise<DrawWinnerItem> {
+  const res = await apiRequest<{ winner: DrawWinnerItem }>(
+    `/admin/winners/${encodeURIComponent(winnerId)}/delivery`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  );
+  return res.winner;
 }

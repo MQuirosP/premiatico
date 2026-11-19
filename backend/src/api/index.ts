@@ -4,10 +4,8 @@ import { requirePartnerAuth } from '../middlewares/authPartner.js';
 import { verifyTurnstile } from '../middlewares/turnstile.js';
 import { adminDashboardRouter } from '../modules/admin/admin-dashboard.module.js';
 import { authRouter } from '../modules/auth/auth.routes.js';
-import {
-  adminCampaignsRouter,
-  publicCampaignsRouter,
-} from '../modules/campaigns/campaigns.routes.js';
+import { adminCampaignsRouter, publicCampaignsRouter } from '../modules/campaigns/campaigns.routes.js';
+import { adminCategoriesRouter } from '../modules/categories/categories.module.js';
 import { adminCombosRouter } from '../modules/combos/combos.module.js';
 import { publicOrdersRouter } from '../modules/orders/orders.module.js';
 import { partnerRouter } from '../modules/partner/partner.module.js';
@@ -18,6 +16,7 @@ import { adminPrizesRouter } from '../modules/prizes/prizes.module.js';
 import { publicReservationsRouter } from '../modules/reservations/reservations.module.js';
 import { adminPaymentSettingsRouter } from '../modules/settings/payment-settings.module.js';
 import { adminStorageRouter } from '../modules/storage/storage.routes.js';
+import { adminWinnersRouter } from '../modules/winners/winners.module.js';
 
 export const apiRouter = Router();
 
@@ -63,7 +62,9 @@ apiRouter.use(
 apiRouter.use('/admin/auth', authRouter);
 apiRouter.use('/admin', adminDashboardRouter);
 apiRouter.use('/admin/campaigns', adminCampaignsRouter);
+apiRouter.use('/admin/categories', adminCategoriesRouter);
 apiRouter.use('/admin/prizes', adminPrizesRouter);
+apiRouter.use('/admin/winners', adminWinnersRouter);
 apiRouter.use('/admin/passes', adminPassesRouter);
 apiRouter.use('/admin/combos', adminCombosRouter);
 apiRouter.use('/admin/payments', adminPaymentsRouter);

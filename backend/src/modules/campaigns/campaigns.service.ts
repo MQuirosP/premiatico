@@ -4,14 +4,18 @@ import {
   CampaignStatus,
   LegalApprovalStatus,
   ParticipationStatus,
+  WinnerDeliveryStatus,
+  WinnerSourceType,
   isCampaignEditLocked,
   isCampaignEvaluationClosed,
 } from '../../core/domain-constants.js';
 import { ConflictError, NotFoundError, ValidationError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
 import { recordAuditLog } from '../audit/audit.service.js';
+import { resolveCampaignCategory } from '../categories/categories.module.js';
 import { getCampaignNumberDigits } from '../fichas/fichas.service.js';
 import { deleteObject, getSignedDownloadUrl } from '../storage/storage.service.js';
+import { markDrawWinnerReverted, recordDrawWinner } from '../winners/winners.module.js';
 import type {
   CreateCampaignInput,
   EvaluateWinnerInput,
@@ -202,76 +206,49 @@ export async function listPublicCampaigns() {
 }
 
 export async function listRecentPublicWinners(limit = 5) {
-  const [campaignWins, prizeWins] = await Promise.all([
-    prisma.campaign.findMany({
-      where: {
-        winnerEvaluatedAt: { not: null },
-        winningOrderId: { not: null },
-        winningNumber: { not: null },
+  const rows = await prisma.drawWinner.findMany({
+    where: {
+      orderId: { not: null },
+      deliveryStatus: { not: WinnerDeliveryStatus.REVERTED },
+    },
+    orderBy: { evaluatedAt: 'desc' },
+    take: limit,
+    select: {
+      id: true,
+      sourceType: true,
+      winningNumber: true,
+      evaluatedAt: true,
+      campaign: {
+        select: { title: true, slug: true, drawReference: true },
       },
-      orderBy: { winnerEvaluatedAt: 'desc' },
-      take: limit,
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        drawReference: true,
-        winningNumber: true,
-        winnerEvaluatedAt: true,
+      prize: {
+        select: {
+          name: true,
+          description: true,
+          estimatedValue: true,
+          drawReference: true,
+        },
       },
-    }),
-    prisma.campaignPrize.findMany({
-      where: {
-        winnerEvaluatedAt: { not: null },
-        winningOrderId: { not: null },
-        winningNumber: { not: null },
-      },
-      orderBy: { winnerEvaluatedAt: 'desc' },
-      take: limit,
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        estimatedValue: true,
-        prizeType: true,
-        drawReference: true,
-        winningNumber: true,
-        winnerEvaluatedAt: true,
-        campaign: { select: { title: true, slug: true } },
-      },
-    }),
-  ]);
+    },
+  });
 
-  const combined = [
-    ...campaignWins.map((c) => ({
-      id: `campaign-${c.id}`,
-      sourceType: 'CAMPAIGN' as const,
-      campaignTitle: c.title,
-      campaignSlug: c.slug,
-      prizeName: c.title,
-      prizeDescription: null as string | null,
-      estimatedValue: null as number | null,
-      drawReference: c.drawReference,
-      winningNumber: c.winningNumber!,
-      evaluatedAt: c.winnerEvaluatedAt!,
-    })),
-    ...prizeWins.map((p) => ({
-      id: `prize-${p.id}`,
-      sourceType: p.prizeType === 'FLASH' ? ('FLASH' as const) : ('PRIZE' as const),
-      campaignTitle: p.campaign.title,
-      campaignSlug: p.campaign.slug,
-      prizeName: p.name,
-      prizeDescription: p.description,
-      estimatedValue: p.estimatedValue,
-      drawReference: p.drawReference,
-      winningNumber: p.winningNumber!,
-      evaluatedAt: p.winnerEvaluatedAt!,
-    })),
-  ];
-
-  return combined
-    .sort((a, b) => new Date(b.evaluatedAt).getTime() - new Date(a.evaluatedAt).getTime())
-    .slice(0, limit);
+  return rows.map((row) => ({
+    id: row.id,
+    sourceType:
+      row.sourceType === WinnerSourceType.CAMPAIGN_MAIN
+        ? ('CAMPAIGN' as const)
+        : row.sourceType === WinnerSourceType.FLASH
+          ? ('FLASH' as const)
+          : ('PRIZE' as const),
+    campaignTitle: row.campaign.title,
+    campaignSlug: row.campaign.slug,
+    prizeName: row.prize?.name ?? row.campaign.title,
+    prizeDescription: row.prize?.description ?? null,
+    estimatedValue: row.prize?.estimatedValue ?? null,
+    drawReference: row.prize?.drawReference ?? row.campaign.drawReference ?? null,
+    winningNumber: row.winningNumber,
+    evaluatedAt: row.evaluatedAt,
+  }));
 }
 
 export async function getPublicCampaignBySlug(slug: string) {
@@ -527,13 +504,18 @@ export async function createCampaign(input: CreateCampaignInput, actorId: string
     : LegalApprovalStatus.NOT_REQUIRED;
 
   const normalizedGallery = normalizeGalleryInput(input.galleryImages, input.coverImageKey);
+  const resolvedCategory = await resolveCampaignCategory({
+    categoryId: input.categoryId,
+    category: input.category,
+  });
 
   const campaign = await prisma.campaign.create({
     data: {
       slug: input.slug,
       title: input.title,
       description: input.description,
-      category: input.category,
+      category: resolvedCategory.categoryName,
+      categoryId: resolvedCategory.categoryId,
       startAt: input.startAt,
       endAt: input.endAt,
       drawAt: input.drawAt ?? null,
@@ -620,8 +602,13 @@ export async function updateCampaign(
     );
   }
 
-  const { galleryImages, ...scalarInput } = input;
+  const { galleryImages, categoryId, category, ...scalarInput } = input;
   let removedKeys: string[] = [];
+
+  const resolvedCategory =
+    categoryId !== undefined || category !== undefined
+      ? await resolveCampaignCategory({ categoryId, category })
+      : null;
 
   if (scalarInput.drawMode && scalarInput.drawMode !== existing.drawMode) {
     if (existing.winningNumber || existing.winnerEvaluatedAt) {
@@ -683,6 +670,9 @@ export async function updateCampaign(
       where: { id },
       data: {
         ...scalarInput,
+        ...(resolvedCategory
+          ? { category: resolvedCategory.categoryName, categoryId: resolvedCategory.categoryId }
+          : {}),
         ...(coverImageKeyPatch !== undefined ? { coverImageKey: coverImageKeyPatch } : {}),
       },
     });
@@ -940,6 +930,16 @@ export async function evaluateCampaignWinner(
     },
   });
 
+  await recordDrawWinner({
+    campaignId: id,
+    prizeId: null,
+    orderId: match?.order?.id ?? null,
+    sourceType: WinnerSourceType.CAMPAIGN_MAIN,
+    winningNumber: rawNumber,
+    evaluatedAt,
+    evaluatedById: actorId,
+  });
+
   await recordAuditLog({
     actorId,
     action: 'CAMPAIGN_WINNER_EVALUATED',
@@ -1014,6 +1014,12 @@ export async function resetCampaignWinnerEvaluation(id: string, actorId: string)
       winnerNotes: null,
       status: nextStatus,
     },
+  });
+
+  await markDrawWinnerReverted({
+    campaignId: id,
+    prizeId: null,
+    actorId,
   });
 
   await recordAuditLog({

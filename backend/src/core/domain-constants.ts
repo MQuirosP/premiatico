@@ -12,6 +12,8 @@ import {
   PrizeCategory,
   PrizeDrawWeightMode,
   ReservationStatus,
+  WinnerDeliveryStatus,
+  WinnerSourceType,
 } from '@prisma/client';
 import { z } from 'zod';
 
@@ -29,6 +31,8 @@ export {
   PrizeCategory,
   PrizeDrawWeightMode,
   ReservationStatus,
+  WinnerDeliveryStatus,
+  WinnerSourceType,
 };
 
 export const campaignStatusSchema = z.nativeEnum(CampaignStatus);
@@ -39,6 +43,7 @@ export const prizeCategorySchema = z.nativeEnum(PrizeCategory);
 export const prizeAmountScopeSchema = z.nativeEnum(PrizeAmountScope);
 export const prizeDrawWeightModeSchema = z.nativeEnum(PrizeDrawWeightMode);
 export const orderChannelSchema = z.nativeEnum(OrderChannel);
+export const winnerDeliveryStatusSchema = z.nativeEnum(WinnerDeliveryStatus);
 
 export const ACTIVE_PARTICIPATION_STATUSES: ParticipationStatus[] = [
   ParticipationStatus.RESERVED,

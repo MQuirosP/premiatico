@@ -7,6 +7,7 @@ import {
   PrizeAmountScope,
   PrizeCategory,
   PrizeDrawWeightMode,
+  WinnerSourceType,
   isCampaignEditLocked,
   isCampaignEvaluationClosed,
 } from '../../core/domain-constants.js';
@@ -15,6 +16,11 @@ import { prisma } from '../../core/prisma.js';
 import { recordAuditLog } from '../audit/audit.service.js';
 import { getCampaignNumberDigits } from '../fichas/fichas.service.js';
 import { sendPrizeWinnerEmail } from '../notifications/notifications.service.js';
+import {
+  markDrawWinnerContacted,
+  markDrawWinnerReverted,
+  recordDrawWinner,
+} from '../winners/winners.module.js';
 import {
   buildCustomerAggregates,
   getOrderIneligibilityReason,
@@ -528,6 +534,17 @@ export async function evaluatePrizeWinner(
     },
   });
 
+  await recordDrawWinner({
+    campaignId: prize.campaignId,
+    prizeId: prize.id,
+    orderId: match?.order?.id ?? null,
+    sourceType:
+      prize.prizeType === PrizeCategory.FLASH ? WinnerSourceType.FLASH : WinnerSourceType.PRIZE,
+    winningNumber: rawNumber,
+    evaluatedAt,
+    evaluatedById: actorId,
+  });
+
   await syncCampaignStatusAfterPrizeEvaluation(
     prize.campaignId,
     prize.campaign.drawMode,
@@ -628,6 +645,17 @@ export async function drawRandomPrizeWinner(
     },
   });
 
+  await recordDrawWinner({
+    campaignId: prize.campaignId,
+    prizeId: prize.id,
+    orderId: selected.order?.id ?? null,
+    sourceType:
+      prize.prizeType === PrizeCategory.FLASH ? WinnerSourceType.FLASH : WinnerSourceType.PRIZE,
+    winningNumber: selected.number,
+    evaluatedAt,
+    evaluatedById: actorId,
+  });
+
   await syncCampaignStatusAfterPrizeEvaluation(
     prize.campaignId,
     prize.campaign.drawMode,
@@ -713,6 +741,12 @@ export async function resetPrizeEvaluation(prizeId: string, actorId: string) {
       winnerEvaluatedAt: null,
       winnerNotes: null,
     },
+  });
+
+  await markDrawWinnerReverted({
+    campaignId: prize.campaignId,
+    prizeId: prize.id,
+    actorId,
   });
 
   if (
@@ -827,6 +861,14 @@ export async function notifyPrizeWinnerByEmail(
     html,
     idempotencyKey: forceResend ? `${baseKey}:resend:${Date.now()}` : baseKey,
   });
+
+  if (delivery.sent) {
+    await markDrawWinnerContacted({
+      campaignId: prize.campaignId,
+      prizeId: prize.id,
+      actorId,
+    });
+  }
 
   await recordAuditLog({
     actorId,

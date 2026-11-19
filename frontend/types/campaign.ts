@@ -90,6 +90,7 @@ export interface PublicCampaign {
   title: string;
   description: string;
   category: string;
+  categoryId?: string | null;
   status: CampaignStatus;
   startAt: string;
   endAt: string;

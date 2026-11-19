@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTheme } from '@/components/theme-provider';
+import { CategoryCatalogPanel } from '@/components/admin/category-catalog-panel';
 import { FormSkeleton } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api';
 import type { ThemePreference } from '@/lib/theme';
@@ -330,6 +331,8 @@ export default function AdminConfiguracionPage() {
           </div>
         </section>
       </div>
+
+      <CategoryCatalogPanel />
     </div>
   );
 }

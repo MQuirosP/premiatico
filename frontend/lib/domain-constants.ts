@@ -80,6 +80,54 @@ export const ORDER_CHANNEL = {
 } as const;
 export type OrderChannel = (typeof ORDER_CHANNEL)[keyof typeof ORDER_CHANNEL];
 
+export const WINNER_SOURCE_TYPE = {
+  CAMPAIGN_MAIN: 'CAMPAIGN_MAIN',
+  PRIZE: 'PRIZE',
+  FLASH: 'FLASH',
+} as const;
+export type WinnerSourceType = (typeof WINNER_SOURCE_TYPE)[keyof typeof WINNER_SOURCE_TYPE];
+
+export const WINNER_DELIVERY_STATUS = {
+  PENDING_CONTACT: 'PENDING_CONTACT',
+  CONTACTED: 'CONTACTED',
+  SCHEDULED: 'SCHEDULED',
+  DELIVERED: 'DELIVERED',
+  UNCLAIMED: 'UNCLAIMED',
+  REVERTED: 'REVERTED',
+} as const;
+export type WinnerDeliveryStatus =
+  (typeof WINNER_DELIVERY_STATUS)[keyof typeof WINNER_DELIVERY_STATUS];
+
+export const WINNER_DELIVERY_META: Record<
+  WinnerDeliveryStatus,
+  { label: string; className: string }
+> = {
+  PENDING_CONTACT: {
+    label: 'Pendiente de contactar',
+    className: 'bg-amber-100 text-amber-800',
+  },
+  CONTACTED: {
+    label: 'Contactado',
+    className: 'bg-blue-100 text-blue-800',
+  },
+  SCHEDULED: {
+    label: 'Entrega coordinada',
+    className: 'bg-indigo-100 text-indigo-800',
+  },
+  DELIVERED: {
+    label: 'Entregado',
+    className: 'bg-emerald-100 text-emerald-800',
+  },
+  UNCLAIMED: {
+    label: 'Desierto / No reclamado',
+    className: 'bg-slate-100 text-slate-700',
+  },
+  REVERTED: {
+    label: 'Revertido',
+    className: 'bg-red-100 text-red-700',
+  },
+};
+
 export const CAMPAIGN_STATUS_META: Record<CampaignStatus, { label: string; className: string }> = {
   DRAFT: { label: 'Borrador', className: 'bg-slate-100 text-slate-700' },
   ACTIVE: { label: 'Activa', className: 'bg-emerald-100 text-emerald-800' },

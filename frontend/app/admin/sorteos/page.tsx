@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { PrizeEvaluationCard } from '@/components/admin/prize-evaluation-card';
 import { SingleWinnerEvaluationCard } from '@/components/admin/single-winner-evaluation-card';
+import { WinnerDeliveryPanel } from '@/components/admin/winner-delivery-panel';
 import { DetailSkeleton } from '@/components/ui/skeleton';
 import {
   CAMPAIGN_DRAW_MODE,
@@ -22,6 +23,7 @@ import {
 const SORTEOS_TAB = {
   PENDING: 'PENDING',
   EVALUATED: 'EVALUATED',
+  DELIVERIES: 'DELIVERIES',
 } as const;
 
 type SorteosTab = (typeof SORTEOS_TAB)[keyof typeof SORTEOS_TAB];
@@ -198,9 +200,22 @@ function AdminDrawsCenterInner() {
         >
           Evaluados / Ganadores ({evaluatedCount})
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab(SORTEOS_TAB.DELIVERIES)}
+          className={`rounded-lg px-4 py-2 text-xs font-semibold transition active:scale-95 ${
+            activeTab === SORTEOS_TAB.DELIVERIES
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          Seguimiento de entregas
+        </button>
       </div>
 
-      {loadingDetail || !campaign ? (
+      {activeTab === SORTEOS_TAB.DELIVERIES ? (
+        <WinnerDeliveryPanel campaignId={selectedCampaignId || undefined} />
+      ) : loadingDetail || !campaign ? (
         <DetailSkeleton />
       ) : activeTab === SORTEOS_TAB.PENDING ? (
         <div className="space-y-4">

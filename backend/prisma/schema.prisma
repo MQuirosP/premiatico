@@ -40,6 +40,31 @@ enum PrizeDrawWeightMode {
   PER_CUSTOMER
 }
 
+enum WinnerSourceType {
+  CAMPAIGN_MAIN
+  PRIZE
+  FLASH
+}
+
+enum WinnerDeliveryStatus {
+  PENDING_CONTACT
+  CONTACTED
+  SCHEDULED
+  DELIVERED
+  UNCLAIMED
+  REVERTED
+}
+
+model CampaignCategory {
+  id        String     @id @default(cuid())
+  name      String
+  slug      String     @unique
+  isActive  Boolean    @default(true)
+  sortOrder Int        @default(0)
+  createdAt DateTime   @default(now())
+  campaigns Campaign[]
+}
+
 enum LegalApprovalStatus {
   NOT_REQUIRED
   PENDING
@@ -113,6 +138,7 @@ model Campaign {
   title                  String
   description            String
   category               String
+  categoryId             String?
   status                 CampaignStatus      @default(DRAFT)
   startAt                DateTime
   endAt                  DateTime
@@ -140,12 +166,14 @@ model Campaign {
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
 
+  categoryRef         CampaignCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   prizes              CampaignPrize[]
   combos              CampaignCombo[]
   images              CampaignImage[]
   orders              Order[]
   participations      Participation[]
   reservationSessions ReservationSession[]
+  drawWinners         DrawWinner[]
 
   @@index([status, startAt, endAt])
 }
@@ -187,10 +215,37 @@ model CampaignPrize {
   winnerEvaluatedAt DateTime?
   winnerNotes       String?
 
-  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  winningOrder Order?   @relation("WinningPrizeOrder", fields: [winningOrderId], references: [id], onDelete: SetNull)
+  campaign     Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  winningOrder Order?       @relation("WinningPrizeOrder", fields: [winningOrderId], references: [id], onDelete: SetNull)
+  drawWinners  DrawWinner[]
 
   @@index([campaignId, position])
+}
+
+model DrawWinner {
+  id             String               @id @default(cuid())
+  campaignId     String
+  prizeId        String?
+  orderId        String?
+  sourceType     WinnerSourceType
+  winningNumber  String               @db.VarChar(5)
+  evaluatedAt    DateTime             @default(now())
+  evaluatedById  String?
+  deliveryStatus WinnerDeliveryStatus @default(PENDING_CONTACT)
+  contactedAt    DateTime?
+  deliveredAt    DateTime?
+  deliveryNotes  String?
+  updatedById    String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  campaign Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  prize    CampaignPrize? @relation(fields: [prizeId], references: [id], onDelete: Cascade)
+  order    Order?         @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId, evaluatedAt])
+  @@index([prizeId])
+  @@index([deliveryStatus, evaluatedAt])
 }
 
 model DigitalPass {
@@ -307,6 +362,7 @@ model Order {
   payments           Payment[]
   notifications      NotificationLog[]
   wonPrizes          CampaignPrize[]     @relation("WinningPrizeOrder")
+  drawWinners        DrawWinner[]
 
   @@index([campaignId, status])
   @@index([customerId])
