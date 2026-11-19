@@ -32,7 +32,6 @@ export interface PublicWinnerItem {
   estimatedValue: number | null;
   drawReference: string | null;
   winningNumber: string;
-  winnerName: string;
   evaluatedAt: string;
 }
 

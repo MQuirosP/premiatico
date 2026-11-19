@@ -217,7 +217,6 @@ export async function listRecentPublicWinners(limit = 5) {
         slug: true,
         drawReference: true,
         winningNumber: true,
-        winningOrderId: true,
         winnerEvaluatedAt: true,
       },
     }),
@@ -239,27 +238,9 @@ export async function listRecentPublicWinners(limit = 5) {
         winningNumber: true,
         winnerEvaluatedAt: true,
         campaign: { select: { title: true, slug: true } },
-        winningOrder: {
-          select: {
-            customer: { select: { fullName: true } },
-          },
-        },
       },
     }),
   ]);
-
-  const campaignOrderIds = campaignWins
-    .map((c) => c.winningOrderId)
-    .filter((id): id is string => Boolean(id));
-
-  const campaignOrders =
-    campaignOrderIds.length > 0
-      ? await prisma.order.findMany({
-          where: { id: { in: campaignOrderIds } },
-          select: { id: true, customer: { select: { fullName: true } } },
-        })
-      : [];
-  const orderNameById = new Map(campaignOrders.map((o) => [o.id, o.customer.fullName]));
 
   const combined = [
     ...campaignWins.map((c) => ({
@@ -272,7 +253,6 @@ export async function listRecentPublicWinners(limit = 5) {
       estimatedValue: null as number | null,
       drawReference: c.drawReference,
       winningNumber: c.winningNumber!,
-      winnerName: (c.winningOrderId && orderNameById.get(c.winningOrderId)) || 'Ganador verificado',
       evaluatedAt: c.winnerEvaluatedAt!,
     })),
     ...prizeWins.map((p) => ({
@@ -285,7 +265,6 @@ export async function listRecentPublicWinners(limit = 5) {
       estimatedValue: p.estimatedValue,
       drawReference: p.drawReference,
       winningNumber: p.winningNumber!,
-      winnerName: p.winningOrder?.customer.fullName ?? 'Ganador verificado',
       evaluatedAt: p.winnerEvaluatedAt!,
     })),
   ];

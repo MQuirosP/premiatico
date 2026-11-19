@@ -97,12 +97,11 @@ export default function GanadoresPage() {
                       </span>
                     </div>
 
-                    <h2 className="text-lg font-bold text-slate-900">{winner.winnerName}</h2>
+                    <h2 className="text-lg font-bold text-slate-900">{winner.prizeName}</h2>
                     <p className="text-sm text-slate-600">
-                      <strong className="text-slate-800">{winner.prizeName}</strong>
-                      {winner.sourceType !== 'CAMPAIGN' ? ` · ${winner.campaignTitle}` : ''}
+                      {winner.sourceType !== 'CAMPAIGN' ? winner.campaignTitle : 'Sorteo principal'}
                       {winner.estimatedValue && winner.estimatedValue > 0
-                        ? ` (${formatCRC(winner.estimatedValue)})`
+                        ? ` · ${formatCRC(winner.estimatedValue)}`
                         : ''}
                     </p>
                     {winner.drawReference ? (
