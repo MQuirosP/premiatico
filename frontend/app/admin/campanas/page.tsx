@@ -13,7 +13,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CampaignCombosPanel } from '@/components/admin/campaign-combos-panel';
 import { CampaignCreateForm } from '@/components/admin/campaign-create-form';
 import { TableSkeleton } from '@/components/ui/skeleton';
@@ -42,6 +42,13 @@ import type { AdminCampaign } from '@/types/campaign';
 export default function AdminCampaignsPage() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (new URLSearchParams(window.location.search).get('new') === '1') {
+      setShowForm(true);
+    }
+  }, []);
   const [actionError, setActionError] = useState<string | null>(null);
   const [legalCampaignId, setLegalCampaignId] = useState<string | null>(null);
   const [legalRef, setLegalRef] = useState('');

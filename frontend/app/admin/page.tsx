@@ -96,7 +96,7 @@ export default function AdminDashboardPage() {
     {
       label: 'Nueva campaña',
       description: 'Creá una campaña, portada y combos.',
-      href: '/admin/campanas',
+      href: '/admin/campanas?new=1',
       icon: Plus,
       surfaceClass:
         'border-blue-200/70 bg-gradient-to-br from-blue-50/70 via-white to-white hover:border-blue-400 hover:ring-blue-500/20 focus-visible:ring-blue-500 dark:border-blue-900/50 dark:from-blue-950/40 dark:via-slate-900 dark:to-slate-900 dark:hover:border-blue-500/70',
