@@ -2,6 +2,35 @@
 
 Todos los cambios notables de **Premiático** se documentan en este archivo.
 
+## [1.2.0] - 2026-11-19
+
+### Agregado
+
+- **Guarda de fecha y reversión en `SINGLE_WINNER`**:
+  - Bloqueo de evaluación de campañas `SINGLE_WINNER` antes de `drawAt ?? endAt` (`assertCampaignDrawTimeReached`).
+  - Endpoint `POST /api/v1/admin/campaigns/:id/reset-evaluation` y botón **Revertir evaluación** con registro en `AuditLog`.
+- **Series diarias y Sorteos Flash con motor de elegibilidad (`prize-eligibility.ts`)**:
+  - Creación de series diarias por rango de fechas (`POST /api/v1/admin/prizes/batch-daily`).
+  - Soporte de dinámicas `FLASH` también dentro de campañas `SINGLE_WINNER` sin cerrar la campaña principal.
+  - Criterios configurables por premio/flash: monto mínimo (`PER_ORDER` o acumulado `CUSTOMER_TOTAL`), mínimo de fichas, ventana de compra (`purchaseFrom` / `purchaseUntil`), combo requerido, canal (`WEB` / `PARTNER`) y peso en tómbola (`PER_TICKET` / `PER_CUSTOMER`).
+  - Previsualización en vivo de elegibles (`GET /api/v1/admin/prizes/:id/eligible-summary`).
+- **Tabla exclusiva de ganadores y seguimiento (`DrawWinner`)**:
+  - Nueva tabla `DrawWinner` con historial de evaluaciones y estado de entrega (`PENDING_CONTACT`, `CONTACTED`, `SCHEDULED`, `DELIVERED`, `UNCLAIMED`, `REVERTED`) administrable desde `GET /api/v1/admin/winners` y `PATCH /api/v1/admin/winners/:id/delivery`.
+  - Migración `20261119143000_add_categories_and_draw_winners` con backfill de ganadores existentes.
+- **Catálogo estandarizado de categorías (`CampaignCategory`)**:
+  - Endpoints `GET/POST/PATCH /api/v1/admin/categories` con normalización de `slug` anti-duplicados y gestión en `/admin/configuracion`.
+- **Experiencia Admin y Portal Público**:
+  - Nuevo **Centro de Sorteos** (`/admin/sorteos`) separado de la construcción de campañas, con desbloqueo automático por reloj en vivo, evaluación en 1 paso y pestaña **Seguimiento de entregas**.
+  - Asistente unificado de 5 pasos (`CampaignWizard`) para crear y editar campañas (`General y Fechas`, `Fichas y Modalidad`, `Apariencia y Galería`, `Combos y Pases`, `Diseño de Sorteos`).
+  - Nueva página pública `/ganadores` (y enlace en `SiteHeader`) con los últimos 5 ganadores verificados (`GET /api/v1/campaigns/winners`), sin exponer datos personales de clientes.
+  - Bloque **Premios y Sorteos Flash** activos y anuncio de subcampaña en vivo en `CampaignCountdown` dentro de `/campana`.
+
+### Corregido
+
+- Mapeo dark mode en `globals.css` para pills `bg-indigo-50`, `bg-sky-50` y `bg-teal-50`.
+- Acceso rápido **Nueva campaña** en `/admin` enlazado directo al asistente (`/admin/campanas?new=1`).
+- Conservación de la fecha oficial de la campaña en `CampaignCountdown` cuando existe una subcampaña flash en juego.
+
 ## [1.1.0] - 2026-11-13
 
 ### Agregado
