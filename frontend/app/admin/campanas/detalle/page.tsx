@@ -17,6 +17,8 @@ import {
   CAMPAIGN_STATUS,
   DRAW_MODE_OPTIONS,
   ORDER_STATUS_LABELS,
+  getCampaignStatusBadge,
+  getLegalStatusBadge,
   isCampaignReadOnly,
   type OrderStatus,
 } from '@/lib/domain-constants';
@@ -201,180 +203,167 @@ function CampaignDetailInner() {
         ) : null}
       </div>
 
-      <section className="rounded-2xl border bg-white p-6 shadow-sm">
-        <div className="grid gap-6 lg:grid-cols-[220px_1fr] items-start">
-          {campaign.coverImageUrl ? (
-            <img
-              src={campaign.coverImageUrl}
-              alt={campaign.title}
-              className="aspect-square w-full rounded-xl border object-cover"
-            />
-          ) : (
-            <div className="aspect-square w-full rounded-xl border border-dashed bg-slate-50 flex items-center justify-center text-xs text-slate-400">
-              Sin portada
-            </div>
-          )}
-
-          <div className="space-y-4">
+      {/* 1. Resumen de campaña (sin imagen suelta) */}
+      <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
+        {(() => {
+          const statusBadge = getCampaignStatusBadge(campaign.status);
+          const legalBadge = getLegalStatusBadge(campaign.legalApprovalStatus);
+          return (
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold text-slate-900">{campaign.title}</h1>
-              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
-                {campaign.status}
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadge.className}`}
+              >
+                {statusBadge.label}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+              <span
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${legalBadge.className}`}
+              >
                 <ShieldCheck className="h-3.5 w-3.5" />
-                Legal: {campaign.legalApprovalStatus}
+                Legal: {legalBadge.label}
                 {campaign.legalApprovalReference ? ` (${campaign.legalApprovalReference})` : ''}
               </span>
             </div>
+          );
+        })()}
 
-            <p className="text-sm text-slate-600 whitespace-pre-line">{campaign.description}</p>
+        <p className="text-sm text-slate-600 whitespace-pre-line">{campaign.description}</p>
 
-            <div className="grid gap-3 sm:grid-cols-3 text-xs text-slate-600">
-              <div className="rounded-lg bg-slate-50 p-3">
-                <span className="block text-[11px] uppercase text-slate-400">Cierre de ventas</span>
-                <span className="mt-0.5 inline-flex items-center gap-1 font-semibold text-slate-800">
-                  <Calendar className="h-3.5 w-3.5" />
-                  {new Date(campaign.endAt).toLocaleString('es-CR')}
-                </span>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-3">
-                <span className="block text-[11px] uppercase text-slate-400">Fecha de sorteo</span>
-                <span className="mt-0.5 block font-semibold text-slate-800">
-                  {campaign.drawAt ? new Date(campaign.drawAt).toLocaleString('es-CR') : 'Sin definir'}
-                </span>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-3">
-                <span className="block text-[11px] uppercase text-slate-400">Sorteo</span>
-                <span className="mt-0.5 block font-semibold text-slate-800">
-                  {campaign.drawReference || 'No especificado'}
-                </span>
-              </div>
-            </div>
-
-            <CampaignProgressBar progress={campaign.progress} showAvailable />
-
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
-              <div>
-                <p className="text-xs font-bold text-slate-800">
-                  Oferta de números inversos
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  Permite al comprador agregar el número inverso disponible sumando otro paquete completo.
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={
-                  toggleInverseMutation.isPending ||
-                  campaign.status === 'CLOSED' ||
-                  campaign.status === 'COMPLETED'
-                }
-                onClick={() => toggleInverseMutation.mutate(!campaign.enableInverseNumbers)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition disabled:opacity-50 ${
-                  campaign.enableInverseNumbers
-                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                }`}
-              >
-                {campaign.enableInverseNumbers ? 'Habilitado' : 'Deshabilitado'}
-              </button>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-xs font-bold text-slate-800">
-                    Paleta de color de la campaña
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    Aplica de forma agrupada al contador, cards de combos, chip destacado y botón.
-                  </p>
-                </div>
-                {updateThemeMutation.isPending ? (
-                  <span className="text-[11px] font-semibold text-blue-600">Guardando...</span>
-                ) : null}
-              </div>
-              <CampaignThemePicker
-                value={campaign.themeColor ?? 'classic'}
-                disabled={
-                  updateThemeMutation.isPending ||
-                  campaign.status === 'CLOSED' ||
-                  campaign.status === 'COMPLETED'
-                }
-                onChange={(nextTheme) => updateThemeMutation.mutate(nextTheme)}
-              />
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2.5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-xs font-bold text-slate-800">
-                    Modalidad de sorteo y ganadores
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    Elegí si la campaña tendrá un único ganador o varios premios/sorteos evaluados por separado.
-                  </p>
-                </div>
-                {updateDrawModeMutation.isPending ? (
-                  <span className="text-[11px] font-semibold text-blue-600">Guardando...</span>
-                ) : null}
-              </div>
-              {(() => {
-                const currentDrawMode = campaign.drawMode ?? CAMPAIGN_DRAW_MODE.SINGLE_WINNER;
-                const hasEvaluatedWinner =
-                  Boolean(activeWinnerResult) ||
-                  (campaign.prizes?.some((p) => Boolean(p.winnerEvaluatedAt)) ?? false);
-                const modeLocked =
-                  updateDrawModeMutation.isPending ||
-                  isCampaignReadOnly(campaign.status) ||
-                  hasEvaluatedWinner;
-                return (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {DRAW_MODE_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        disabled={modeLocked}
-                        onClick={() => updateDrawModeMutation.mutate(opt.value)}
-                        aria-pressed={currentDrawMode === opt.value}
-                        className={`rounded-xl border p-3 text-left transition disabled:opacity-60 ${
-                          currentDrawMode === opt.value
-                            ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20'
-                            : 'border-slate-200 bg-white hover:border-blue-300'
-                        }`}
-                      >
-                        <p className="text-xs font-bold text-slate-900">{opt.title}</p>
-                        <p className="mt-0.5 text-[11px] text-slate-500">
-                          {opt.detailDescription}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">
-              <CampaignImagesCarouselEditor
-                images={galleryImages}
-                disabled={
-                  updateGalleryMutation.isPending ||
-                  campaign.status === 'CLOSED' ||
-                  campaign.status === 'COMPLETED'
-                }
-                onUploadFile={(file) => uploadAdminCampaignCover(file)}
-                onChange={(nextImages) => {
-                  setGalleryImages(nextImages);
-                  updateGalleryMutation.mutate(nextImages);
-                }}
-              />
-              {updateGalleryMutation.isPending ? (
-                <p className="text-[11px] font-semibold text-blue-600">Guardando galería...</p>
-              ) : null}
-            </div>
+        <div className="grid gap-3 sm:grid-cols-3 text-xs text-slate-600">
+          <div className="rounded-lg bg-slate-50 p-3">
+            <span className="block text-[11px] uppercase text-slate-400">Cierre de ventas</span>
+            <span className="mt-0.5 inline-flex items-center gap-1 font-semibold text-slate-800">
+              <Calendar className="h-3.5 w-3.5" />
+              {new Date(campaign.endAt).toLocaleString('es-CR')}
+            </span>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3">
+            <span className="block text-[11px] uppercase text-slate-400">Fecha de sorteo</span>
+            <span className="mt-0.5 block font-semibold text-slate-800">
+              {campaign.drawAt ? new Date(campaign.drawAt).toLocaleString('es-CR') : 'Sin definir'}
+            </span>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3">
+            <span className="block text-[11px] uppercase text-slate-400">Sorteo</span>
+            <span className="mt-0.5 block font-semibold text-slate-800">
+              {campaign.drawReference || 'No especificado'}
+            </span>
           </div>
         </div>
+
+        <CampaignProgressBar progress={campaign.progress} showAvailable />
+      </section>
+
+      {/* 2. Galería y portada */}
+      <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-3">
+        <CampaignImagesCarouselEditor
+          images={galleryImages}
+          disabled={updateGalleryMutation.isPending || isCampaignReadOnly(campaign.status)}
+          onUploadFile={(file) => uploadAdminCampaignCover(file)}
+          onChange={(nextImages) => {
+            setGalleryImages(nextImages);
+            updateGalleryMutation.mutate(nextImages);
+          }}
+        />
+        {updateGalleryMutation.isPending ? (
+          <p className="text-[11px] font-semibold text-blue-600">Guardando galería...</p>
+        ) : null}
+      </section>
+
+      {/* 3. Apariencia y reglas de compra */}
+      <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
+        <div>
+          <h2 className="text-base font-bold text-slate-900">Apariencia y reglas de compra</h2>
+          <p className="text-xs text-slate-500">
+            Personalizá los colores de la campaña y las opciones disponibles para el comprador.
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-bold text-slate-800">Paleta de color de la campaña</p>
+              <p className="text-[11px] text-slate-500">
+                Aplica de forma agrupada al contador, cards de combos, chip destacado y botón.
+              </p>
+            </div>
+            {updateThemeMutation.isPending ? (
+              <span className="text-[11px] font-semibold text-blue-600">Guardando...</span>
+            ) : null}
+          </div>
+          <CampaignThemePicker
+            value={campaign.themeColor ?? 'classic'}
+            disabled={updateThemeMutation.isPending || isCampaignReadOnly(campaign.status)}
+            onChange={(nextTheme) => updateThemeMutation.mutate(nextTheme)}
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+          <div>
+            <p className="text-xs font-bold text-slate-800">Oferta de números inversos</p>
+            <p className="text-[11px] text-slate-500">
+              Permite al comprador agregar el número inverso disponible sumando otro paquete completo.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={toggleInverseMutation.isPending || isCampaignReadOnly(campaign.status)}
+            onClick={() => toggleInverseMutation.mutate(!campaign.enableInverseNumbers)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition disabled:opacity-50 ${
+              campaign.enableInverseNumbers
+                ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+            }`}
+          >
+            {campaign.enableInverseNumbers ? 'Habilitado' : 'Deshabilitado'}
+          </button>
+        </div>
+      </section>
+
+      {/* 4. Sorteo y ganadores (modalidad encima de la sección correspondiente) */}
+      <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Modalidad de sorteo y ganadores</h2>
+            <p className="text-xs text-slate-500">
+              Elegí si la campaña tendrá un único ganador o varios premios/sorteos evaluados por separado.
+            </p>
+          </div>
+          {updateDrawModeMutation.isPending ? (
+            <span className="text-[11px] font-semibold text-blue-600">Guardando...</span>
+          ) : null}
+        </div>
+        {(() => {
+          const currentDrawMode = campaign.drawMode ?? CAMPAIGN_DRAW_MODE.SINGLE_WINNER;
+          const hasEvaluatedWinner =
+            Boolean(activeWinnerResult) ||
+            (campaign.prizes?.some((p) => Boolean(p.winnerEvaluatedAt)) ?? false);
+          const modeLocked =
+            updateDrawModeMutation.isPending ||
+            isCampaignReadOnly(campaign.status) ||
+            hasEvaluatedWinner;
+          return (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {DRAW_MODE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  disabled={modeLocked}
+                  onClick={() => updateDrawModeMutation.mutate(opt.value)}
+                  aria-pressed={currentDrawMode === opt.value}
+                  className={`rounded-xl border p-3.5 text-left transition disabled:opacity-60 ${
+                    currentDrawMode === opt.value
+                      ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20'
+                      : 'border-slate-200 bg-white hover:border-blue-300'
+                  }`}
+                >
+                  <p className="text-xs font-bold text-slate-900">{opt.title}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-500">{opt.detailDescription}</p>
+                </button>
+              ))}
+            </div>
+          );
+        })()}
       </section>
 
       {(campaign.drawMode ?? CAMPAIGN_DRAW_MODE.SINGLE_WINNER) === CAMPAIGN_DRAW_MODE.MULTI_PRIZE ? (
