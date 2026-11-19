@@ -502,7 +502,11 @@ export async function resetPrizeEvaluation(prizeId: string, actorId: string) {
   return { reset: true };
 }
 
-export async function notifyPrizeWinnerByEmail(prizeId: string, actorId: string) {
+export async function notifyPrizeWinnerByEmail(
+  prizeId: string,
+  actorId: string,
+  forceResend = false,
+) {
   const prize = await prisma.campaignPrize.findUnique({
     where: { id: prizeId },
     select: {
@@ -549,12 +553,13 @@ export async function notifyPrizeWinnerByEmail(prizeId: string, actorId: string)
     </div>
   `.trim();
 
+  const baseKey = `PRIZE_WINNER:${prize.id}:${prize.winningNumber}:${prize.winningOrder.id}`;
   const delivery = await sendPrizeWinnerEmail({
     orderId: prize.winningOrder.id,
     recipientEmail: email,
     subject,
     html,
-    idempotencyKey: `PRIZE_WINNER:${prize.id}:${prize.winningNumber}:${prize.winningOrder.id}`,
+    idempotencyKey: forceResend ? `${baseKey}:resend:${Date.now()}` : baseKey,
   });
 
   await recordAuditLog({

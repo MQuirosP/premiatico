@@ -388,11 +388,13 @@ export interface PrizeWinnerEmailNotificationResult {
 
 export async function notifyAdminPrizeWinnerEmail(
   prizeId: string,
+  forceResend = false,
 ): Promise<PrizeWinnerEmailNotificationResult> {
   return apiRequest<PrizeWinnerEmailNotificationResult>(
     `/admin/prizes/${encodeURIComponent(prizeId)}/notify-email`,
     {
       method: 'POST',
+      body: JSON.stringify({ forceResend }),
     },
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Eye, Search, X, XCircle } from 'lucide-react';
+import { Check, Eye, Loader2, Search, X, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { ProofReviewModal } from '@/components/admin/proof-review-modal';
 import { FichasModal, type FichasModalEntry } from '@/components/fichas-modal';
@@ -164,6 +164,85 @@ export default function AdminPedidosPage() {
       setErrorMsg(err instanceof ApiError ? err.message : 'Error al rechazar pago');
     },
   });
+
+  const renderReviewActions = (p: AdminPaymentRow, canCancelOrder: boolean, alignRight = false) => {
+    const isApprovingRow = approveMutation.isPending && approveMutation.variables === p.id;
+    const isRejectingRow =
+      rejectMutation.isPending && rejectMutation.variables?.paymentId === p.id;
+    const isCancellingRow =
+      cancelOrderMutation.isPending && cancelOrderMutation.variables?.orderId === p.order.id;
+    const rowBusy = isApprovingRow || isRejectingRow || isCancellingRow;
+
+    const openCancelModal = () => {
+      setCancelError(null);
+      setCancelReason('');
+      setOrderToCancel({
+        id: p.order.id,
+        publicReference: p.order.publicReference,
+        channel: p.order.channel,
+        partnerCode: p.order.partnerCode,
+        customerName: p.order.customer.fullName,
+      });
+    };
+
+    return (
+      <div className={`inline-flex flex-wrap items-center gap-1.5 ${alignRight ? 'justify-end' : ''}`}>
+        {p.status === 'UNDER_REVIEW' ? (
+          <>
+            <button
+              type="button"
+              title="Aprobar pago"
+              disabled={rowBusy}
+              onClick={() => approveMutation.mutate(p.id)}
+              className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60 active:scale-95 transition"
+            >
+              {isApprovingRow ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Check className="h-3.5 w-3.5" />
+              )}
+              {isApprovingRow ? 'Aprobando...' : 'Aprobar'}
+            </button>
+            <button
+              type="button"
+              title="Rechazar pago"
+              disabled={rowBusy}
+              onClick={() =>
+                rejectMutation.mutate({
+                  paymentId: p.id,
+                  reason: rejectReason,
+                })
+              }
+              className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60 active:scale-95 transition"
+            >
+              {isRejectingRow ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <X className="h-3.5 w-3.5" />
+              )}
+              {isRejectingRow ? 'Rechazando...' : 'Rechazar'}
+            </button>
+          </>
+        ) : null}
+
+        {canCancelOrder ? (
+          <button
+            type="button"
+            disabled={rowBusy}
+            onClick={openCancelModal}
+            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60 active:scale-95 transition"
+          >
+            {isCancellingRow ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <XCircle className="h-3.5 w-3.5" />
+            )}
+            {isCancellingRow ? 'Anulando...' : 'Anular'}
+          </button>
+        ) : null}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -341,69 +420,7 @@ export default function AdminPedidosPage() {
                         </button>
                       ) : null}
 
-                      {canCancelOrder ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCancelError(null);
-                            setCancelReason('');
-                            setOrderToCancel({
-                              id: p.order.id,
-                              publicReference: p.order.publicReference,
-                              channel: p.order.channel,
-                              partnerCode: p.order.partnerCode,
-                              customerName: p.order.customer.fullName,
-                            });
-                          }}
-                          className="ml-auto inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
-                        >
-                          <XCircle className="h-3.5 w-3.5" /> Anular
-                        </button>
-                      ) : null}
-
-                      {p.status === 'UNDER_REVIEW' ? (
-                        <div className="ml-auto flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            disabled={approveMutation.isPending}
-                            onClick={() => approveMutation.mutate(p.id)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
-                          >
-                            <Check className="h-3.5 w-3.5" /> Aprobar
-                          </button>
-                          <button
-                            type="button"
-                            disabled={rejectMutation.isPending}
-                            onClick={() =>
-                              rejectMutation.mutate({
-                                paymentId: p.id,
-                                reason: rejectReason,
-                              })
-                            }
-                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
-                          >
-                            <X className="h-3.5 w-3.5" /> Rechazar
-                          </button>
-                        </div>
-                      ) : canCancelOrder ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCancelError(null);
-                            setCancelReason('');
-                            setOrderToCancel({
-                              id: p.order.id,
-                              publicReference: p.order.publicReference,
-                              channel: p.order.channel,
-                              partnerCode: p.order.partnerCode,
-                              customerName: p.order.customer.fullName,
-                            });
-                          }}
-                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
-                        >
-                          <XCircle className="h-3.5 w-3.5" /> Anular
-                        </button>
-                      ) : null}
+                      {renderReviewActions(p, canCancelOrder)}
                     </div>
                   </div>
                 );
@@ -530,71 +547,7 @@ export default function AdminPedidosPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
-                      {canCancelOrder ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCancelError(null);
-                            setCancelReason('');
-                            setOrderToCancel({
-                              id: p.order.id,
-                              publicReference: p.order.publicReference,
-                              channel: p.order.channel,
-                              partnerCode: p.order.partnerCode,
-                              customerName: p.order.customer.fullName,
-                            });
-                          }}
-                          className="ml-auto inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
-                        >
-                          <XCircle className="h-3.5 w-3.5" /> Anular
-                        </button>
-                      ) : null}
-
-                      {p.status === 'UNDER_REVIEW' ? (
-                        <div className="inline-flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            title="Aprobar pago"
-                            disabled={approveMutation.isPending}
-                            onClick={() => approveMutation.mutate(p.id)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
-                          >
-                            <Check className="h-3.5 w-3.5" /> Aprobar
-                          </button>
-                          <button
-                            type="button"
-                            title="Rechazar pago"
-                            disabled={rejectMutation.isPending}
-                            onClick={() =>
-                              rejectMutation.mutate({
-                                paymentId: p.id,
-                                reason: rejectReason,
-                              })
-                            }
-                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
-                          >
-                            <X className="h-3.5 w-3.5" /> Rechazar
-                          </button>
-                        </div>
-                      ) : canCancelOrder ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCancelError(null);
-                            setCancelReason('');
-                            setOrderToCancel({
-                              id: p.order.id,
-                              publicReference: p.order.publicReference,
-                              channel: p.order.channel,
-                              partnerCode: p.order.partnerCode,
-                              customerName: p.order.customer.fullName,
-                            });
-                          }}
-                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
-                        >
-                          <XCircle className="h-3.5 w-3.5" /> Anular
-                        </button>
-                      ) : null}
+                      {renderReviewActions(p, canCancelOrder, true)}
                     </td>
                   </tr>
                 );

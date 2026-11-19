@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CheckCircle2,
   Eye,
+  Loader2,
   PauseCircle,
   Plus,
   ShieldCheck,
@@ -152,17 +153,24 @@ export default function AdminCampaignsPage() {
   });
 
   const renderActions = (c: AdminCampaign) => {
-    const isClosed = c.status === 'CLOSED' || c.status === 'COMPLETED';
+    const isClosed = isCampaignReadOnly(c.status);
+    const isTransitioning =
+      transitionMutation.isPending && transitionMutation.variables?.id === c.id;
+    const transitionAction = isTransitioning ? transitionMutation.variables?.action : null;
+    const isDeletingRow = deleteCampaignMutation.isPending && deleteCampaignMutation.variables === c.id;
+    const rowBusy = isTransitioning || isDeletingRow;
+
     return (
       <div className="flex flex-wrap items-center justify-end gap-1.5">
         {!isClosed && c.legalApprovalStatus !== 'APPROVED' && (
           <button
             type="button"
+            disabled={rowBusy}
             onClick={() => {
               setLegalCampaignId(c.id);
               setLegalRef(c.legalApprovalReference ?? '');
             }}
-            className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+            className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-60 active:scale-95 transition"
           >
             <ShieldCheck className="h-3.5 w-3.5" /> Aprobar legal
           </button>
@@ -170,8 +178,9 @@ export default function AdminCampaignsPage() {
         {!isClosed && (
           <button
             type="button"
+            disabled={rowBusy}
             onClick={() => setComboCampaignId(c.id)}
-            className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+            className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-60 active:scale-95 transition"
           >
             <Ticket className="h-3.5 w-3.5" /> + Combo
           </button>
@@ -179,38 +188,61 @@ export default function AdminCampaignsPage() {
       {(c.status === 'DRAFT' || c.status === 'PAUSED') && (
         <button
           type="button"
+          disabled={rowBusy}
           onClick={() => transitionMutation.mutate({ id: c.id, action: 'publish' })}
-          className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+          className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60 active:scale-95 transition"
         >
-          <CheckCircle2 className="h-3.5 w-3.5" /> Publicar
+          {transitionAction === 'publish' ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <CheckCircle2 className="h-3.5 w-3.5" />
+          )}
+          {transitionAction === 'publish' ? 'Publicando...' : 'Publicar'}
         </button>
       )}
       {c.status === 'ACTIVE' && (
         <button
           type="button"
+          disabled={rowBusy}
           onClick={() => transitionMutation.mutate({ id: c.id, action: 'pause' })}
-          className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100"
+          className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-60 active:scale-95 transition"
         >
-          <PauseCircle className="h-3.5 w-3.5" /> Pausar
+          {transitionAction === 'pause' ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <PauseCircle className="h-3.5 w-3.5" />
+          )}
+          {transitionAction === 'pause' ? 'Pausando...' : 'Pausar'}
         </button>
       )}
       {c.status === 'DRAFT' && (
         <button
           type="button"
-          disabled={deleteCampaignMutation.isPending}
+          disabled={rowBusy}
           onClick={() => deleteCampaignMutation.mutate(c.id)}
-          className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+          className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60 active:scale-95 transition"
         >
-          <Trash2 className="h-3.5 w-3.5" /> Eliminar
+          {isDeletingRow ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Trash2 className="h-3.5 w-3.5" />
+          )}
+          {isDeletingRow ? 'Eliminando...' : 'Eliminar'}
         </button>
       )}
       {c.status !== 'DRAFT' && !isClosed && (
         <button
           type="button"
+          disabled={rowBusy}
           onClick={() => transitionMutation.mutate({ id: c.id, action: 'close' })}
-          className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+          className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60 active:scale-95 transition"
         >
-          <XCircle className="h-3.5 w-3.5" /> Cerrar
+          {transitionAction === 'close' ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <XCircle className="h-3.5 w-3.5" />
+          )}
+          {transitionAction === 'close' ? 'Cerrando...' : 'Cerrar'}
         </button>
       )}
       {isClosed && (

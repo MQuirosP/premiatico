@@ -6,6 +6,7 @@ import {
   Calendar,
   CheckCircle2,
   Dices,
+  Loader2,
   Mail,
   MessageCircle,
   Plus,
@@ -156,31 +157,61 @@ export function CampaignPrizesPanel({
     },
   });
 
+  const [emailFeedbackByPrize, setEmailFeedbackByPrize] = useState<
+    Record<
+      string,
+      { status: 'sent' | 'already_sent' | 'info' | 'error'; message: string }
+    >
+  >({});
+
   const notifyEmailMutation = useMutation({
-    mutationFn: notifyAdminPrizeWinnerEmail,
-    onSuccess: (res) => {
+    mutationFn: ({ prizeId, forceResend }: { prizeId: string; forceResend?: boolean }) =>
+      notifyAdminPrizeWinnerEmail(prizeId, Boolean(forceResend)),
+    onSuccess: (res, variables) => {
       setErrorMsg(null);
       if (res.sent) {
-        setStatusMsg(`Correo de ganador enviado a ${res.recipientEmail}.`);
+        const msg = `Correo de ganador enviado a ${res.recipientEmail}.`;
+        setStatusMsg(msg);
+        setEmailFeedbackByPrize((prev) => ({
+          ...prev,
+          [variables.prizeId]: { status: 'sent', message: msg },
+        }));
       } else if (res.skippedReason === 'RESEND_NOT_CONFIGURED') {
-        setStatusMsg(
-          `El servicio automático de correo aún no está configurado. Podés usar "Abrir en correo" o WhatsApp para notificar a ${res.recipientEmail}.`,
-        );
+        const msg = `El servicio automático de correo aún no está configurado. Podés usar "Abrir en correo" o WhatsApp para notificar a ${res.recipientEmail}.`;
+        setStatusMsg(msg);
+        setEmailFeedbackByPrize((prev) => ({
+          ...prev,
+          [variables.prizeId]: { status: 'info', message: msg },
+        }));
       } else if (res.skippedReason === 'ALREADY_SENT') {
-        setStatusMsg(`Ya se había enviado la notificación por correo a ${res.recipientEmail}.`);
+        const msg = `Ya se había enviado la notificación por correo a ${res.recipientEmail}.`;
+        setStatusMsg(msg);
+        setEmailFeedbackByPrize((prev) => ({
+          ...prev,
+          [variables.prizeId]: { status: 'already_sent', message: msg },
+        }));
       } else {
-        setErrorMsg(res.errorMessage || 'No se pudo enviar el correo al ganador');
+        const msg = res.errorMessage || 'No se pudo enviar el correo al ganador';
+        setErrorMsg(msg);
+        setEmailFeedbackByPrize((prev) => ({
+          ...prev,
+          [variables.prizeId]: { status: 'error', message: msg },
+        }));
       }
     },
-    onError: (err) => {
+    onError: (err, variables) => {
       setStatusMsg(null);
-      if (err instanceof ApiError && err.status === 404) {
-        setErrorMsg(
-          'El envío automático de correo todavía no está disponible en el servidor (puede estar actualizándose o pendiente de configurar). Mientras tanto, usá "Abrir en correo" o WhatsApp.',
-        );
-        return;
-      }
-      setErrorMsg(err instanceof ApiError ? err.message : 'No se pudo notificar por correo');
+      const msg =
+        err instanceof ApiError && err.status === 404
+          ? 'El envío automático de correo todavía no está disponible en el servidor.'
+          : err instanceof ApiError
+            ? err.message
+            : 'No se pudo notificar por correo';
+      setErrorMsg(msg);
+      setEmailFeedbackByPrize((prev) => ({
+        ...prev,
+        [variables.prizeId]: { status: 'error', message: msg },
+      }));
     },
   });
 
@@ -497,15 +528,28 @@ export function CampaignPrizesPanel({
                             <Share2 className="h-3 w-3" />
                             Compartir
                           </button>
-                          <button
-                            type="button"
-                            disabled={notifyEmailMutation.isPending}
-                            onClick={() => notifyEmailMutation.mutate(prize.id)}
-                            className="inline-flex items-center gap-1 rounded-md border border-blue-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-blue-800 hover:bg-blue-50 disabled:opacity-60"
-                          >
-                            <Mail className="h-3 w-3" />
-                            {notifyEmailMutation.isPending ? 'Enviando...' : 'Enviar correo'}
-                          </button>
+                          {(() => {
+                            const isSendingThis =
+                              notifyEmailMutation.isPending &&
+                              notifyEmailMutation.variables?.prizeId === prize.id;
+                            return (
+                              <button
+                                type="button"
+                                disabled={isSendingThis}
+                                onClick={() =>
+                                  notifyEmailMutation.mutate({ prizeId: prize.id, forceResend: false })
+                                }
+                                className="inline-flex items-center gap-1 rounded-md border border-blue-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-blue-800 hover:bg-blue-50 disabled:opacity-60 active:scale-95 transition"
+                              >
+                                {isSendingThis ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Mail className="h-3 w-3" />
+                                )}
+                                {isSendingThis ? 'Enviando...' : 'Enviar correo'}
+                              </button>
+                            );
+                          })()}
                           <a
                             href={`mailto:${prize.winningOrder.customer.email}?subject=${encodeURIComponent(
                               `¡Felicidades ${prize.winningOrder.customer.fullName}! Ganaste ${prize.name} en Premiático`,
@@ -516,6 +560,46 @@ export function CampaignPrizesPanel({
                             Abrir en correo
                           </a>
                         </div>
+                        {(() => {
+                          const fb = emailFeedbackByPrize[prize.id];
+                          if (!fb) return null;
+                          const isResendingThis =
+                            notifyEmailMutation.isPending &&
+                            notifyEmailMutation.variables?.prizeId === prize.id;
+                          return (
+                            <div
+                              className={`mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] ${
+                                fb.status === 'error'
+                                  ? 'border-red-200 bg-red-50 text-red-700'
+                                  : fb.status === 'sent'
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                    : 'border-amber-200 bg-amber-50 text-amber-800'
+                              }`}
+                            >
+                              <span>{fb.message}</span>
+                              {fb.status === 'already_sent' ? (
+                                <button
+                                  type="button"
+                                  disabled={isResendingThis}
+                                  onClick={() =>
+                                    notifyEmailMutation.mutate({
+                                      prizeId: prize.id,
+                                      forceResend: true,
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-60"
+                                >
+                                  {isResendingThis ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Mail className="h-3 w-3" />
+                                  )}
+                                  {isResendingThis ? 'Reenviando...' : 'Reenviar correo'}
+                                </button>
+                              ) : null}
+                            </div>
+                          );
+                        })()}
                       </div>
                     ) : (
                       <p>Número desierto (no vendido/confirmado).</p>

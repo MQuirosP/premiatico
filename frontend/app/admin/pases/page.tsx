@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, Plus, Sparkles, Ticket, Trash2, Wand2 } from 'lucide-react';
+import { Eye, Loader2, Plus, Sparkles, Ticket, Trash2, Wand2 } from 'lucide-react';
 import { useState } from 'react';
 import { PassAiGeneratorPanel } from '@/components/admin/pass-ai-generator-panel';
 import { TableSkeleton } from '@/components/ui/skeleton';
@@ -58,6 +58,104 @@ export default function AdminPassesPage() {
       setFeedback(err instanceof ApiError ? err.message : 'No se pudo eliminar el pase');
     },
   });
+
+  const [loadingPassAction, setLoadingPassAction] = useState<{
+    id: string;
+    type: 'view' | 'stamp';
+  } | null>(null);
+
+  const renderPassActions = (
+    pass: { id: string; kind?: string; mimeType: string },
+    alignRight = false,
+  ) => {
+    const isViewing = loadingPassAction?.id === pass.id && loadingPassAction.type === 'view';
+    const isStamping = loadingPassAction?.id === pass.id && loadingPassAction.type === 'stamp';
+    const isDeleting = deleteMutation.isPending && deleteMutation.variables === pass.id;
+    const rowBusy = isViewing || isStamping || isDeleting;
+
+    return (
+      <div className={`flex flex-wrap items-center gap-2 ${alignRight ? 'justify-end' : ''}`}>
+        <button
+          type="button"
+          disabled={rowBusy}
+          onClick={async () => {
+            setLoadingPassAction({ id: pass.id, type: 'view' });
+            try {
+              const preview = await getAdminPassPreviewUrl(pass.id);
+              window.open(preview.url, '_blank', 'noopener,noreferrer');
+            } catch (err) {
+              setFeedback(
+                err instanceof ApiError ? err.message : 'No se pudo abrir la vista previa del pase',
+              );
+            } finally {
+              setLoadingPassAction(null);
+            }
+          }}
+          className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-60 active:scale-95 transition"
+        >
+          {isViewing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+          {isViewing ? 'Abriendo...' : 'Ver'}
+        </button>
+        {pass.mimeType.startsWith('image/') ? (
+          <button
+            type="button"
+            disabled={rowBusy}
+            onClick={async () => {
+              setLoadingPassAction({ id: pass.id, type: 'stamp' });
+              try {
+                const token = getAdminSessionToken();
+                const sampleText = pass.kind === 'FICHA' ? '12345' : 'PRM-A1B2C3D4';
+                const response = await fetch(
+                  `${API_BASE_URL}/admin/passes/${encodeURIComponent(
+                    pass.id,
+                  )}/preview-stamped?number=${encodeURIComponent(sampleText)}`,
+                  {
+                    credentials: 'include',
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                  },
+                );
+                if (!response.ok) {
+                  throw new Error(`HTTP ${response.status}`);
+                }
+                const blob = await response.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                window.open(objectUrl, '_blank', 'noopener,noreferrer');
+              } catch (err) {
+                setFeedback(
+                  err instanceof Error
+                    ? `No se pudo generar el estampado de prueba (${err.message})`
+                    : 'No se pudo generar el estampado de prueba',
+                );
+              } finally {
+                setLoadingPassAction(null);
+              }
+            }}
+            className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2.5 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100 disabled:opacity-60 active:scale-95 transition"
+          >
+            {isStamping ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            {isStamping ? 'Estampando...' : 'Probar estampado'}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          disabled={rowBusy}
+          onClick={() => deleteMutation.mutate(pass.id)}
+          className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60 active:scale-95 transition"
+        >
+          {isDeleting ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Trash2 className="h-3.5 w-3.5" />
+          )}
+          {isDeleting ? 'Eliminando...' : 'Eliminar'}
+        </button>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -214,71 +312,7 @@ export default function AdminPassesPage() {
                       {pass.isActive ? 'Activo' : 'Inactivo'}
                     </span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const preview = await getAdminPassPreviewUrl(pass.id);
-                          window.open(preview.url, '_blank', 'noopener,noreferrer');
-                        } catch (err) {
-                          setFeedback(
-                            err instanceof ApiError
-                              ? err.message
-                              : 'No se pudo abrir la vista previa del pase',
-                          );
-                        }
-                      }}
-                      className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      Ver
-                    </button>
-                    {pass.mimeType.startsWith('image/') ? (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            const token = getAdminSessionToken();
-                            const response = await fetch(
-                              `${API_BASE_URL}/admin/passes/${encodeURIComponent(
-                                pass.id,
-                              )}/preview-stamped?number=12345`,
-                              {
-                                credentials: 'include',
-                                headers: token ? { Authorization: `Bearer ${token}` } : {},
-                              },
-                            );
-                            if (!response.ok) {
-                              throw new Error(`HTTP ${response.status}`);
-                            }
-                            const blob = await response.blob();
-                            const objectUrl = URL.createObjectURL(blob);
-                            window.open(objectUrl, '_blank', 'noopener,noreferrer');
-                          } catch (err) {
-                            setFeedback(
-                              err instanceof Error
-                                ? `No se pudo generar el estampado de prueba (${err.message})`
-                                : 'No se pudo generar el estampado de prueba',
-                            );
-                          }
-                        }}
-                        className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2.5 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100"
-                      >
-                        <Sparkles className="h-3.5 w-3.5" />
-                        Probar estampado
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      disabled={deleteMutation.isPending}
-                      onClick={() => deleteMutation.mutate(pass.id)}
-                      className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Eliminar
-                    </button>
-                  </div>
+                  {renderPassActions(pass)}
                 </div>
               ))}
             </div>
@@ -315,72 +349,7 @@ export default function AdminPassesPage() {
                         {pass.isActive ? 'Activo' : 'Inactivo'}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="inline-flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                const preview = await getAdminPassPreviewUrl(pass.id);
-                                window.open(preview.url, '_blank', 'noopener,noreferrer');
-                              } catch (err) {
-                                setFeedback(
-                                  err instanceof ApiError
-                                    ? err.message
-                                    : 'No se pudo abrir la vista previa del pase',
-                                );
-                              }
-                            }}
-                            className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            Ver
-                          </button>
-                          {pass.mimeType.startsWith('image/') ? (
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                try {
-                                  const token = getAdminSessionToken();
-                                  const sampleText = pass.kind === 'FICHA' ? '12345' : 'PRM-A1B2C3D4';
-                                  const response = await fetch(
-                                    `${API_BASE_URL}/admin/passes/${encodeURIComponent(
-                                      pass.id,
-                                    )}/preview-stamped?number=${encodeURIComponent(sampleText)}`,
-                                    {
-                                      credentials: 'include',
-                                      headers: token ? { Authorization: `Bearer ${token}` } : {},
-                                    },
-                                  );
-                                  if (!response.ok) {
-                                    throw new Error(`HTTP ${response.status}`);
-                                  }
-                                  const blob = await response.blob();
-                                  const objectUrl = URL.createObjectURL(blob);
-                                  window.open(objectUrl, '_blank', 'noopener,noreferrer');
-                                } catch (err) {
-                                  setFeedback(
-                                    err instanceof Error
-                                      ? `No se pudo generar el estampado de prueba (${err.message})`
-                                      : 'No se pudo generar el estampado de prueba',
-                                  );
-                                }
-                              }}
-                              className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100"
-                            >
-                              <Sparkles className="h-3.5 w-3.5" />
-                              Probar estampado
-                            </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            disabled={deleteMutation.isPending}
-                            onClick={() => deleteMutation.mutate(pass.id)}
-                            className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Eliminar
-                          </button>
-                        </div>
+                        {renderPassActions(pass, true)}
                       </td>
                     </tr>
                   ))}

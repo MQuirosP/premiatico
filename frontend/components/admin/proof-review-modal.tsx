@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, X } from 'lucide-react';
+import { Check, Loader2, X } from 'lucide-react';
 import { formatCRC } from '@/lib/utils';
 
 export interface ProofModalPaymentInfo {
@@ -105,17 +105,27 @@ export function ProofReviewModal({
                     rejectReason.trim() || 'Comprobante rechazado en revisión manual',
                   )
                 }
-                className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+                className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-60 active:scale-95 transition"
               >
-                <X className="h-3.5 w-3.5" /> Rechazar
+                {isSubmitting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <X className="h-3.5 w-3.5" />
+                )}
+                {isSubmitting ? 'Procesando...' : 'Rechazar'}
               </button>
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => onApprove(selectedProof.payment.id)}
-                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 active:scale-95 transition"
               >
-                <Check className="h-3.5 w-3.5" /> Aprobar pago
+                {isSubmitting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                {isSubmitting ? 'Procesando...' : 'Aprobar pago'}
               </button>
             </div>
           ) : (

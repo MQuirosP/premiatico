@@ -112,7 +112,8 @@ adminPrizesRouter.post(
   validate({ params: prizeIdSchema }),
   async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
     try {
-      const result = await notifyPrizeWinnerByEmail(req.params.id, req.admin!.id);
+      const forceResend = Boolean((req.body as { forceResend?: unknown } | undefined)?.forceResend);
+      const result = await notifyPrizeWinnerByEmail(req.params.id, req.admin!.id, forceResend);
       res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);
