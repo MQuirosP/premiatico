@@ -158,6 +158,10 @@ export async function createAdminCampaign(payload: {
   legalApprovalReference?: string;
   terms: string;
   coverImageKey?: string | null;
+  galleryImages?: Array<{ imageKey: string; isCover: boolean }>;
+  enableInverseNumbers?: boolean;
+  themeColor?: string;
+  drawMode?: CampaignDrawMode;
   countdownTitle?: string | null;
 }): Promise<AdminCampaign> {
   const res = await apiRequest<{ campaign: AdminCampaign }>('/admin/campaigns', {

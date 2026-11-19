@@ -13,9 +13,10 @@ import {
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { CampaignCombosPanel } from '@/components/admin/campaign-combos-panel';
-import { CampaignCreateForm } from '@/components/admin/campaign-create-form';
+import { CampaignWizard } from '@/components/admin/campaign-wizard';
 import { TableSkeleton } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api';
 import {
@@ -26,7 +27,6 @@ import {
 } from '@/lib/domain-constants';
 import {
   closeAdminCampaign,
-  createAdminCampaign,
   createAdminCombo,
   deleteAdminCampaign,
   deleteAdminCombo,
@@ -35,12 +35,12 @@ import {
   pauseAdminCampaign,
   publishAdminCampaign,
   updateAdminCampaign,
-  uploadAdminCampaignCover,
 } from '@/services/campaigns';
 import type { AdminCampaign } from '@/types/campaign';
 
 export default function AdminCampaignsPage() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
@@ -66,26 +66,6 @@ export default function AdminCampaignsPage() {
   });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['admin-campaigns'] });
-
-  const coverUploadMutation = useMutation({
-    mutationFn: uploadAdminCampaignCover,
-    onSuccess: () => setActionError(null),
-    onError: (err) => {
-      setActionError(err instanceof ApiError ? err.message : 'Error al subir la imagen de portada');
-    },
-  });
-
-  const createMutation = useMutation({
-    mutationFn: createAdminCampaign,
-    onSuccess: () => {
-      setShowForm(false);
-      setActionError(null);
-      void refresh();
-    },
-    onError: (err) => {
-      setActionError(err instanceof ApiError ? err.message : 'Error al crear campaña');
-    },
-  });
 
   const transitionMutation = useMutation({
     mutationFn: async ({ id, action }: { id: string; action: 'publish' | 'pause' | 'close' }) => {
@@ -290,12 +270,12 @@ export default function AdminCampaignsPage() {
       ) : null}
 
       {showForm ? (
-        <CampaignCreateForm
-          isSubmitting={createMutation.isPending}
-          isUploadingCover={coverUploadMutation.isPending}
-          onUploadCover={(file) => coverUploadMutation.mutateAsync(file)}
-          onSubmit={(payload) => createMutation.mutate(payload)}
-          onCancel={() => setShowForm(false)}
+        <CampaignWizard
+          onCancelCreate={() => setShowForm(false)}
+          onFinishCreate={(campaignId) => {
+            setShowForm(false);
+            router.push(`/admin/campanas/detalle?id=${encodeURIComponent(campaignId)}`);
+          }}
         />
       ) : null}
 
