@@ -284,7 +284,7 @@ function CheckoutContent() {
       <SiteHeader />
 
       {/* Header & Stepper */}
-      <div className="border-b border-slate-200/80 bg-gradient-to-b from-blue-50/70 to-slate-50 py-8 px-4">
+      <div className="border-b border-slate-200/80 bg-gradient-to-b from-blue-50/70 to-slate-50 py-8 px-4 dark:border-slate-800 dark:from-slate-900 dark:to-slate-950">
         <div className="mx-auto max-w-5xl text-center space-y-4">
           <div className="space-y-1.5">
             <p className="text-[11px] font-bold uppercase tracking-widest text-blue-600">
