@@ -1,8 +1,9 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, Plus, Sparkles, Ticket, Trash2 } from 'lucide-react';
+import { Eye, Plus, Sparkles, Ticket, Trash2, Wand2 } from 'lucide-react';
 import { useState } from 'react';
+import { PassAiGeneratorPanel } from '@/components/admin/pass-ai-generator-panel';
 import { TableSkeleton } from '@/components/ui/skeleton';
 import { API_BASE_URL, ApiError, getAdminSessionToken } from '@/lib/api';
 import {
@@ -16,6 +17,7 @@ export default function AdminPassesPage() {
   const queryClient = useQueryClient();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showAiGenerator, setShowAiGenerator] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [kind, setKind] = useState<'PASS' | 'FICHA'>('PASS');
@@ -66,15 +68,38 @@ export default function AdminPassesPage() {
             Fondos y stickers digitales asignables a los combos de cada campaña.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowForm((v) => !v)}
-          className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 whitespace-nowrap"
-        >
-          <Plus className="h-4 w-4 shrink-0" />
-          Nueva plantilla
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => {
+              setShowAiGenerator((v) => !v);
+              setShowForm(false);
+            }}
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 whitespace-nowrap"
+          >
+            <Wand2 className="h-4 w-4 shrink-0" />
+            Generar con IA
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowForm((v) => !v);
+              setShowAiGenerator(false);
+            }}
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 whitespace-nowrap"
+          >
+            <Plus className="h-4 w-4 shrink-0" />
+            Nueva plantilla
+          </button>
+        </div>
       </div>
+
+      {showAiGenerator ? (
+        <PassAiGeneratorPanel
+          onClose={() => setShowAiGenerator(false)}
+          onSaved={(msg) => setFeedback(msg)}
+        />
+      ) : null}
 
       {showForm ? (
         <form

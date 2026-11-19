@@ -7,6 +7,7 @@ import { createMemoryUpload } from '../../middlewares/upload.js';
 import { validate } from '../../middlewares/validate.js';
 import { recordAuditLog } from '../audit/audit.service.js';
 import { generateStampedPassImage } from '../notifications/ficha-card.service.js';
+import { generateStickerPreview } from './pass-generator.service.js';
 import {
   deleteObject,
   getObjectBuffer,
@@ -33,6 +34,29 @@ const signedUploadSchema = z.object({
   passId: z.string().min(1).default('new'),
   fileName: z.string().trim().min(1).max(120),
   contentType: z.string().trim().min(3).max(100),
+});
+
+const generatePreviewSchema = z.object({
+  tipo: z.enum(['PASS', 'FICHA', 'BOTH']).default('BOTH'),
+  tematica: z.string().trim().min(2, 'Describí la temática').max(200),
+  colores: z.string().trim().max(120).optional(),
+  estilo: z.string().trim().max(160).optional(),
+  eslogan: z.string().trim().max(80).optional(),
+});
+
+const saveGeneratedSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  description: z.string().trim().min(5).max(2000),
+  comboId: z.string().trim().min(1).optional(),
+  variants: z
+    .array(
+      z.object({
+        kind: z.enum(['PASS', 'FICHA']),
+        base64: z.string().min(100),
+      }),
+    )
+    .min(1)
+    .max(2),
 });
 
 export const adminPassesRouter = Router();
@@ -105,6 +129,89 @@ adminPassesRouter.post(
       if (uploadedKey) {
         await deleteObject(uploadedKey).catch(() => undefined);
       }
+      next(error);
+    }
+  },
+);
+
+adminPassesRouter.post(
+  '/generate-preview',
+  validate({ body: generatePreviewSchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const preview = await generateStickerPreview(req.body);
+      res.status(200).json({ success: true, data: preview });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+adminPassesRouter.post(
+  '/save-generated',
+  validate({ body: saveGeneratedSchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    const uploadedKeys: string[] = [];
+    try {
+      const { name, description, comboId, variants } = req.body as z.infer<typeof saveGeneratedSchema>;
+
+      if (comboId) {
+        const combo = await prisma.campaignCombo.findUnique({ where: { id: comboId }, select: { id: true } });
+        if (!combo) throw new NotFoundError('El combo seleccionado no existe');
+      }
+
+      const createdPasses = [];
+      for (const variant of variants) {
+        const buffer = Buffer.from(variant.base64, 'base64');
+        const suffix = variant.kind === 'PASS' ? 'Pase' : 'Ficha';
+        const passName = variants.length > 1 ? `${name} (${suffix})` : name;
+        const safeSlug = passName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+          .slice(0, 48);
+        const filename = `${safeSlug || 'sticker'}-${variant.kind.toLowerCase()}.png`;
+        const key = r2KeyBuilders.passFile('catalog', filename);
+
+        await uploadObject({ key, body: buffer, contentType: 'image/png' });
+        uploadedKeys.push(key);
+
+        const pass = await prisma.digitalPass.create({
+          data: {
+            name: passName,
+            description,
+            kind: variant.kind,
+            fileKey: key,
+            mimeType: 'image/png',
+            fileSize: buffer.length,
+            isActive: true,
+          },
+        });
+
+        if (comboId) {
+          await prisma.comboPassItem.create({
+            data: {
+              comboId,
+              digitalPassId: pass.id,
+              quantity: 1,
+            },
+          });
+        }
+
+        await recordAuditLog({
+          actorId: req.admin!.id,
+          action: 'PASS_CREATED',
+          entityType: 'DigitalPass',
+          entityId: pass.id,
+          metadata: { name: pass.name, kind: pass.kind, generated: true, comboId: comboId ?? null },
+        });
+
+        createdPasses.push(pass);
+      }
+
+      res.status(201).json({ success: true, data: { passes: createdPasses } });
+    } catch (error) {
+      await Promise.all(uploadedKeys.map((k) => deleteObject(k).catch(() => undefined)));
       next(error);
     }
   },

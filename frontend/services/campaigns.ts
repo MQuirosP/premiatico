@@ -232,6 +232,47 @@ export async function uploadAdminPass(payload: {
   return res.pass;
 }
 
+export interface GeneratedStickerVariantPreview {
+  kind: 'PASS' | 'FICHA';
+  label: string;
+  base64: string;
+  stampedPreviewBase64: string;
+  mimeType: 'image/png';
+  fileSize: number;
+}
+
+export interface GeneratePassPreviewResponse {
+  nameSuggested: string;
+  descriptionSuggested: string;
+  usedAi: boolean;
+  variants: GeneratedStickerVariantPreview[];
+}
+
+export async function generateAdminPassPreview(payload: {
+  tipo: 'PASS' | 'FICHA' | 'BOTH';
+  tematica: string;
+  colores?: string;
+  estilo?: string;
+  eslogan?: string;
+}): Promise<GeneratePassPreviewResponse> {
+  return apiRequest<GeneratePassPreviewResponse>('/admin/passes/generate-preview', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function saveGeneratedAdminPasses(payload: {
+  name: string;
+  description: string;
+  comboId?: string;
+  variants: Array<{ kind: 'PASS' | 'FICHA'; base64: string }>;
+}): Promise<{ passes: DigitalPass[] }> {
+  return apiRequest<{ passes: DigitalPass[] }>('/admin/passes/save-generated', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function createAdminCombo(payload: {
   campaignId: string;
   name: string;

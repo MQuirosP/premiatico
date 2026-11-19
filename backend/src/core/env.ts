@@ -29,6 +29,9 @@ const envSchema = z.object({
 
   // B2B Partner API (JSON map: {"BANCAS": "<secret>"})
   PARTNER_API_KEYS: z.string().optional(),
+
+  // Google Gemini API (diseño temático de pases/fichas)
+  GEMINI_API_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
