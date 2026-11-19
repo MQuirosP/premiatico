@@ -1,10 +1,11 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Calendar, ExternalLink, Eye, Loader2, Pencil, ShieldCheck, Ticket, Trophy, Users, XCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, ExternalLink, Eye, Loader2, Pencil, ShieldCheck, Trophy, Users, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import { CampaignDetailCombosPanel } from '@/components/admin/campaign-detail-combos-panel';
 import { CampaignImagesCarouselEditor } from '@/components/admin/campaign-images-carousel';
 import { CampaignPrizesBuilder } from '@/components/admin/campaign-prizes-builder';
 import { CampaignThemePicker } from '@/components/admin/campaign-theme-picker';
@@ -635,43 +636,11 @@ function CampaignDetailInner() {
       ) : null}
 
       {activeTab === DETAIL_TAB.COMBOS ? (
-      <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
-        <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-          <Ticket className="h-4 w-4 text-amber-500" />
-          Combos y pases digitales ({combos.length})
-        </h2>
-
-        {combos.length === 0 ? (
-          <p className="text-sm text-slate-500">Esta campaña no tiene combos activos.</p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {combos.map((combo) => (
-              <div key={combo.id} className="rounded-xl border bg-slate-50/70 p-4 space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900 text-sm">{combo.name}</span>
-                  <span className="font-extrabold text-blue-700">{formatCRC(combo.price)}</span>
-                </div>
-                <p className="text-slate-600">
-                  {combo.passQuantity} pases · {combo.fichaQuantity} fichas de regalo
-                </p>
-                {combo.passItems && combo.passItems.length > 0 ? (
-                  <div className="pt-1 border-t space-y-1">
-                    {combo.passItems.map((pi) => (
-                      <div key={pi.id} className="text-[11px] text-emerald-700 font-medium">
-                        Pase vinculado: {pi.digitalPass.name}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="pt-1 border-t text-[11px] text-amber-700">
-                    Sin pase digital vinculado
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+        <CampaignDetailCombosPanel
+          campaignId={campaign.id}
+          campaignStatus={campaign.status}
+          combos={combos}
+        />
       ) : null}
 
       {activeTab === DETAIL_TAB.ORDERS ? (

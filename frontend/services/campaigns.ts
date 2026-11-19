@@ -406,6 +406,26 @@ export async function createAdminDailyPrizeSeries(
   });
 }
 
+export async function updateAdminPrize(
+  id: string,
+  payload: PrizeEligibilityPayload & {
+    name?: string;
+    description?: string;
+    estimatedValue?: number | null;
+    drawAt?: string | null;
+    drawReference?: string | null;
+  },
+): Promise<AdminCampaignPrize> {
+  const res = await apiRequest<{ prize: AdminCampaignPrize }>(
+    `/admin/prizes/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  );
+  return res.prize;
+}
+
 export async function getAdminPrizeEligibleSummary(
   prizeId: string,
   allowDuplicateOrder = false,

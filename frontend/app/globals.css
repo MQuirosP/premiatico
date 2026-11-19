@@ -164,13 +164,26 @@
     color: rgb(191 219 254);
   }
 
-  /* Índigo */
+  /* Índigo, Sky y Teal */
+  :where(.dark) .bg-indigo-50,
   :where(.dark) .bg-indigo-100 {
     background-color: rgb(49 46 129 / 0.35);
   }
   :where(.dark) .text-indigo-700,
   :where(.dark) .text-indigo-800 {
     color: rgb(165 180 252);
+  }
+  :where(.dark) .bg-sky-50 {
+    background-color: rgb(12 74 110 / 0.35);
+  }
+  :where(.dark) .text-sky-700 {
+    color: rgb(125 211 252);
+  }
+  :where(.dark) .bg-teal-50 {
+    background-color: rgb(19 78 74 / 0.35);
+  }
+  :where(.dark) .text-teal-700 {
+    color: rgb(94 234 212);
   }
 
   /* Morado y Violeta */

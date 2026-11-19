@@ -204,20 +204,23 @@ function AdminDrawsCenterInner() {
         <DetailSkeleton />
       ) : activeTab === SORTEOS_TAB.PENDING ? (
         <div className="space-y-4">
-          {hasPendingMainWinner ? <SingleWinnerEvaluationCard campaign={campaign} /> : null}
-
           {pendingPrizes.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2">
               {pendingPrizes.map((prize) => (
                 <PrizeEvaluationCard
                   key={prize.id}
                   campaignId={campaign.id}
+                  campaignStatus={campaign.status}
                   digits={digits}
                   prize={prize}
                 />
               ))}
             </div>
-          ) : !hasPendingMainWinner ? (
+          ) : null}
+
+          {hasPendingMainWinner ? <SingleWinnerEvaluationCard campaign={campaign} /> : null}
+
+          {pendingPrizes.length === 0 && !hasPendingMainWinner ? (
             <div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">
               No hay sorteos pendientes por evaluar en esta campaña.
             </div>
@@ -233,6 +236,7 @@ function AdminDrawsCenterInner() {
                 <PrizeEvaluationCard
                   key={prize.id}
                   campaignId={campaign.id}
+                  campaignStatus={campaign.status}
                   digits={digits}
                   prize={prize}
                 />

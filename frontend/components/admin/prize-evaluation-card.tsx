@@ -13,8 +13,9 @@ import {
   Trophy,
   Users,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ApiError } from '@/lib/api';
+import { CAMPAIGN_STATUS } from '@/lib/domain-constants';
 import { buildPrizeWinnerMessage, getPrizeRuleBadges, normalizeCostaRicaPhone } from '@/lib/prize-helpers';
 import { formatCRC } from '@/lib/utils';
 import {
@@ -29,15 +30,19 @@ import {
 
 interface PrizeEvaluationCardProps {
   campaignId: string;
+  campaignStatus: string;
   digits: number;
   prize: AdminCampaignPrize;
 }
 
 export function PrizeEvaluationCard({
   campaignId,
+  campaignStatus,
   digits,
   prize,
 }: PrizeEvaluationCardProps) {
+  const isEvaluationClosed =
+    campaignStatus === CAMPAIGN_STATUS.COMPLETED || campaignStatus === CAMPAIGN_STATUS.CANCELLED;
   const queryClient = useQueryClient();
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [winningNumber, setWinningNumber] = useState('');
@@ -168,9 +173,30 @@ export function PrizeEvaluationCard({
   };
 
   const isEvaluated = Boolean(prize.winnerEvaluatedAt);
-  const isBeforeDrawAt = Boolean(
-    !isEvaluated && prize.drawAt && new Date(prize.drawAt) > new Date(),
-  );
+  const drawAtMs = prize.drawAt ? new Date(prize.drawAt).getTime() : null;
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    if (isEvaluated || !drawAtMs || drawAtMs <= Date.now()) return;
+    const timer = window.setInterval(() => {
+      const current = Date.now();
+      setNowMs(current);
+      if (current >= drawAtMs) {
+        window.clearInterval(timer);
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [isEvaluated, drawAtMs]);
+
+  const isBeforeDrawAt = Boolean(!isEvaluated && drawAtMs && drawAtMs > nowMs);
+  const remainingSec = isBeforeDrawAt && drawAtMs ? Math.max(0, Math.ceil((drawAtMs - nowMs) / 1000)) : 0;
+  const remainingLabel =
+    remainingSec > 0 && remainingSec < 86400
+      ? `${String(Math.floor(remainingSec / 3600)).padStart(2, '0')}:${String(
+          Math.floor((remainingSec % 3600) / 60),
+        ).padStart(2, '0')}:${String(remainingSec % 60).padStart(2, '0')}`
+      : null;
+  const showDirectEvalForm = !isEvaluated && !isEvaluationClosed && !isBeforeDrawAt;
   const badges = getPrizeRuleBadges(prize);
 
   return (
@@ -339,7 +365,7 @@ export function PrizeEvaluationCard({
         </div>
       ) : null}
 
-      {isEvaluating ? (
+      {isEvaluating || showDirectEvalForm ? (
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -379,46 +405,80 @@ export function PrizeEvaluationCard({
             />
             Permitir si este pedido ya ganó otro premio de la campaña
           </label>
-          <div className="flex flex-wrap justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setIsEvaluating(false)}
-              className="rounded-lg border bg-white px-2.5 py-1 text-xs text-slate-600"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              disabled={drawRandomMutation.isPending || evaluateMutation.isPending}
-              onClick={() =>
-                drawRandomMutation.mutate({
-                  notes: notes.trim() || undefined,
-                  allowDuplicateOrder,
-                })
-              }
-              className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-            >
-              <Dices className="h-3.5 w-3.5" />
-              {drawRandomMutation.isPending ? 'Sorteando...' : 'Sortear al azar'}
-            </button>
-            <button
-              type="submit"
-              disabled={
-                evaluateMutation.isPending ||
-                drawRandomMutation.isPending ||
-                winningNumber.length !== digits
-              }
-              className="rounded-lg bg-amber-500 px-3 py-1 text-xs font-semibold text-slate-900 hover:bg-amber-400 disabled:opacity-60"
-            >
-              {evaluateMutation.isPending ? 'Evaluando...' : 'Evaluar número'}
-            </button>
+          <div className="flex flex-wrap justify-between items-center gap-2">
+            {!isEvaluated ? (
+              <button
+                type="button"
+                disabled={previewMutation.isPending}
+                onClick={() => previewMutation.mutate()}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 active:scale-95 transition"
+              >
+                {previewMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Users className="h-3.5 w-3.5" />
+                )}
+                {previewMutation.isPending ? 'Calculando...' : 'Ver elegibles'}
+              </button>
+            ) : (
+              <span />
+            )}
+            <div className="flex flex-wrap justify-end gap-2">
+              {isEvaluated ? (
+                <button
+                  type="button"
+                  onClick={() => setIsEvaluating(false)}
+                  className="rounded-lg border bg-white px-2.5 py-1 text-xs text-slate-600 active:scale-95 transition"
+                >
+                  Cancelar
+                </button>
+              ) : null}
+              <button
+                type="button"
+                disabled={drawRandomMutation.isPending || evaluateMutation.isPending}
+                onClick={() =>
+                  drawRandomMutation.mutate({
+                    notes: notes.trim() || undefined,
+                    allowDuplicateOrder,
+                  })
+                }
+                className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60 active:scale-95 transition"
+              >
+                {drawRandomMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Dices className="h-3.5 w-3.5" />
+                )}
+                {drawRandomMutation.isPending ? 'Sorteando...' : 'Sortear al azar'}
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  evaluateMutation.isPending ||
+                  drawRandomMutation.isPending ||
+                  winningNumber.length !== digits
+                }
+                className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1 text-xs font-semibold text-slate-900 hover:bg-amber-400 disabled:opacity-60 active:scale-95 transition"
+              >
+                {evaluateMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : null}
+                {evaluateMutation.isPending ? 'Evaluando...' : 'Evaluar número'}
+              </button>
+            </div>
           </div>
         </form>
       ) : (
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          {isBeforeDrawAt ? (
+          {isEvaluationClosed ? (
             <span className="text-[11px] font-medium text-slate-500">
-              Evaluación habilitada el {new Date(prize.drawAt!).toLocaleString('es-CR')}
+              Campaña {campaignStatus === CAMPAIGN_STATUS.CANCELLED ? 'cancelada' : 'completada'}
+            </span>
+          ) : isBeforeDrawAt ? (
+            <span className="text-[11px] font-medium text-slate-500">
+              {remainingLabel
+                ? `Se habilita en ${remainingLabel}`
+                : `Evaluación habilitada el ${new Date(prize.drawAt!).toLocaleString('es-CR')}`}
             </span>
           ) : (
             <button
@@ -428,7 +488,7 @@ export function PrizeEvaluationCard({
                 setWinningNumber(prize.winningNumber ?? '');
                 setNotes(prize.winnerNotes ?? '');
               }}
-              className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200"
+              className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200 active:scale-95 transition"
             >
               <Trophy className="h-3.5 w-3.5" />
               {isEvaluated ? 'Re-evaluar' : 'Evaluar ganador'}
@@ -448,9 +508,13 @@ export function PrizeEvaluationCard({
                   resetMutation.mutate();
                 }
               }}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 active:scale-95 transition"
             >
-              <RotateCcw className="h-3.5 w-3.5" />
+              {resetMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="h-3.5 w-3.5" />
+              )}
               {resetMutation.isPending ? 'Revirtiendo...' : 'Revertir evaluación'}
             </button>
           ) : (
@@ -458,9 +522,13 @@ export function PrizeEvaluationCard({
               type="button"
               disabled={previewMutation.isPending}
               onClick={() => previewMutation.mutate()}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 active:scale-95 transition"
             >
-              <Users className="h-3.5 w-3.5" />
+              {previewMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Users className="h-3.5 w-3.5" />
+              )}
               {previewMutation.isPending ? 'Calculando...' : 'Ver elegibles'}
             </button>
           )}

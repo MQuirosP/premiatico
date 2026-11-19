@@ -6,6 +6,7 @@ import {
 } from '@/lib/domain-constants';
 import { formatCRC } from '@/lib/utils';
 import type { AdminCampaignPrize } from '@/services/campaigns';
+import type { CampaignPrize } from '@/types/campaign';
 
 export function normalizeCostaRicaPhone(phone: string): string {
   const digitsOnly = phone.replace(/\D/g, '');
@@ -29,7 +30,7 @@ export interface PrizeRuleBadge {
   className: string;
 }
 
-export function getPrizeRuleBadges(prize: AdminCampaignPrize): PrizeRuleBadge[] {
+export function getPrizeRuleBadges(prize: CampaignPrize): PrizeRuleBadge[] {
   const badges: PrizeRuleBadge[] = [];
 
   if (prize.prizeType === PRIZE_CATEGORY.FLASH) {

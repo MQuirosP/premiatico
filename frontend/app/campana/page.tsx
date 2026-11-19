@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Calendar, Hash } from 'lucide-react';
+import { ArrowLeft, Award, Calendar, CheckCircle2, Hash } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
@@ -14,6 +14,7 @@ import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { DetailSkeleton } from '@/components/ui/skeleton';
 import { getCampaignTheme } from '@/lib/campaign-themes';
+import { getPrizeRuleBadges } from '@/lib/prize-helpers';
 import { formatCRC } from '@/lib/utils';
 import { getPublicCampaignBySlug } from '@/services/campaigns';
 import type { CampaignCombo } from '@/types/campaign';
@@ -135,6 +136,88 @@ function CampaignDetailContent() {
             </div>
           </div>
         </section>
+
+        {campaign.prizes && campaign.prizes.length > 0 ? (
+          <section className="rounded-2xl border bg-white p-5 sm:p-6 shadow-sm space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <Award className="h-5 w-5 text-amber-500" />
+                  Premios y Sorteos Flash ({campaign.prizes.length})
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Participá en estos sorteos adicionales cumpliendo los requisitos indicados en cada
+                  dinámica.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {campaign.prizes.map((prize) => {
+                const isEvaluated = Boolean(prize.winnerEvaluatedAt);
+                const ruleBadges = getPrizeRuleBadges(prize);
+                return (
+                  <div
+                    key={prize.id}
+                    className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="font-bold text-sm text-slate-900">{prize.name}</h3>
+                        <p className="text-xs text-slate-600">{prize.description}</p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                          isEvaluated
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {isEvaluated ? `Ganador: ${prize.winningNumber}` : 'Activo'}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                      {prize.drawReference ? (
+                        <span className="font-semibold text-blue-700">{prize.drawReference}</span>
+                      ) : null}
+                      {prize.drawAt ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {new Date(prize.drawAt).toLocaleString('es-CR', {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          })}
+                        </span>
+                      ) : null}
+                      {prize.estimatedValue ? (
+                        <span className="font-semibold text-emerald-700">
+                          {formatCRC(prize.estimatedValue)}
+                        </span>
+                      ) : null}
+                      {ruleBadges.map((badge) => (
+                        <span
+                          key={badge.label}
+                          className={`rounded-full px-2 py-0.5 font-semibold ${badge.className}`}
+                        >
+                          {badge.label}
+                        </span>
+                      ))}
+                    </div>
+
+                    {isEvaluated ? (
+                      <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Sorteo evaluado el{' '}
+                        {new Date(prize.winnerEvaluatedAt!).toLocaleDateString('es-CR')}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
 
         <section className="space-y-4">
           <div>

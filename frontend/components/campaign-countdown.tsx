@@ -1,6 +1,6 @@
 'use client';
 
-import { Clock, Flame } from 'lucide-react';
+import { Clock, Flame, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getCampaignTheme } from '@/lib/campaign-themes';
 import type { CampaignPrize } from '@/types/campaign';
@@ -46,23 +46,31 @@ export function CampaignCountdown({
   prizes?: CampaignPrize[];
 }) {
   const theme = getCampaignTheme(themeColor);
-  const nowMs = Date.now();
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
   const nextUpcomingPrize = (prizes ?? [])
     .filter((p) => !p.winnerEvaluatedAt && p.drawAt && new Date(p.drawAt).getTime() > nowMs)
     .sort((a, b) => new Date(a.drawAt!).getTime() - new Date(b.drawAt!).getTime())[0];
 
-  const targetAt = nextUpcomingPrize?.drawAt || drawAt || endAt;
-  const effectiveDrawDate = nextUpcomingPrize?.drawAt || drawAt;
-  const effectiveDrawRef = nextUpcomingPrize?.drawReference || drawReference;
+  // El contador principal siempre mantiene la fecha oficial de la campaña.
+  const targetAt = drawAt || endAt;
+  const effectiveDrawDate = drawAt;
+  const effectiveDrawRef = drawReference;
   const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(null);
+  const [flashTimeLeft, setFlashTimeLeft] = useState<TimeLeft | null>(null);
 
   useEffect(() => {
-    setTimeLeft(computeTimeLeft(targetAt));
-    const timer = window.setInterval(() => {
+    const tick = () => {
+      const current = Date.now();
+      setNowMs(current);
       setTimeLeft(computeTimeLeft(targetAt));
-    }, 1000);
+      setFlashTimeLeft(
+        nextUpcomingPrize?.drawAt ? computeTimeLeft(nextUpcomingPrize.drawAt) : null,
+      );
+    };
+    tick();
+    const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
-  }, [targetAt]);
+  }, [targetAt, nextUpcomingPrize?.drawAt]);
 
   const units = [
     { label: 'Días', value: timeLeft ? pad2(timeLeft.days) : '--' },
@@ -137,6 +145,20 @@ export function CampaignCountdown({
           ))}
         </div>
       </div>
+
+      {nextUpcomingPrize && flashTimeLeft && !flashTimeLeft.expired ? (
+        <div className="mt-3 pt-3 border-t border-white/15 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="inline-flex items-center gap-1.5 font-semibold text-amber-300">
+            <Zap className="h-3.5 w-3.5 shrink-0" />
+            Subcampaña en juego: <strong className="text-white">{nextUpcomingPrize.name}</strong>
+          </span>
+          <span className="font-mono text-[11px] font-bold text-white/90">
+            {flashTimeLeft.days > 0 ? `${flashTimeLeft.days}d ` : ''}
+            {pad2(flashTimeLeft.hours)}:{pad2(flashTimeLeft.minutes)}:{pad2(flashTimeLeft.seconds)}
+            {nextUpcomingPrize.drawReference ? ` · ${nextUpcomingPrize.drawReference}` : ''}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }

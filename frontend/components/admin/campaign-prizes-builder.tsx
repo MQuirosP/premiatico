@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Award, Calendar, Plus, Trash2 } from 'lucide-react';
+import { ArrowRight, Award, Calendar, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { ApiError } from '@/lib/api';
@@ -23,8 +23,17 @@ import {
   createAdminDailyPrizeSeries,
   createAdminPrizes,
   deleteAdminPrize,
+  updateAdminPrize,
   type AdminCampaignPrize,
 } from '@/services/campaigns';
+
+function toLocalDateTimeInput(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 const PRIZE_CREATE_MODE = {
   SINGLE: 'SINGLE',
@@ -55,6 +64,7 @@ export function CampaignPrizesBuilder({
   const isSingleWinnerCampaign = drawMode === CAMPAIGN_DRAW_MODE.SINGLE_WINNER;
   const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingPrizeId, setEditingPrizeId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
@@ -85,6 +95,7 @@ export function CampaignPrizesBuilder({
 
   const resetPrizeForm = () => {
     setShowAddForm(false);
+    setEditingPrizeId(null);
     setName('');
     setDescription('');
     setEstimatedValue('');
@@ -129,6 +140,55 @@ export function CampaignPrizesBuilder({
       setErrorMsg(err instanceof ApiError ? err.message : 'No se pudo crear la serie diaria');
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      prizeId,
+      payload,
+    }: {
+      prizeId: string;
+      payload: Parameters<typeof updateAdminPrize>[1];
+    }) => updateAdminPrize(prizeId, payload),
+    onSuccess: () => {
+      resetPrizeForm();
+      setStatusMsg('Cambios guardados correctamente.');
+      void refresh();
+    },
+    onError: (err) => {
+      setErrorMsg(err instanceof ApiError ? err.message : 'No se pudo actualizar el premio');
+    },
+  });
+
+  const startEditingPrize = (prize: AdminCampaignPrize) => {
+    setEditingPrizeId(prize.id);
+    setCreateMode(PRIZE_CREATE_MODE.SINGLE);
+    setName(prize.name);
+    setDescription(prize.description);
+    setEstimatedValue(prize.estimatedValue != null ? String(prize.estimatedValue) : '');
+    setMinOrderAmount(prize.minOrderAmount != null ? String(prize.minOrderAmount) : '');
+    setAmountScope(prize.amountScope ?? PRIZE_AMOUNT_SCOPE.PER_ORDER);
+    setMinTickets(prize.minTickets != null ? String(prize.minTickets) : '');
+    setPurchaseFrom(toLocalDateTimeInput(prize.purchaseFrom));
+    setPurchaseUntil(toLocalDateTimeInput(prize.purchaseUntil));
+    setRequiredComboId(prize.requiredComboId ?? '');
+    setOrderChannel(prize.orderChannel ?? '');
+    setDrawWeightMode(prize.drawWeightMode ?? PRIZE_DRAW_WEIGHT_MODE.PER_TICKET);
+    setDrawReference(prize.drawReference ?? '');
+    setDrawAt(toLocalDateTimeInput(prize.drawAt));
+    setShowAdvancedRules(
+      Boolean(
+        prize.amountScope === PRIZE_AMOUNT_SCOPE.CUSTOMER_TOTAL ||
+          prize.minTickets ||
+          prize.purchaseFrom ||
+          prize.purchaseUntil ||
+          prize.requiredComboId ||
+          prize.orderChannel ||
+          prize.drawWeightMode === PRIZE_DRAW_WEIGHT_MODE.PER_CUSTOMER,
+      ),
+    );
+    setErrorMsg(null);
+    setShowAddForm(true);
+  };
 
   const deleteMutation = useMutation({
     mutationFn: deleteAdminPrize,
@@ -180,7 +240,7 @@ export function CampaignPrizesBuilder({
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href={`/admin/sorteos?campaignId=${encodeURIComponent(campaignId)}`}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100 whitespace-nowrap"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100 whitespace-nowrap active:scale-95 transition"
           >
             Ir a evaluar sorteos
             <ArrowRight className="h-3.5 w-3.5" />
@@ -189,7 +249,7 @@ export function CampaignPrizesBuilder({
             <button
               type="button"
               onClick={() => setShowAddForm((v) => !v)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-700 whitespace-nowrap"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-700 whitespace-nowrap active:scale-95 transition"
             >
               <Plus className="h-3.5 w-3.5" />
               {isSingleWinnerCampaign ? 'Agregar sorteo flash' : 'Agregar premios / sorteos'}
@@ -228,6 +288,21 @@ export function CampaignPrizesBuilder({
               drawWeightMode,
             };
 
+            if (editingPrizeId) {
+              updateMutation.mutate({
+                prizeId: editingPrizeId,
+                payload: {
+                  name: name.trim(),
+                  description: description.trim(),
+                  estimatedValue: parsedEstimatedValue,
+                  drawReference: drawReference.trim() || null,
+                  drawAt: drawAt ? new Date(drawAt).toISOString() : null,
+                  ...eligibilityPayload,
+                },
+              });
+              return;
+            }
+
             if (createMode === PRIZE_CREATE_MODE.DAILY_SERIES) {
               createDailySeriesMutation.mutate({
                 campaignId,
@@ -256,6 +331,11 @@ export function CampaignPrizesBuilder({
           }}
           className="rounded-xl border bg-slate-50 p-4 space-y-3"
         >
+          {editingPrizeId ? (
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2 text-xs font-bold text-slate-800">
+              <span>Editando: {name}</span>
+            </div>
+          ) : (
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
             <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
               <button
@@ -287,6 +367,7 @@ export function CampaignPrizesBuilder({
               </span>
             ) : null}
           </div>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div>
@@ -543,23 +624,36 @@ export function CampaignPrizesBuilder({
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => setShowAddForm(false)}
-              className="rounded-lg border bg-white px-3 py-1.5 text-xs font-medium text-slate-600"
+              onClick={() => resetPrizeForm()}
+              className="rounded-lg border bg-white px-3 py-1.5 text-xs font-medium text-slate-600 active:scale-95 transition"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={createMutation.isPending || createDailySeriesMutation.isPending}
-              className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+              disabled={
+                createMutation.isPending ||
+                createDailySeriesMutation.isPending ||
+                updateMutation.isPending
+              }
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60 active:scale-95 transition"
             >
-              {createMutation.isPending || createDailySeriesMutation.isPending
-                ? 'Creando...'
-                : createMode === PRIZE_CREATE_MODE.DAILY_SERIES
-                  ? 'Crear serie diaria'
-                  : quantity > 1
-                    ? `Crear ${quantity} premios`
-                    : 'Guardar premio'}
+              {createMutation.isPending ||
+              createDailySeriesMutation.isPending ||
+              updateMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              {updateMutation.isPending
+                ? 'Guardando...'
+                : editingPrizeId
+                  ? 'Guardar cambios'
+                  : createMutation.isPending || createDailySeriesMutation.isPending
+                    ? 'Creando...'
+                    : createMode === PRIZE_CREATE_MODE.DAILY_SERIES
+                      ? 'Crear serie diaria'
+                      : quantity > 1
+                        ? `Crear ${quantity} premios`
+                        : 'Guardar premio'}
             </button>
           </div>
         </form>
@@ -626,14 +720,26 @@ export function CampaignPrizesBuilder({
                 </div>
 
                 {canEdit && !isEvaluated ? (
-                  <div className="flex justify-end pt-1">
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => startEditingPrize(prize)}
+                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 active:scale-95 transition"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Editar
+                    </button>
                     <button
                       type="button"
                       disabled={deleteMutation.isPending}
                       onClick={() => deleteMutation.mutate(prize.id)}
-                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60 active:scale-95 transition"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      {deleteMutation.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
                       Eliminar
                     </button>
                   </div>

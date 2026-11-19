@@ -90,7 +90,7 @@ export function SingleWinnerEvaluationCard({ campaign }: SingleWinnerEvaluationC
                 resetEvaluationMutation.mutate();
               }
             }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 active:scale-95 transition"
           >
             {resetEvaluationMutation.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -107,7 +107,7 @@ export function SingleWinnerEvaluationCard({ campaign }: SingleWinnerEvaluationC
           La evaluación del premio mayor se habilitará el{' '}
           <strong>{targetDrawDate.toLocaleString('es-CR')}</strong>.
         </div>
-      ) : (
+      ) : !activeWinnerResult ? (
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -148,13 +148,17 @@ export function SingleWinnerEvaluationCard({ campaign }: SingleWinnerEvaluationC
           <button
             type="submit"
             disabled={evaluateMutation.isPending || winningNumber.length !== digits}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400 disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400 disabled:opacity-60 active:scale-95 transition"
           >
-            <Award className="h-4 w-4" />
+            {evaluateMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Award className="h-4 w-4" />
+            )}
             {evaluateMutation.isPending ? 'Evaluando...' : 'Evaluar ganador'}
           </button>
         </form>
-      )}
+      ) : null}
 
       {evalError ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
