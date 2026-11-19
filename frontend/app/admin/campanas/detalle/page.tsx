@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Award, Calendar, CheckCircle2, ExternalLink, Eye, ShieldCheck, Ticket, Trophy, Users, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { CampaignImagesCarouselEditor } from '@/components/admin/campaign-images-carousel';
 import { CampaignPrizesPanel } from '@/components/admin/campaign-prizes-panel';
 import { CampaignThemePicker } from '@/components/admin/campaign-theme-picker';
 import { CampaignProgressBar } from '@/components/campaign-progress';
@@ -12,7 +13,8 @@ import { FichasModal, type FichasModalEntry } from '@/components/fichas-modal';
 import { DetailSkeleton } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api';
 import { formatCRC } from '@/lib/utils';
-import { cancelAdminOrder, evaluateAdminCampaignWinner, getAdminCampaignDetail, updateAdminCampaign, type CampaignWinnerResult } from '@/services/campaigns';
+import { cancelAdminOrder, evaluateAdminCampaignWinner, getAdminCampaignDetail, updateAdminCampaign, uploadAdminCampaignCover, type CampaignWinnerResult } from '@/services/campaigns';
+import type { CampaignGalleryImage } from '@/types/campaign';
 
 const ORDER_STATUS_LABEL: Record<string, string> = {
   PENDING_PAYMENT: 'Pendiente de pago',
@@ -77,6 +79,41 @@ function CampaignDetailInner() {
     mutationFn: (nextTheme: string) => updateAdminCampaign(id, { themeColor: nextTheme }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin-campaign-detail', id] });
+    },
+  });
+
+  const [galleryImages, setGalleryImages] = useState<CampaignGalleryImage[]>([]);
+
+  useEffect(() => {
+    if (!campaign) return;
+    if (campaign.galleryImages && campaign.galleryImages.length > 0) {
+      setGalleryImages(campaign.galleryImages);
+    } else if (campaign.coverImageKey) {
+      setGalleryImages([
+        {
+          id: 'cover',
+          key: campaign.coverImageKey,
+          url: campaign.coverImageUrl ?? null,
+          isCover: true,
+          sortOrder: 0,
+        },
+      ]);
+    } else {
+      setGalleryImages([]);
+    }
+  }, [campaign]);
+
+  const updateGalleryMutation = useMutation({
+    mutationFn: (nextImages: CampaignGalleryImage[]) =>
+      updateAdminCampaign(id, {
+        galleryImages: nextImages.map((img) => ({
+          imageKey: img.key,
+          isCover: img.isCover,
+        })),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin-campaign-detail', id] });
+      void queryClient.invalidateQueries({ queryKey: ['admin-campaigns'] });
     },
   });
 
@@ -258,6 +295,25 @@ function CampaignDetailInner() {
                 }
                 onChange={(nextTheme) => updateThemeMutation.mutate(nextTheme)}
               />
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">
+              <CampaignImagesCarouselEditor
+                images={galleryImages}
+                disabled={
+                  updateGalleryMutation.isPending ||
+                  campaign.status === 'CLOSED' ||
+                  campaign.status === 'COMPLETED'
+                }
+                onUploadFile={(file) => uploadAdminCampaignCover(file)}
+                onChange={(nextImages) => {
+                  setGalleryImages(nextImages);
+                  updateGalleryMutation.mutate(nextImages);
+                }}
+              />
+              {updateGalleryMutation.isPending ? (
+                <p className="text-[11px] font-semibold text-blue-600">Guardando galería...</p>
+              ) : null}
             </div>
           </div>
         </div>

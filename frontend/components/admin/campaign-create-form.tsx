@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { CampaignImagesCarouselEditor } from '@/components/admin/campaign-images-carousel';
 import { CampaignThemePicker } from '@/components/admin/campaign-theme-picker';
 import type { CampaignThemeColor } from '@/lib/campaign-themes';
+import type { CampaignGalleryImage } from '@/types/campaign';
 
 export interface CampaignCreatePayload {
   slug: string;
@@ -14,6 +16,7 @@ export interface CampaignCreatePayload {
   drawAt: string | null;
   drawReference: string | null;
   coverImageKey: string | null;
+  galleryImages: Array<{ imageKey: string; isCover: boolean }>;
   totalFichas: number;
   maxNumberChanges: number;
   enableInverseNumbers: boolean;
@@ -33,7 +36,6 @@ interface CampaignCreateFormProps {
 
 export function CampaignCreateForm({
   isSubmitting,
-  isUploadingCover,
   onUploadCover,
   onSubmit,
   onCancel,
@@ -49,8 +51,7 @@ export function CampaignCreateForm({
   const [endAt, setEndAt] = useState('');
   const [drawAt, setDrawAt] = useState('');
   const [drawReference, setDrawReference] = useState('');
-  const [coverImageKey, setCoverImageKey] = useState<string | null>(null);
-  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+  const [galleryImages, setGalleryImages] = useState<CampaignGalleryImage[]>([]);
   const [terms, setTerms] = useState('Aplican restricciones. Promoción válida en Costa Rica.');
 
   return (
@@ -62,6 +63,8 @@ export function CampaignCreateForm({
         const resolvedEndAt = endAt
           ? new Date(endAt).toISOString()
           : (drawIso ?? new Date(now.getTime() + 30 * 24 * 3600 * 1000).toISOString());
+        const coverKey =
+          galleryImages.find((img) => img.isCover)?.key ?? galleryImages[0]?.key ?? null;
         onSubmit({
           slug,
           title,
@@ -71,7 +74,11 @@ export function CampaignCreateForm({
           endAt: resolvedEndAt,
           drawAt: drawIso,
           drawReference: drawReference.trim() || null,
-          coverImageKey,
+          coverImageKey: coverKey,
+          galleryImages: galleryImages.map((img) => ({
+            imageKey: img.key,
+            isCover: img.isCover,
+          })),
           totalFichas,
           maxNumberChanges,
           enableInverseNumbers,
@@ -200,36 +207,11 @@ export function CampaignCreateForm({
           />
         </div>
         <div className="sm:col-span-2">
-          <label className="block text-xs font-semibold text-slate-600 mb-1">
-            Imagen de portada (JPG, PNG o WEBP)
-          </label>
-          <div className="flex flex-wrap items-center gap-4">
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={async (e) => {
-                const selected = e.target.files?.[0];
-                if (!selected) return;
-                try {
-                  const res = await onUploadCover(selected);
-                  setCoverImageKey(res.key);
-                  setCoverPreviewUrl(res.url);
-                } catch {
-                  // error handled by caller mutation
-                }
-              }}
-              className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-blue-700"
-            />
-            {isUploadingCover ? (
-              <span className="text-xs text-slate-500">Subiendo imagen...</span>
-            ) : coverPreviewUrl ? (
-              <img
-                src={coverPreviewUrl}
-                alt="Vista previa portada"
-                className="h-16 w-16 rounded-lg border object-cover"
-              />
-            ) : null}
-          </div>
+          <CampaignImagesCarouselEditor
+            images={galleryImages}
+            onChange={setGalleryImages}
+            onUploadFile={onUploadCover}
+          />
         </div>
       </div>
       <div>

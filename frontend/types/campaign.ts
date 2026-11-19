@@ -59,6 +59,14 @@ export type LegalApprovalStatus =
   | 'APPROVED'
   | 'REJECTED';
 
+export interface CampaignGalleryImage {
+  id?: string;
+  key: string;
+  url: string | null;
+  isCover: boolean;
+  sortOrder?: number;
+}
+
 export interface PublicCampaign {
   id: string;
   slug: string;
@@ -78,6 +86,7 @@ export interface PublicCampaign {
   terms: string;
   coverImageKey: string | null;
   coverImageUrl?: string | null;
+  galleryImages?: CampaignGalleryImage[];
   prizes: CampaignPrize[];
   combos: CampaignCombo[];
   progress: CampaignProgress;

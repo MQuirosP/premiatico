@@ -39,6 +39,15 @@ export const createCampaignSchema = z.object({
   legalApprovalReference: z.string().trim().max(120).optional().nullable(),
   terms: z.string().trim().min(10).max(10000),
   coverImageKey: z.string().trim().max(300).optional().nullable(),
+  galleryImages: z
+    .array(
+      z.object({
+        imageKey: z.string().trim().min(1).max(300),
+        isCover: z.boolean().default(false),
+      }),
+    )
+    .max(7, 'Máximo 7 fotos por campaña')
+    .optional(),
 }).refine((data) => data.endAt > data.startAt, {
   message: 'La fecha de cierre debe ser posterior a la fecha de inicio',
   path: ['endAt'],
@@ -66,6 +75,15 @@ export const updateCampaignSchema = z.object({
   legalApprovalReference: z.string().trim().max(120).optional().nullable(),
   terms: z.string().trim().min(10).max(10000).optional(),
   coverImageKey: z.string().trim().max(300).optional().nullable(),
+  galleryImages: z
+    .array(
+      z.object({
+        imageKey: z.string().trim().min(1).max(300),
+        isCover: z.boolean().default(false),
+      }),
+    )
+    .max(7, 'Máximo 7 fotos por campaña')
+    .optional(),
 });
 
 export const campaignIdParamSchema = z.object({

@@ -120,11 +120,25 @@ model Campaign {
 
   prizes              CampaignPrize[]
   combos              CampaignCombo[]
+  images              CampaignImage[]
   orders              Order[]
   participations      Participation[]
   reservationSessions ReservationSession[]
 
   @@index([status, startAt, endAt])
+}
+
+model CampaignImage {
+  id         String   @id @default(cuid())
+  campaignId String
+  imageKey   String
+  isCover    Boolean  @default(false)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, sortOrder])
 }
 
 model CampaignPrize {

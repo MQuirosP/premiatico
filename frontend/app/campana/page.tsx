@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { CampaignCountdown } from '@/components/campaign-countdown';
 import { CampaignProgressBar } from '@/components/campaign-progress';
+import { CampaignPublicGallery } from '@/components/campaign-public-gallery';
 import { ComboSelector } from '@/components/combo-selector';
 import { PackageFichasModal } from '@/components/package-fichas-modal';
 import { SiteFooter } from '@/components/site-footer';
@@ -81,22 +82,17 @@ function CampaignDetailContent() {
         <section className="rounded-3xl border bg-white p-6 sm:p-8 shadow-sm">
           <div
             className={
+              (campaign.galleryImages && campaign.galleryImages.length > 0) ||
               campaign.coverImageUrl
                 ? 'grid gap-8 lg:grid-cols-[380px_1fr] items-start'
                 : 'space-y-5'
             }
           >
-            {campaign.coverImageUrl ? (
-              <div className="overflow-hidden rounded-2xl border bg-slate-900 shadow-md aspect-square">
-                <img
-                  src={campaign.coverImageUrl}
-                  alt={campaign.title}
-                  decoding="async"
-                  fetchPriority="high"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ) : null}
+            <CampaignPublicGallery
+              title={campaign.title}
+              coverImageUrl={campaign.coverImageUrl}
+              galleryImages={campaign.galleryImages}
+            />
 
             <div className="space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-2">

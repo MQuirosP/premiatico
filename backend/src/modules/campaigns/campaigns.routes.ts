@@ -1,4 +1,5 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
+import sharp from 'sharp';
 import { ValidationError } from '../../core/errors.js';
 import { requireAdminAuth } from '../../middlewares/authAdmin.js';
 import { createMemoryUpload } from '../../middlewares/upload.js';
@@ -50,8 +51,14 @@ adminCampaignsRouter.post(
       if (!file) {
         throw new ValidationError('Debés adjuntar una imagen de portada');
       }
-      const key = r2KeyBuilders.campaignImage('cover', file.originalname);
-      await uploadObject({ key, body: file.buffer, contentType: file.mimetype });
+      const optimizedBuffer = await sharp(file.buffer)
+        .rotate()
+        .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 82 })
+        .toBuffer();
+      const baseName = file.originalname.replace(/\.[^.]+$/, '') || 'cover';
+      const key = r2KeyBuilders.campaignImage('cover', `${baseName}.webp`);
+      await uploadObject({ key, body: optimizedBuffer, contentType: 'image/webp' });
       const signed = await getSignedDownloadUrl({ key, expiresInSeconds: 3600 }).catch(() => null);
       res.status(201).json({ success: true, data: { key, url: signed?.downloadUrl ?? null } });
     } catch (error) {

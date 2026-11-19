@@ -151,6 +151,7 @@ export async function updateAdminCampaign(
     drawAt?: string | null;
     drawReference?: string | null;
     coverImageKey?: string | null;
+    galleryImages?: Array<{ imageKey: string; isCover: boolean }>;
     enableInverseNumbers?: boolean;
     maxNumberChanges?: number;
     themeColor?: string;

@@ -3,7 +3,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../../core/errors
 import { prisma } from '../../core/prisma.js';
 import { recordAuditLog } from '../audit/audit.service.js';
 import { getCampaignNumberDigits } from '../fichas/fichas.service.js';
-import { getSignedDownloadUrl } from '../storage/storage.service.js';
+import { deleteObject, getSignedDownloadUrl } from '../storage/storage.service.js';
 import type {
   CreateCampaignInput,
   EvaluateWinnerInput,
@@ -17,6 +17,84 @@ async function resolveCoverImageUrl(coverImageKey: string | null): Promise<strin
     expiresInSeconds: 3600,
   }).catch(() => null);
   return signed?.downloadUrl ?? null;
+}
+
+function normalizeGalleryInput(
+  galleryImages: Array<{ imageKey: string; isCover: boolean }> | undefined,
+  fallbackCoverKey?: string | null,
+): {
+  coverImageKey: string | null;
+  items: Array<{ imageKey: string; isCover: boolean; sortOrder: number }>;
+} {
+  if (galleryImages !== undefined) {
+    const seen = new Set<string>();
+    const deduped = galleryImages
+      .filter((img) => {
+        if (!img.imageKey || seen.has(img.imageKey)) return false;
+        seen.add(img.imageKey);
+        return true;
+      })
+      .slice(0, 7);
+
+    if (deduped.length === 0) {
+      return { coverImageKey: null, items: [] };
+    }
+
+    const coverIndex = Math.max(
+      0,
+      deduped.findIndex((img) => img.isCover),
+    );
+    const items = deduped.map((img, idx) => ({
+      imageKey: img.imageKey,
+      isCover: idx === coverIndex,
+      sortOrder: idx,
+    }));
+    return {
+      coverImageKey: items[coverIndex]?.imageKey ?? null,
+      items,
+    };
+  }
+
+  if (fallbackCoverKey) {
+    return {
+      coverImageKey: fallbackCoverKey,
+      items: [{ imageKey: fallbackCoverKey, isCover: true, sortOrder: 0 }],
+    };
+  }
+
+  return { coverImageKey: null, items: [] };
+}
+
+async function resolveGalleryImages(
+  images: Array<{ id: string; imageKey: string; isCover: boolean; sortOrder: number }>,
+  fallbackCoverKey: string | null,
+  fallbackCoverUrl: string | null,
+) {
+  if (images.length === 0) {
+    if (!fallbackCoverKey) return [];
+    return [
+      {
+        id: 'cover',
+        key: fallbackCoverKey,
+        url: fallbackCoverUrl,
+        isCover: true,
+        sortOrder: 0,
+      },
+    ];
+  }
+
+  return Promise.all(
+    images.map(async (img) => ({
+      id: img.id,
+      key: img.imageKey,
+      url:
+        img.imageKey === fallbackCoverKey && fallbackCoverUrl
+          ? fallbackCoverUrl
+          : await resolveCoverImageUrl(img.imageKey),
+      isCover: img.isCover,
+      sortOrder: img.sortOrder,
+    })),
+  );
 }
 
 export interface CampaignProgress {
@@ -146,6 +224,9 @@ export async function getPublicCampaignBySlug(slug: string) {
           },
         },
       },
+      images: {
+        orderBy: [{ isCover: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+      },
     },
   });
 
@@ -157,9 +238,15 @@ export async function getPublicCampaignBySlug(slug: string) {
     getCampaignProgress(campaign.id, campaign.totalFichas),
     resolveCoverImageUrl(campaign.coverImageKey),
   ]);
+  const galleryImages = await resolveGalleryImages(
+    campaign.images,
+    campaign.coverImageKey,
+    coverImageUrl,
+  );
   return {
     ...campaign,
     coverImageUrl,
+    galleryImages,
     progress,
   };
 }
@@ -220,6 +307,9 @@ export async function getAdminCampaignById(id: string) {
           },
         },
       },
+      images: {
+        orderBy: [{ isCover: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+      },
       orders: {
         orderBy: { createdAt: 'desc' },
         take: 100,
@@ -250,6 +340,11 @@ export async function getAdminCampaignById(id: string) {
     getCampaignProgress(campaign.id, campaign.totalFichas),
     resolveCoverImageUrl(campaign.coverImageKey),
   ]);
+  const galleryImages = await resolveGalleryImages(
+    campaign.images,
+    campaign.coverImageKey,
+    coverImageUrl,
+  );
 
   const numberDigits = getCampaignNumberDigits(campaign.totalFichas);
   let winnerResult: {
@@ -321,7 +416,7 @@ export async function getAdminCampaignById(id: string) {
     };
   }
 
-  return { ...campaign, coverImageUrl, numberDigits, winnerResult, progress };
+  return { ...campaign, coverImageUrl, galleryImages, numberDigits, winnerResult, progress };
 }
 
 export async function createCampaign(input: CreateCampaignInput, actorId: string) {
@@ -337,6 +432,8 @@ export async function createCampaign(input: CreateCampaignInput, actorId: string
   const legalApprovalStatus: LegalApprovalStatus = input.requiresLegalApproval
     ? (input.legalApprovalStatus ?? 'PENDING')
     : 'NOT_REQUIRED';
+
+  const normalizedGallery = normalizeGalleryInput(input.galleryImages, input.coverImageKey);
 
   const campaign = await prisma.campaign.create({
     data: {
@@ -359,7 +456,14 @@ export async function createCampaign(input: CreateCampaignInput, actorId: string
       legalApprovalStatus,
       legalApprovalReference: input.legalApprovalReference ?? null,
       terms: input.terms,
-      coverImageKey: input.coverImageKey ?? null,
+      coverImageKey: normalizedGallery.coverImageKey,
+      ...(normalizedGallery.items.length > 0
+        ? {
+            images: {
+              create: normalizedGallery.items,
+            },
+          }
+        : {}),
     },
   });
 
@@ -421,12 +525,55 @@ export async function updateCampaign(
     );
   }
 
-  const updated = await prisma.campaign.update({
-    where: { id },
-    data: {
-      ...input,
-    },
+  const { galleryImages, ...scalarInput } = input;
+  let removedKeys: string[] = [];
+
+  const updated = await prisma.$transaction(async (tx) => {
+    let coverImageKeyPatch: string | null | undefined = scalarInput.coverImageKey;
+
+    if (galleryImages !== undefined) {
+      const prevImages = await tx.campaignImage.findMany({
+        where: { campaignId: id },
+        select: { imageKey: true },
+      });
+      const normalized = normalizeGalleryInput(galleryImages, null);
+      coverImageKeyPatch = normalized.coverImageKey;
+
+      const nextKeys = new Set(normalized.items.map((item) => item.imageKey));
+      removedKeys = prevImages
+        .map((img) => img.imageKey)
+        .filter((key) => !nextKeys.has(key));
+      if (existing.coverImageKey && !nextKeys.has(existing.coverImageKey)) {
+        removedKeys.push(existing.coverImageKey);
+      }
+
+      await tx.campaignImage.deleteMany({ where: { campaignId: id } });
+      if (normalized.items.length > 0) {
+        await tx.campaignImage.createMany({
+          data: normalized.items.map((item) => ({
+            campaignId: id,
+            imageKey: item.imageKey,
+            isCover: item.isCover,
+            sortOrder: item.sortOrder,
+          })),
+        });
+      }
+    }
+
+    return tx.campaign.update({
+      where: { id },
+      data: {
+        ...scalarInput,
+        ...(coverImageKeyPatch !== undefined ? { coverImageKey: coverImageKeyPatch } : {}),
+      },
+    });
   });
+
+  if (removedKeys.length > 0) {
+    await Promise.all(
+      Array.from(new Set(removedKeys)).map((key) => deleteObject(key).catch(() => undefined)),
+    );
+  }
 
   await recordAuditLog({
     actorId,
