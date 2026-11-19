@@ -11,6 +11,7 @@ import {
   ShieldAlert,
   Sparkles,
   Ticket,
+  Trophy,
   Users,
   X,
 } from 'lucide-react';
@@ -23,6 +24,7 @@ import { getAdminMeRequest, logoutAdminRequest } from '@/services/auth';
 const navItems = [
   { href: '/admin', label: 'Resumen', icon: LayoutDashboard },
   { href: '/admin/campanas', label: 'Campañas', icon: Megaphone },
+  { href: '/admin/sorteos', label: 'Centro de Sorteos', icon: Trophy },
   { href: '/admin/pases', label: 'Pases y Fichas', icon: Ticket },
   { href: '/admin/pedidos', label: 'Pedidos y pagos', icon: Receipt },
   { href: '/admin/clientes', label: 'Clientes', icon: Users },

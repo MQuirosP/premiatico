@@ -1,12 +1,12 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Award, Calendar, CheckCircle2, ExternalLink, Eye, Loader2, Pencil, RotateCcw, ShieldCheck, Ticket, Trophy, Users, XCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, ExternalLink, Eye, Loader2, Pencil, ShieldCheck, Ticket, Trophy, Users, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { CampaignImagesCarouselEditor } from '@/components/admin/campaign-images-carousel';
-import { CampaignPrizesPanel } from '@/components/admin/campaign-prizes-panel';
+import { CampaignPrizesBuilder } from '@/components/admin/campaign-prizes-builder';
 import { CampaignThemePicker } from '@/components/admin/campaign-theme-picker';
 import { CampaignProgressBar } from '@/components/campaign-progress';
 import { FichasModal, type FichasModalEntry } from '@/components/fichas-modal';
@@ -23,10 +23,20 @@ import {
   type OrderStatus,
 } from '@/lib/domain-constants';
 import { formatCRC } from '@/lib/utils';
-import { cancelAdminOrder, evaluateAdminCampaignWinner, getAdminCampaignDetail, resetAdminCampaignEvaluation, updateAdminCampaign, uploadAdminCampaignCover, type CampaignWinnerResult } from '@/services/campaigns';
+import { cancelAdminOrder, getAdminCampaignDetail, updateAdminCampaign, uploadAdminCampaignCover } from '@/services/campaigns';
 import type { CampaignGalleryImage } from '@/types/campaign';
 
 const ORDER_STATUS_LABEL = ORDER_STATUS_LABELS as Record<string, string>;
+
+const DETAIL_TAB = {
+  GENERAL: 'GENERAL',
+  APPEARANCE: 'APPEARANCE',
+  COMBOS: 'COMBOS',
+  PRIZES: 'PRIZES',
+  ORDERS: 'ORDERS',
+} as const;
+
+type DetailTab = (typeof DETAIL_TAB)[keyof typeof DETAIL_TAB];
 
 function toLocalDateTimeInput(iso?: string | null): string {
   if (!iso) return '';
@@ -40,10 +50,7 @@ function CampaignDetailInner() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id') ?? '';
   const queryClient = useQueryClient();
-  const [winningNumber, setWinningNumber] = useState('');
-  const [winnerNotes, setWinnerNotes] = useState('');
-  const [evalError, setEvalError] = useState<string | null>(null);
-  const [latestResult, setLatestResult] = useState<CampaignWinnerResult | null>(null);
+  const [activeTab, setActiveTab] = useState<DetailTab>(DETAIL_TAB.GENERAL);
   const [selectedFichas, setSelectedFichas] = useState<{
     title: string;
     subtitle: string;
@@ -63,37 +70,6 @@ function CampaignDetailInner() {
     queryKey: ['admin-campaign-detail', id],
     queryFn: () => getAdminCampaignDetail(id),
     enabled: Boolean(id),
-  });
-
-  const evaluateMutation = useMutation({
-    mutationFn: (payload: { winningNumber: string; notes?: string }) =>
-      evaluateAdminCampaignWinner(id, payload),
-    onSuccess: (result) => {
-      setEvalError(null);
-      setLatestResult(result);
-      void queryClient.invalidateQueries({ queryKey: ['admin-campaign-detail', id] });
-      void queryClient.invalidateQueries({ queryKey: ['admin-campaigns'] });
-    },
-    onError: (err) => {
-      setEvalError(err instanceof ApiError ? err.message : 'No se pudo evaluar el número ganador');
-    },
-  });
-
-  const resetEvaluationMutation = useMutation({
-    mutationFn: () => resetAdminCampaignEvaluation(id),
-    onSuccess: () => {
-      setEvalError(null);
-      setLatestResult(null);
-      setWinningNumber('');
-      setWinnerNotes('');
-      void queryClient.invalidateQueries({ queryKey: ['admin-campaign-detail', id] });
-      void queryClient.invalidateQueries({ queryKey: ['admin-campaigns'] });
-    },
-    onError: (err) => {
-      setEvalError(
-        err instanceof ApiError ? err.message : 'No se pudo revertir la evaluación de la campaña',
-      );
-    },
   });
 
   const toggleInverseMutation = useMutation({
@@ -239,12 +215,12 @@ function CampaignDetailInner() {
 
   const combos = campaign.combos ?? [];
   const orders = campaign.orders ?? [];
+  const prizes = campaign.prizes ?? [];
   const digits = campaign.numberDigits ?? 5;
   const maxNumberLabel = String(Math.max(0, campaign.totalFichas - 1)).padStart(digits, '0');
-  const activeWinnerResult = latestResult ?? campaign.winnerResult ?? null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/admin/campanas"
@@ -253,26 +229,35 @@ function CampaignDetailInner() {
           <ArrowLeft className="h-4 w-4" /> Volver a campañas
         </Link>
 
-        {campaign.status === 'ACTIVE' ? (
+        <div className="flex flex-wrap items-center gap-2">
           <Link
-            href={`/campana?slug=${encodeURIComponent(campaign.slug)}`}
-            target="_blank"
-            className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+            href={`/admin/sorteos?campaignId=${encodeURIComponent(campaign.id)}`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
           >
-            Ver página pública <ExternalLink className="h-3.5 w-3.5" />
+            <Trophy className="h-3.5 w-3.5" />
+            Centro de Sorteos
           </Link>
-        ) : null}
+          {campaign.status === CAMPAIGN_STATUS.ACTIVE ? (
+            <Link
+              href={`/campana?slug=${encodeURIComponent(campaign.slug)}`}
+              target="_blank"
+              className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+            >
+              Ver página pública <ExternalLink className="h-3.5 w-3.5" />
+            </Link>
+          ) : null}
+        </div>
       </div>
 
-      {/* 1. Resumen de campaña (sin imagen suelta) */}
-      <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
+      {/* Encabezado compacto + Progreso + Pestañas de Construcción */}
+      <section className="rounded-2xl border bg-white p-5 sm:p-6 shadow-sm space-y-4">
         {(() => {
           const statusBadge = getCampaignStatusBadge(campaign.status);
           const legalBadge = getLegalStatusBadge(campaign.legalApprovalStatus);
           return (
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold text-slate-900">{campaign.title}</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">{campaign.title}</h1>
                 <span
                   className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadge.className}`}
                 >
@@ -286,7 +271,9 @@ function CampaignDetailInner() {
                   {campaign.legalApprovalReference ? ` (${campaign.legalApprovalReference})` : ''}
                 </span>
               </div>
-              {!isCampaignReadOnly(campaign.status) && !editingInfo ? (
+              {activeTab === DETAIL_TAB.GENERAL &&
+              !isCampaignReadOnly(campaign.status) &&
+              !editingInfo ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -310,6 +297,38 @@ function CampaignDetailInner() {
             </div>
           );
         })()}
+
+        <CampaignProgressBar progress={campaign.progress} showAvailable />
+
+        <nav
+          aria-label="Secciones de configuración"
+          className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-3"
+        >
+          {[
+            { id: DETAIL_TAB.GENERAL, label: 'General y Fechas' },
+            { id: DETAIL_TAB.APPEARANCE, label: 'Apariencia y Galería' },
+            { id: DETAIL_TAB.COMBOS, label: `Combos y Pases (${combos.length})` },
+            { id: DETAIL_TAB.PRIZES, label: `Diseño de Sorteos (${prizes.length})` },
+            { id: DETAIL_TAB.ORDERS, label: `Pedidos (${orders.length})` },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${
+                activeTab === tab.id
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </section>
+
+      {activeTab === DETAIL_TAB.GENERAL ? (
+        <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
 
         {editingInfo ? (
           <form
@@ -478,9 +497,15 @@ function CampaignDetailInner() {
           </>
         )}
 
-        <CampaignProgressBar progress={campaign.progress} showAvailable />
+        <p className="text-xs text-slate-500">
+          Para editar textos, fechas o título del contador usá el botón{' '}
+          <strong>Editar información y fechas</strong> arriba.
+        </p>
       </section>
+      ) : null}
 
+      {activeTab === DETAIL_TAB.APPEARANCE ? (
+      <>
       {/* 2. Galería y portada */}
       <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-3">
         <CampaignImagesCarouselEditor
@@ -546,8 +571,12 @@ function CampaignDetailInner() {
           </button>
         </div>
       </section>
+      </>
+      ) : null}
 
-      {/* 4. Sorteo y ganadores (modalidad encima de la sección correspondiente) */}
+      {activeTab === DETAIL_TAB.PRIZES ? (
+      <>
+      {/* 4. Modalidad y diseño de sorteos (construcción sin evaluación) */}
       <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -563,7 +592,7 @@ function CampaignDetailInner() {
         {(() => {
           const currentDrawMode = campaign.drawMode ?? CAMPAIGN_DRAW_MODE.SINGLE_WINNER;
           const hasEvaluatedWinner =
-            Boolean(activeWinnerResult) ||
+            Boolean(campaign.winnerResult) ||
             (campaign.prizes?.some((p) => Boolean(p.winnerEvaluatedAt)) ?? false);
           const modeLocked =
             updateDrawModeMutation.isPending ||
@@ -593,226 +622,19 @@ function CampaignDetailInner() {
         })()}
       </section>
 
-      {(campaign.drawMode ?? CAMPAIGN_DRAW_MODE.SINGLE_WINNER) === CAMPAIGN_DRAW_MODE.MULTI_PRIZE ? (
-        <CampaignPrizesPanel
-          campaignId={campaign.id}
-          campaignStatus={campaign.status}
-          drawMode={campaign.drawMode ?? CAMPAIGN_DRAW_MODE.MULTI_PRIZE}
-          digits={digits}
-          maxNumberLabel={maxNumberLabel}
-          prizes={campaign.prizes ?? []}
-          combos={combos}
-        />
-      ) : (
-        <>
-        <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
-        {(() => {
-          const targetDrawDate = new Date(campaign.drawAt ?? campaign.endAt);
-          const drawTimePending = !activeWinnerResult && targetDrawDate > new Date();
-          return (
-            <>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <Trophy className="h-4 w-4 text-amber-500" />
-                    Evaluación de sorteo y ganador
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Esta campaña usa números de <strong>{digits} dígitos</strong> (rango{' '}
-                    <span className="font-mono">{'0'.repeat(digits)}</span> –{' '}
-                    <span className="font-mono">{maxNumberLabel}</span>). Digitá el número favorecido para
-                    identificar al ganador automáticamente.
-                  </p>
-                </div>
-                {activeWinnerResult ? (
-                  <button
-                    type="button"
-                    disabled={resetEvaluationMutation.isPending}
-                    onClick={() => resetEvaluationMutation.mutate()}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 active:scale-95 transition"
-                  >
-                    {resetEvaluationMutation.isPending ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <RotateCcw className="h-3.5 w-3.5" />
-                    )}
-                    {resetEvaluationMutation.isPending ? 'Revirtiendo...' : 'Revertir evaluación'}
-                  </button>
-                ) : null}
-              </div>
-
-              {drawTimePending ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-xs text-amber-900">
-                  Este sorteo está programado para el{' '}
-                  <strong>
-                    {targetDrawDate.toLocaleString('es-CR', {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    })}
-                  </strong>{' '}
-                  y aún no se puede evaluar.
-                </div>
-              ) : null}
-
-              {!activeWinnerResult ? (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setEvalError(null);
-                    evaluateMutation.mutate({
-                      winningNumber,
-                      notes: winnerNotes.trim() || undefined,
-                    });
-                  }}
-                  className="grid gap-3 sm:grid-cols-[180px_1fr_auto] items-end"
-                >
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">
-                      Número ganador ({digits} dígitos)
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      required
-                      disabled={drawTimePending}
-                      minLength={digits}
-                      maxLength={digits}
-                      value={winningNumber}
-                      onChange={(e) =>
-                        setWinningNumber(e.target.value.replace(/\D/g, '').slice(0, digits))
-                      }
-                      placeholder={'0'.repeat(digits)}
-                      className="w-full rounded-lg border px-3 py-2 font-mono text-base font-bold tracking-widest text-slate-900 disabled:opacity-50"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">
-                      Nota / referencia del sorteo (opcional)
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={500}
-                      disabled={drawTimePending}
-                      value={winnerNotes}
-                      onChange={(e) => setWinnerNotes(e.target.value)}
-                      placeholder="Ej. Sorteo JPS #4821 — Premio mayor"
-                      className="w-full rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={
-                      drawTimePending ||
-                      evaluateMutation.isPending ||
-                      winningNumber.length !== digits
-                    }
-                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 active:scale-95 transition"
-                  >
-                    {evaluateMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Award className="h-4 w-4" />
-                    )}
-                    {evaluateMutation.isPending ? 'Evaluando...' : 'Evaluar ganador'}
-                  </button>
-                </form>
-              ) : null}
-            </>
-          );
-        })()}
-
-        {evalError ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-            {evalError}
-          </div>
-        ) : null}
-
-        {activeWinnerResult ? (
-          activeWinnerResult.winner ? (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  ¡Ganador confirmado para el número{' '}
-                  <span className="rounded bg-white px-2 py-0.5 font-mono text-base border border-emerald-200">
-                    {activeWinnerResult.winningNumber}
-                  </span>
-                  !
-                </div>
-                <span className="text-[11px] text-emerald-700">
-                  Evaluado: {new Date(activeWinnerResult.evaluatedAt).toLocaleString('es-CR')}
-                </span>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-xs">
-                <div className="rounded-lg bg-white p-3 border border-emerald-100">
-                  <span className="block text-[11px] uppercase text-slate-400">Ganador</span>
-                  <span className="mt-0.5 block font-bold text-slate-900">
-                    {activeWinnerResult.winner.customer.fullName}
-                  </span>
-                </div>
-                <div className="rounded-lg bg-white p-3 border border-emerald-100">
-                  <span className="block text-[11px] uppercase text-slate-400">Contacto</span>
-                  <span className="mt-0.5 block font-semibold text-slate-800">
-                    {activeWinnerResult.winner.customer.phone}
-                  </span>
-                  <span className="block text-slate-500">
-                    {activeWinnerResult.winner.customer.email}
-                  </span>
-                </div>
-                <div className="rounded-lg bg-white p-3 border border-emerald-100">
-                  <span className="block text-[11px] uppercase text-slate-400">Orden y combo</span>
-                  <span className="mt-0.5 block font-mono font-bold text-slate-900">
-                    {activeWinnerResult.winner.publicReference}
-                  </span>
-                  <span className="block text-slate-500">
-                    {activeWinnerResult.winner.comboNames.join(', ') || 'Combo'} ·{' '}
-                    {formatCRC(activeWinnerResult.winner.totalAmount)}
-                  </span>
-                </div>
-                <div className="rounded-lg bg-white p-3 border border-emerald-100">
-                  <span className="block text-[11px] uppercase text-slate-400">Confirmación</span>
-                  <span className="mt-0.5 block font-semibold text-slate-800">
-                    {activeWinnerResult.winner.confirmedAt
-                      ? new Date(activeWinnerResult.winner.confirmedAt).toLocaleString('es-CR')
-                      : 'Confirmada'}
-                  </span>
-                  {activeWinnerResult.notes ? (
-                    <span className="block text-slate-500 mt-0.5">{activeWinnerResult.notes}</span>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-900">
-              <div className="flex items-center gap-2 font-semibold">
-                <XCircle className="h-4 w-4 text-amber-600" />
-                El número{' '}
-                <span className="rounded bg-white px-2 py-0.5 font-mono text-sm border border-amber-200">
-                  {activeWinnerResult.winningNumber}
-                </span>{' '}
-                no tiene un comprador confirmado (quedó desierto).
-              </div>
-              <span className="text-[11px] text-amber-700">
-                Evaluado: {new Date(activeWinnerResult.evaluatedAt).toLocaleString('es-CR')}
-                {activeWinnerResult.notes ? ` · ${activeWinnerResult.notes}` : ''}
-              </span>
-            </div>
-          )
-        ) : null}
-      </section>
-      <CampaignPrizesPanel
+      <CampaignPrizesBuilder
         campaignId={campaign.id}
         campaignStatus={campaign.status}
-        drawMode={CAMPAIGN_DRAW_MODE.SINGLE_WINNER}
+        drawMode={campaign.drawMode ?? CAMPAIGN_DRAW_MODE.SINGLE_WINNER}
         digits={digits}
         maxNumberLabel={maxNumberLabel}
-        prizes={campaign.prizes ?? []}
+        prizes={prizes}
         combos={combos}
       />
       </>
-      )}
+      ) : null}
 
+      {activeTab === DETAIL_TAB.COMBOS ? (
       <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
           <Ticket className="h-4 w-4 text-amber-500" />
@@ -850,7 +672,9 @@ function CampaignDetailInner() {
           </div>
         )}
       </section>
+      ) : null}
 
+      {activeTab === DETAIL_TAB.ORDERS ? (
       <section className="rounded-2xl border bg-white shadow-sm overflow-hidden">
         <div className="border-b px-6 py-4 flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -1053,6 +877,7 @@ function CampaignDetailInner() {
           </>
         )}
       </section>
+      ) : null}
 
       <FichasModal
         open={Boolean(selectedFichas)}
