@@ -22,6 +22,25 @@ export async function getPublicCampaignBySlug(slug: string): Promise<PublicCampa
   return res.campaign;
 }
 
+export interface PublicWinnerItem {
+  id: string;
+  sourceType: 'CAMPAIGN' | 'FLASH' | 'PRIZE';
+  campaignTitle: string;
+  campaignSlug: string;
+  prizeName: string;
+  prizeDescription: string | null;
+  estimatedValue: number | null;
+  drawReference: string | null;
+  winningNumber: string;
+  winnerName: string;
+  evaluatedAt: string;
+}
+
+export async function listPublicWinners(): Promise<PublicWinnerItem[]> {
+  const res = await apiRequest<{ winners: PublicWinnerItem[] }>('/campaigns/winners');
+  return res.winners;
+}
+
 export async function listAdminCampaigns(): Promise<AdminCampaign[]> {
   const res = await apiRequest<{ campaigns: AdminCampaign[] }>('/admin/campaigns');
   return res.campaigns;

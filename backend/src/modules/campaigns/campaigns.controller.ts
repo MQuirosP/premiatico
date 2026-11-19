@@ -13,6 +13,7 @@ import {
   getPublicCampaignBySlug,
   listAdminCampaigns,
   listPublicCampaigns,
+  listRecentPublicWinners,
   pauseCampaign,
   publishCampaign,
   resetCampaignWinnerEvaluation,
@@ -27,6 +28,19 @@ export async function listPublicCampaignsController(
   try {
     const campaigns = await listPublicCampaigns();
     res.status(200).json({ success: true, data: { campaigns } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listRecentPublicWinnersController(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const winners = await listRecentPublicWinners(5);
+    res.status(200).json({ success: true, data: { winners } });
   } catch (error) {
     next(error);
   }

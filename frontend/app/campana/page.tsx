@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Award, Calendar, CheckCircle2, Hash } from 'lucide-react';
+import { ArrowLeft, Award, Calendar, Hash } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
@@ -137,13 +137,16 @@ function CampaignDetailContent() {
           </div>
         </section>
 
-        {campaign.prizes && campaign.prizes.length > 0 ? (
+        {(() => {
+          const activePrizes = (campaign.prizes ?? []).filter((p) => !p.winnerEvaluatedAt);
+          if (activePrizes.length === 0) return null;
+          return (
           <section className="rounded-2xl border bg-white p-5 sm:p-6 shadow-sm space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                   <Award className="h-5 w-5 text-amber-500" />
-                  Premios y Sorteos Flash ({campaign.prizes.length})
+                  Premios y Sorteos Flash ({activePrizes.length})
                 </h2>
                 <p className="text-xs text-slate-500">
                   Participá en estos sorteos adicionales cumpliendo los requisitos indicados en cada
@@ -153,8 +156,7 @@ function CampaignDetailContent() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              {campaign.prizes.map((prize) => {
-                const isEvaluated = Boolean(prize.winnerEvaluatedAt);
+              {activePrizes.map((prize) => {
                 const ruleBadges = getPrizeRuleBadges(prize);
                 return (
                   <div
@@ -166,14 +168,8 @@ function CampaignDetailContent() {
                         <h3 className="font-bold text-sm text-slate-900">{prize.name}</h3>
                         <p className="text-xs text-slate-600">{prize.description}</p>
                       </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                          isEvaluated
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}
-                      >
-                        {isEvaluated ? `Ganador: ${prize.winningNumber}` : 'Activo'}
+                      <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800">
+                        Activo
                       </span>
                     </div>
 
@@ -204,20 +200,13 @@ function CampaignDetailContent() {
                         </span>
                       ))}
                     </div>
-
-                    {isEvaluated ? (
-                      <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Sorteo evaluado el{' '}
-                        {new Date(prize.winnerEvaluatedAt!).toLocaleDateString('es-CR')}
-                      </div>
-                    ) : null}
                   </div>
                 );
               })}
             </div>
           </section>
-        ) : null}
+          );
+        })()}
 
         <section className="space-y-4">
           <div>

@@ -201,6 +201,100 @@ export async function listPublicCampaigns() {
   );
 }
 
+export async function listRecentPublicWinners(limit = 5) {
+  const [campaignWins, prizeWins] = await Promise.all([
+    prisma.campaign.findMany({
+      where: {
+        winnerEvaluatedAt: { not: null },
+        winningOrderId: { not: null },
+        winningNumber: { not: null },
+      },
+      orderBy: { winnerEvaluatedAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        drawReference: true,
+        winningNumber: true,
+        winningOrderId: true,
+        winnerEvaluatedAt: true,
+      },
+    }),
+    prisma.campaignPrize.findMany({
+      where: {
+        winnerEvaluatedAt: { not: null },
+        winningOrderId: { not: null },
+        winningNumber: { not: null },
+      },
+      orderBy: { winnerEvaluatedAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        estimatedValue: true,
+        prizeType: true,
+        drawReference: true,
+        winningNumber: true,
+        winnerEvaluatedAt: true,
+        campaign: { select: { title: true, slug: true } },
+        winningOrder: {
+          select: {
+            customer: { select: { fullName: true } },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const campaignOrderIds = campaignWins
+    .map((c) => c.winningOrderId)
+    .filter((id): id is string => Boolean(id));
+
+  const campaignOrders =
+    campaignOrderIds.length > 0
+      ? await prisma.order.findMany({
+          where: { id: { in: campaignOrderIds } },
+          select: { id: true, customer: { select: { fullName: true } } },
+        })
+      : [];
+  const orderNameById = new Map(campaignOrders.map((o) => [o.id, o.customer.fullName]));
+
+  const combined = [
+    ...campaignWins.map((c) => ({
+      id: `campaign-${c.id}`,
+      sourceType: 'CAMPAIGN' as const,
+      campaignTitle: c.title,
+      campaignSlug: c.slug,
+      prizeName: c.title,
+      prizeDescription: null as string | null,
+      estimatedValue: null as number | null,
+      drawReference: c.drawReference,
+      winningNumber: c.winningNumber!,
+      winnerName: (c.winningOrderId && orderNameById.get(c.winningOrderId)) || 'Ganador verificado',
+      evaluatedAt: c.winnerEvaluatedAt!,
+    })),
+    ...prizeWins.map((p) => ({
+      id: `prize-${p.id}`,
+      sourceType: p.prizeType === 'FLASH' ? ('FLASH' as const) : ('PRIZE' as const),
+      campaignTitle: p.campaign.title,
+      campaignSlug: p.campaign.slug,
+      prizeName: p.name,
+      prizeDescription: p.description,
+      estimatedValue: p.estimatedValue,
+      drawReference: p.drawReference,
+      winningNumber: p.winningNumber!,
+      winnerName: p.winningOrder?.customer.fullName ?? 'Ganador verificado',
+      evaluatedAt: p.winnerEvaluatedAt!,
+    })),
+  ];
+
+  return combined
+    .sort((a, b) => new Date(b.evaluatedAt).getTime() - new Date(a.evaluatedAt).getTime())
+    .slice(0, limit);
+}
+
 export async function getPublicCampaignBySlug(slug: string) {
   const campaign = await prisma.campaign.findUnique({
     where: { slug },

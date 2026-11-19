@@ -1,6 +1,6 @@
 'use client';
 
-import { Megaphone, Menu, Search, Sparkles, X } from 'lucide-react';
+import { Megaphone, Menu, Search, Sparkles, Trophy, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -34,6 +34,13 @@ export function SiteHeader() {
               className="text-slate-600 hover:text-blue-600 transition whitespace-nowrap"
             >
               Campañas
+            </Link>
+            <Link
+              href="/ganadores"
+              className="inline-flex items-center gap-1.5 text-slate-600 hover:text-amber-600 transition whitespace-nowrap"
+            >
+              <Trophy className="h-3.5 w-3.5 text-amber-500" />
+              Ganadores
             </Link>
             <Link
               href="/pedido"
@@ -98,6 +105,14 @@ export function SiteHeader() {
             >
               <Megaphone className="h-4 w-4 text-blue-600" />
               <span>Campañas</span>
+            </Link>
+            <Link
+              href="/ganadores"
+              onClick={() => setDrawerOpen(false)}
+              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm font-semibold text-slate-800 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-800 transition"
+            >
+              <Trophy className="h-4 w-4 text-amber-500" />
+              <span>Ganadores</span>
             </Link>
             <Link
               href="/pedido"

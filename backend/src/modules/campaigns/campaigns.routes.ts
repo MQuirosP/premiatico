@@ -14,6 +14,7 @@ import {
   getPublicCampaignBySlugController,
   listAdminCampaignsController,
   listPublicCampaignsController,
+  listRecentPublicWinnersController,
   pauseCampaignController,
   publishCampaignController,
   resetCampaignEvaluationController,
@@ -29,6 +30,7 @@ import {
 
 export const publicCampaignsRouter = Router();
 publicCampaignsRouter.get('/', listPublicCampaignsController);
+publicCampaignsRouter.get('/winners', listRecentPublicWinnersController);
 publicCampaignsRouter.get(
   '/:slug',
   validate({ params: campaignSlugParamSchema }),
