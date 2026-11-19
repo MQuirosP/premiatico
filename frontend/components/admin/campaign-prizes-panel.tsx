@@ -224,9 +224,14 @@ export function CampaignPrizesPanel({
   const buildWinnerMessage = (prize: AdminCampaignPrize): string => {
     const customerName = prize.winningOrder?.customer.fullName ?? 'Ganador/a';
     const orderRef = prize.winningOrder?.publicReference ?? '';
+    const prizeDetail = prize.description?.trim() || prize.name;
+    const valueText =
+      typeof prize.estimatedValue === 'number' && prize.estimatedValue > 0
+        ? ` (${formatCRC(prize.estimatedValue)})`
+        : '';
     return [
       `¡Felicidades ${customerName}!`,
-      `Tu número ${prize.winningNumber} resultó ganador del premio "${prize.name}" en Premiático.`,
+      `Tu número ${prize.winningNumber} resultó ganador de ${prizeDetail}${valueText} en el sorteo "${prize.name}" de Premiático.`,
       orderRef ? `Referencia de pedido: ${orderRef}.` : '',
       'Pronto coordinaremos la entrega de tu premio.',
     ]
@@ -552,7 +557,7 @@ export function CampaignPrizesPanel({
                           })()}
                           <a
                             href={`mailto:${prize.winningOrder.customer.email}?subject=${encodeURIComponent(
-                              `¡Felicidades ${prize.winningOrder.customer.fullName}! Ganaste ${prize.name} en Premiático`,
+                              `¡Felicidades ${prize.winningOrder.customer.fullName}! Ganaste ${prize.description?.trim() || prize.name} (${prize.name}) en Premiático`,
                             )}&body=${encodeURIComponent(buildWinnerMessage(prize))}`}
                             className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
                           >

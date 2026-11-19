@@ -513,6 +513,10 @@ export async function notifyPrizeWinnerByEmail(
       id: true,
       campaignId: true,
       name: true,
+      description: true,
+      estimatedValue: true,
+      drawReference: true,
+      drawAt: true,
       winningNumber: true,
       winnerEvaluatedAt: true,
       campaign: { select: { title: true } },
@@ -542,14 +546,36 @@ export async function notifyPrizeWinnerByEmail(
   if (!email) {
     throw new ConflictError('El cliente ganador no tiene correo electrónico registrado');
   }
-  const subject = `¡Felicidades ${fullName}! Ganaste ${prize.name} en Premiático`;
+  const prizeDetailLabel = prize.description?.trim() || prize.name;
+  const formattedValue =
+    typeof prize.estimatedValue === 'number' && prize.estimatedValue > 0
+      ? `₡${prize.estimatedValue.toLocaleString('es-CR')}`
+      : null;
+  const formattedDrawDate = prize.drawAt
+    ? new Intl.DateTimeFormat('es-CR', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'America/Costa_Rica',
+      }).format(prize.drawAt)
+    : null;
+  const drawMeta = [prize.drawReference?.trim(), formattedDrawDate].filter(Boolean).join(' · ');
+
+  const subject = `¡Felicidades ${fullName}! Ganaste ${prizeDetailLabel} (${prize.name}) en Premiático`;
   const html = `
-    <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
-      <h2 style="color: #059669;">¡Felicidades, ${escapeHtml(fullName)}!</h2>
-      <p>Tu número <strong>${escapeHtml(prize.winningNumber)}</strong> resultó ganador del premio <strong>${escapeHtml(prize.name)}</strong> en la campaña <strong>${escapeHtml(prize.campaign.title)}</strong>.</p>
-      <p><strong>Referencia de pedido:</strong> ${escapeHtml(prize.winningOrder.publicReference)}</p>
-      <p>Nuestro equipo se pondrá en contacto con vos para coordinar la entrega del premio.</p>
-      <p style="font-size: 12px; color: #64748b;">Premiático Costa Rica</p>
+    <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5; max-width: 560px;">
+      <h2 style="color: #059669; margin-bottom: 12px;">¡Felicidades, ${escapeHtml(fullName)}!</h2>
+      <p style="margin: 0 0 14px;">
+        Tu número <strong>${escapeHtml(prize.winningNumber)}</strong> resultó ganador en la campaña
+        <strong>${escapeHtml(prize.campaign.title)}</strong>.
+      </p>
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px;">
+        <p style="margin: 0 0 6px;"><strong>Premio:</strong> ${escapeHtml(prizeDetailLabel)}${formattedValue ? ` (${escapeHtml(formattedValue)})` : ''}</p>
+        <p style="margin: 0 0 6px;"><strong>Sorteo:</strong> ${escapeHtml(prize.name)}${drawMeta ? ` — ${escapeHtml(drawMeta)}` : ''}</p>
+        <p style="margin: 0 0 6px;"><strong>Número ganador:</strong> <span style="font-family: monospace; font-size: 15px; font-weight: bold;">${escapeHtml(prize.winningNumber)}</span></p>
+        <p style="margin: 0;"><strong>Referencia de pedido:</strong> ${escapeHtml(prize.winningOrder.publicReference)}</p>
+      </div>
+      <p style="margin: 0 0 14px;">Nuestro equipo se pondrá en contacto con vos para coordinar la entrega del premio.</p>
+      <p style="font-size: 12px; color: #64748b; margin: 0;">Premiático Costa Rica</p>
     </div>
   `.trim();
 
