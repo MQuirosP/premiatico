@@ -1,5 +1,6 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
+import { DigitalPassKind, digitalPassKindSchema } from '../../core/domain-constants.js';
 import { NotFoundError, ValidationError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
 import { requireAdminAuth } from '../../middlewares/authAdmin.js';
@@ -20,7 +21,7 @@ import {
 const createPassSchema = z.object({
   name: z.string().trim().min(2).max(140),
   description: z.string().trim().min(5).max(2000),
-  kind: z.enum(['PASS', 'FICHA']).default('PASS'),
+  kind: digitalPassKindSchema.default(DigitalPassKind.PASS),
   fileKey: z.string().trim().min(3).max(300),
   mimeType: z.string().trim().min(3).max(100),
   fileSize: z.coerce.number().int().positive().max(100 * 1024 * 1024),
@@ -51,7 +52,7 @@ const saveGeneratedSchema = z.object({
   variants: z
     .array(
       z.object({
-        kind: z.enum(['PASS', 'FICHA']),
+        kind: digitalPassKindSchema,
         base64: z.string().min(100),
       }),
     )
@@ -98,7 +99,8 @@ adminPassesRouter.post(
         typeof req.body?.description === 'string' && req.body.description.trim().length >= 5
           ? req.body.description.trim().slice(0, 2000)
           : `Pase digital: ${name}`;
-      const kind = req.body?.kind === 'FICHA' ? 'FICHA' : 'PASS';
+      const kind =
+        req.body?.kind === DigitalPassKind.FICHA ? DigitalPassKind.FICHA : DigitalPassKind.PASS;
 
       const key = r2KeyBuilders.passFile('catalog', file.originalname);
       await uploadObject({ key, body: file.buffer, contentType: file.mimetype });
@@ -163,7 +165,7 @@ adminPassesRouter.post(
       const createdPasses = [];
       for (const variant of variants) {
         const buffer = Buffer.from(variant.base64, 'base64');
-        const suffix = variant.kind === 'PASS' ? 'Pase' : 'Ficha';
+        const suffix = variant.kind === DigitalPassKind.PASS ? 'Pase' : 'Ficha';
         const passName = variants.length > 1 ? `${name} (${suffix})` : name;
         const safeSlug = passName
           .toLowerCase()
@@ -327,7 +329,8 @@ adminPassesRouter.get(
         throw new ValidationError('Solo se puede previsualizar estampado en pases de imagen');
       }
 
-      const defaultText = existing.kind === 'FICHA' ? '12345' : 'PRM-A1B2C3D4';
+      const defaultText =
+        existing.kind === DigitalPassKind.FICHA ? '12345' : 'PRM-A1B2C3D4';
       const rawNumber =
         typeof req.query.number === 'string' && /^[a-zA-Z0-9-]{1,16}$/.test(req.query.number)
           ? req.query.number

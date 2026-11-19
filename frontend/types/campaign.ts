@@ -1,3 +1,12 @@
+import type {
+  CampaignDrawMode,
+  CampaignStatus,
+  DigitalPassKind,
+  LegalApprovalStatus,
+} from '@/lib/domain-constants';
+
+export type { CampaignDrawMode, CampaignStatus, DigitalPassKind, LegalApprovalStatus };
+
 export interface CampaignProgress {
   totalFichas: number;
   confirmedFichas: number;
@@ -25,7 +34,7 @@ export interface DigitalPass {
   id: string;
   name: string;
   description: string;
-  kind?: 'PASS' | 'FICHA';
+  kind?: DigitalPassKind;
   fileKey: string;
   mimeType: string;
   fileSize: number;
@@ -44,20 +53,6 @@ export interface CampaignCombo {
   sortOrder: number;
   isActive: boolean;
 }
-
-export type CampaignStatus =
-  | 'DRAFT'
-  | 'ACTIVE'
-  | 'PAUSED'
-  | 'CLOSED'
-  | 'COMPLETED'
-  | 'CANCELLED';
-
-export type LegalApprovalStatus =
-  | 'NOT_REQUIRED'
-  | 'PENDING'
-  | 'APPROVED'
-  | 'REJECTED';
 
 export interface CampaignGalleryImage {
   id?: string;
@@ -82,6 +77,7 @@ export interface PublicCampaign {
   maxNumberChanges: number;
   enableInverseNumbers: boolean;
   themeColor?: string;
+  drawMode?: CampaignDrawMode;
   reservationMinutes: number;
   terms: string;
   coverImageKey: string | null;

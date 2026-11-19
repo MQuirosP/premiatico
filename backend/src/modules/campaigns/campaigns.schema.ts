@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  CampaignDrawMode,
+  campaignDrawModeSchema,
+  legalApprovalStatusSchema,
+} from '../../core/domain-constants.js';
 
 export const CAMPAIGN_THEME_COLORS = [
   'classic',
@@ -29,13 +34,12 @@ export const createCampaignSchema = z.object({
   maxNumberChanges: z.coerce.number().int().min(0).max(20).default(5),
   enableInverseNumbers: z.boolean().default(false),
   themeColor: z.enum(CAMPAIGN_THEME_COLORS).default('classic'),
+  drawMode: campaignDrawModeSchema.default(CampaignDrawMode.SINGLE_WINNER),
   reservationMinutes: z.coerce.number().int().min(5).max(120).default(15),
   paymentWindowMinutes: z.coerce.number().int().min(10).max(1440).default(60),
   reviewSlaHours: z.coerce.number().int().min(1).max(168).default(24),
   requiresLegalApproval: z.boolean().default(true),
-  legalApprovalStatus: z
-    .enum(['NOT_REQUIRED', 'PENDING', 'APPROVED', 'REJECTED'])
-    .optional(),
+  legalApprovalStatus: legalApprovalStatusSchema.optional(),
   legalApprovalReference: z.string().trim().max(120).optional().nullable(),
   terms: z.string().trim().min(10).max(10000),
   coverImageKey: z.string().trim().max(300).optional().nullable(),
@@ -65,13 +69,12 @@ export const updateCampaignSchema = z.object({
   maxNumberChanges: z.coerce.number().int().min(0).max(20).optional(),
   enableInverseNumbers: z.boolean().optional(),
   themeColor: z.enum(CAMPAIGN_THEME_COLORS).optional(),
+  drawMode: campaignDrawModeSchema.optional(),
   reservationMinutes: z.coerce.number().int().min(5).max(120).optional(),
   paymentWindowMinutes: z.coerce.number().int().min(10).max(1440).optional(),
   reviewSlaHours: z.coerce.number().int().min(1).max(168).optional(),
   requiresLegalApproval: z.boolean().optional(),
-  legalApprovalStatus: z
-    .enum(['NOT_REQUIRED', 'PENDING', 'APPROVED', 'REJECTED'])
-    .optional(),
+  legalApprovalStatus: legalApprovalStatusSchema.optional(),
   legalApprovalReference: z.string().trim().max(120).optional().nullable(),
   terms: z.string().trim().min(10).max(10000).optional(),
   coverImageKey: z.string().trim().max(300).optional().nullable(),

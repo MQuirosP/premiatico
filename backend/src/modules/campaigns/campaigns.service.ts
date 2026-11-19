@@ -1,4 +1,12 @@
-import { CampaignStatus, LegalApprovalStatus } from '@prisma/client';
+import {
+  ACTIVE_PARTICIPATION_STATUSES,
+  CampaignDrawMode,
+  CampaignStatus,
+  LegalApprovalStatus,
+  ParticipationStatus,
+  isCampaignEditLocked,
+  isCampaignEvaluationClosed,
+} from '../../core/domain-constants.js';
 import { ConflictError, NotFoundError, ValidationError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
 import { recordAuditLog } from '../audit/audit.service.js';
@@ -111,13 +119,13 @@ export async function getCampaignProgress(campaignId: string, totalFichas: numbe
     prisma.participation.count({
       where: {
         campaignId,
-        status: 'CONFIRMED',
+        status: ParticipationStatus.CONFIRMED,
       },
     }),
     prisma.participation.count({
       where: {
         campaignId,
-        status: 'RESERVED',
+        status: ParticipationStatus.RESERVED,
         OR: [
           { reservedUntil: null },
           { reservedUntil: { gt: now } },
@@ -323,7 +331,7 @@ export async function getAdminCampaignById(id: string) {
             },
           },
           participations: {
-            where: { status: { in: ['RESERVED', 'CONFIRMED'] } },
+            where: { status: { in: ACTIVE_PARTICIPATION_STATUSES } },
             orderBy: { number: 'asc' },
             select: { number: true, status: true },
           },
@@ -388,7 +396,7 @@ export async function getAdminCampaignById(id: string) {
             },
           },
           participations: {
-            where: { status: { in: ['RESERVED', 'CONFIRMED'] } },
+            where: { status: { in: ACTIVE_PARTICIPATION_STATUSES } },
             select: { number: true, status: true },
           },
         },
@@ -430,8 +438,8 @@ export async function createCampaign(input: CreateCampaignInput, actorId: string
   }
 
   const legalApprovalStatus: LegalApprovalStatus = input.requiresLegalApproval
-    ? (input.legalApprovalStatus ?? 'PENDING')
-    : 'NOT_REQUIRED';
+    ? (input.legalApprovalStatus ?? LegalApprovalStatus.PENDING)
+    : LegalApprovalStatus.NOT_REQUIRED;
 
   const normalizedGallery = normalizeGalleryInput(input.galleryImages, input.coverImageKey);
 
@@ -449,6 +457,7 @@ export async function createCampaign(input: CreateCampaignInput, actorId: string
       maxNumberChanges: input.maxNumberChanges,
       enableInverseNumbers: input.enableInverseNumbers,
       themeColor: input.themeColor,
+      drawMode: input.drawMode,
       reservationMinutes: input.reservationMinutes,
       paymentWindowMinutes: input.paymentWindowMinutes,
       reviewSlaHours: input.reviewSlaHours,
@@ -491,7 +500,7 @@ export async function updateCampaign(
     throw new NotFoundError('Campaña no encontrada');
   }
 
-  if (existing.status === CampaignStatus.CLOSED || existing.status === CampaignStatus.COMPLETED) {
+  if (isCampaignEditLocked(existing.status)) {
     throw new ConflictError('No se puede modificar una campaña cerrada o completada');
   }
 
@@ -504,7 +513,7 @@ export async function updateCampaign(
   const activeParticipations = await prisma.participation.count({
     where: {
       campaignId: id,
-      status: { in: ['RESERVED', 'CONFIRMED'] },
+      status: { in: ACTIVE_PARTICIPATION_STATUSES },
     },
   });
 
@@ -528,7 +537,31 @@ export async function updateCampaign(
   const { galleryImages, ...scalarInput } = input;
   let removedKeys: string[] = [];
 
+  if (scalarInput.drawMode && scalarInput.drawMode !== existing.drawMode) {
+    if (existing.winningNumber || existing.winnerEvaluatedAt) {
+      throw new ConflictError(
+        'No se puede cambiar la modalidad de sorteo porque ya se evaluó el ganador',
+      );
+    }
+    const evaluatedPrizesCount = await prisma.campaignPrize.count({
+      where: { campaignId: id, winnerEvaluatedAt: { not: null } },
+    });
+    if (evaluatedPrizesCount > 0) {
+      throw new ConflictError(
+        'No se puede cambiar la modalidad de sorteo porque ya existen premios evaluados',
+      );
+    }
+  }
+
   const updated = await prisma.$transaction(async (tx) => {
+    if (
+      scalarInput.drawMode === CampaignDrawMode.SINGLE_WINNER &&
+      existing.drawMode === CampaignDrawMode.MULTI_PRIZE
+    ) {
+      await tx.campaignPrize.deleteMany({
+        where: { campaignId: id, winnerEvaluatedAt: null },
+      });
+    }
     let coverImageKeyPatch: string | null | undefined = scalarInput.coverImageKey;
 
     if (galleryImages !== undefined) {
@@ -729,11 +762,21 @@ export async function evaluateCampaignWinner(
 ) {
   const campaign = await prisma.campaign.findUnique({
     where: { id },
-    select: { id: true, title: true, totalFichas: true },
+    select: { id: true, title: true, totalFichas: true, status: true, drawMode: true },
   });
 
   if (!campaign) {
     throw new NotFoundError('Campaña no encontrada');
+  }
+
+  if (campaign.drawMode !== CampaignDrawMode.SINGLE_WINNER) {
+    throw new ConflictError(
+      'Esta campaña está configurada con múltiples premios; evaluá cada premio individualmente.',
+    );
+  }
+
+  if (isCampaignEvaluationClosed(campaign.status)) {
+    throw new ConflictError('No se puede evaluar una campaña ya completada o cancelada');
   }
 
   const digits = getCampaignNumberDigits(campaign.totalFichas);
@@ -756,7 +799,7 @@ export async function evaluateCampaignWinner(
     where: {
       campaignId: id,
       number: rawNumber,
-      status: 'CONFIRMED',
+      status: ParticipationStatus.CONFIRMED,
     },
     include: {
       order: {
@@ -782,6 +825,7 @@ export async function evaluateCampaignWinner(
       winningOrderId: match?.order?.id ?? null,
       winnerEvaluatedAt: evaluatedAt,
       winnerNotes: notes,
+      status: CampaignStatus.COMPLETED,
     },
   });
 

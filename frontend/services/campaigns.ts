@@ -155,6 +155,7 @@ export async function updateAdminCampaign(
     enableInverseNumbers?: boolean;
     maxNumberChanges?: number;
     themeColor?: string;
+    drawMode?: 'SINGLE_WINNER' | 'MULTI_PRIZE';
   },
 ): Promise<AdminCampaign> {
   const res = await apiRequest<{ campaign: AdminCampaign }>(`/admin/campaigns/${id}`, {

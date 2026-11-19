@@ -18,6 +18,12 @@ import { CampaignCreateForm } from '@/components/admin/campaign-create-form';
 import { TableSkeleton } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api';
 import {
+  CAMPAIGN_STATUS,
+  getCampaignStatusBadge,
+  getLegalStatusBadge,
+  isCampaignReadOnly,
+} from '@/lib/domain-constants';
+import {
   closeAdminCampaign,
   createAdminCampaign,
   createAdminCombo,
@@ -31,35 +37,6 @@ import {
   uploadAdminCampaignCover,
 } from '@/services/campaigns';
 import type { AdminCampaign } from '@/types/campaign';
-
-const CAMPAIGN_STATUS_META: Record<string, { label: string; className: string }> = {
-  DRAFT: { label: 'Borrador', className: 'bg-slate-100 text-slate-700' },
-  ACTIVE: { label: 'Activa', className: 'bg-emerald-100 text-emerald-800' },
-  PAUSED: { label: 'Pausada', className: 'bg-amber-100 text-amber-800' },
-  CLOSED: { label: 'Cerrada', className: 'bg-slate-200 text-slate-800' },
-  COMPLETED: { label: 'Completada', className: 'bg-blue-100 text-blue-800' },
-  CANCELLED: { label: 'Cancelada', className: 'bg-red-100 text-red-700' },
-};
-
-const LEGAL_STATUS_META: Record<string, { label: string; className: string }> = {
-  PENDING: { label: 'Pendiente', className: 'bg-amber-50 text-amber-700 border-amber-200' },
-  APPROVED: { label: 'Aprobada', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  REJECTED: { label: 'Rechazada', className: 'bg-red-50 text-red-700 border-red-200' },
-  NOT_REQUIRED: { label: 'No requerida', className: 'bg-slate-50 text-slate-600 border-slate-200' },
-};
-
-function getCampaignStatusBadge(status: string) {
-  return CAMPAIGN_STATUS_META[status] ?? { label: status, className: 'bg-slate-100 text-slate-700' };
-}
-
-function getLegalStatusBadge(status: string) {
-  return (
-    LEGAL_STATUS_META[status] ?? {
-      label: status,
-      className: 'bg-slate-50 text-slate-600 border-slate-200',
-    }
-  );
-}
 
 export default function AdminCampaignsPage() {
   const queryClient = useQueryClient();

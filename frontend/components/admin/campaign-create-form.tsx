@@ -4,7 +4,16 @@ import { useState } from 'react';
 import { CampaignImagesCarouselEditor } from '@/components/admin/campaign-images-carousel';
 import { CampaignThemePicker } from '@/components/admin/campaign-theme-picker';
 import type { CampaignThemeColor } from '@/lib/campaign-themes';
-import type { CampaignGalleryImage } from '@/types/campaign';
+import {
+  CAMPAIGN_DRAW_MODE,
+  DRAW_MODE_OPTIONS,
+  LEGAL_APPROVAL_STATUS,
+} from '@/lib/domain-constants';
+import type {
+  CampaignDrawMode,
+  CampaignGalleryImage,
+  LegalApprovalStatus,
+} from '@/types/campaign';
 
 export interface CampaignCreatePayload {
   slug: string;
@@ -21,8 +30,9 @@ export interface CampaignCreatePayload {
   maxNumberChanges: number;
   enableInverseNumbers: boolean;
   themeColor: CampaignThemeColor;
+  drawMode: CampaignDrawMode;
   requiresLegalApproval: boolean;
-  legalApprovalStatus: 'PENDING';
+  legalApprovalStatus: LegalApprovalStatus;
   terms: string;
 }
 
@@ -48,6 +58,7 @@ export function CampaignCreateForm({
   const [maxNumberChanges, setMaxNumberChanges] = useState(5);
   const [enableInverseNumbers, setEnableInverseNumbers] = useState(false);
   const [themeColor, setThemeColor] = useState<CampaignThemeColor>('classic');
+  const [drawMode, setDrawMode] = useState<CampaignDrawMode>(CAMPAIGN_DRAW_MODE.SINGLE_WINNER);
   const [endAt, setEndAt] = useState('');
   const [drawAt, setDrawAt] = useState('');
   const [drawReference, setDrawReference] = useState('');
@@ -83,8 +94,9 @@ export function CampaignCreateForm({
           maxNumberChanges,
           enableInverseNumbers,
           themeColor,
+          drawMode,
           requiresLegalApproval: true,
-          legalApprovalStatus: 'PENDING',
+          legalApprovalStatus: LEGAL_APPROVAL_STATUS.PENDING,
           terms,
         });
       }}
@@ -166,6 +178,29 @@ export function CampaignCreateForm({
               </span>
             </div>
           </label>
+        </div>
+        <div className="sm:col-span-2 space-y-2">
+          <label className="block text-xs font-semibold text-slate-600">
+            Modalidad de sorteo y ganadores
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {DRAW_MODE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setDrawMode(opt.value)}
+                aria-pressed={drawMode === opt.value}
+                className={`rounded-xl border p-3.5 text-left transition ${
+                  drawMode === opt.value
+                    ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20'
+                    : 'border-slate-200 hover:border-blue-300'
+                }`}
+              >
+                <p className="text-xs font-bold text-slate-900">{opt.title}</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">{opt.createDescription}</p>
+              </button>
+            ))}
+          </div>
         </div>
         <div className="sm:col-span-2 space-y-2">
           <label className="block text-xs font-semibold text-slate-600">

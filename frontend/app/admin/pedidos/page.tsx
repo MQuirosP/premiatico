@@ -7,6 +7,7 @@ import { ProofReviewModal } from '@/components/admin/proof-review-modal';
 import { FichasModal, type FichasModalEntry } from '@/components/fichas-modal';
 import { TableSkeleton } from '@/components/ui/skeleton';
 import { apiRequest, ApiError } from '@/lib/api';
+import { PAYMENT_STATUS_BADGES } from '@/lib/domain-constants';
 import { formatCRC } from '@/lib/utils';
 import { cancelAdminOrder } from '@/services/campaigns';
 
@@ -31,12 +32,10 @@ interface AdminPaymentRow {
   proofs: Array<{ id: string; mimeType: string; signedUrl: string | null }>;
 }
 
-const STATUS_BADGES: Record<string, { label: string; className: string }> = {
-  PENDING: { label: 'Pendiente de comprobante', className: 'bg-slate-100 text-slate-700' },
-  UNDER_REVIEW: { label: 'En revisión', className: 'bg-amber-100 text-amber-800' },
-  APPROVED: { label: 'Aprobado', className: 'bg-emerald-100 text-emerald-800' },
-  REJECTED: { label: 'Rechazado', className: 'bg-red-100 text-red-700' },
-};
+const STATUS_BADGES = PAYMENT_STATUS_BADGES as Record<
+  string,
+  { label: string; className: string }
+>;
 
 const VALID_STATUS_FILTERS = new Set([
   'UNDER_REVIEW',

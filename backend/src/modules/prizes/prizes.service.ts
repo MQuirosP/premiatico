@@ -1,5 +1,12 @@
 import crypto from 'node:crypto';
 import type { z } from 'zod';
+import {
+  CampaignDrawMode,
+  CampaignStatus,
+  ParticipationStatus,
+  isCampaignEditLocked,
+  isCampaignEvaluationClosed,
+} from '../../core/domain-constants.js';
 import { ConflictError, NotFoundError, ValidationError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
 import { recordAuditLog } from '../audit/audit.service.js';
@@ -18,12 +25,17 @@ export async function createCampaignPrizes(
 ) {
   const campaign = await prisma.campaign.findUnique({
     where: { id: input.campaignId },
-    select: { id: true, status: true, _count: { select: { prizes: true } } },
+    select: { id: true, status: true, drawMode: true, _count: { select: { prizes: true } } },
   });
   if (!campaign) {
     throw new NotFoundError('Campaña no encontrada');
   }
-  if (campaign.status === 'CLOSED' || campaign.status === 'COMPLETED') {
+  if (campaign.drawMode !== CampaignDrawMode.MULTI_PRIZE) {
+    throw new ConflictError(
+      'Esta campaña es de sorteo único; cambiá la modalidad a múltiples premios para agregar sorteos individuales.',
+    );
+  }
+  if (isCampaignEditLocked(campaign.status)) {
     throw new ConflictError('No se pueden agregar premios a una campaña cerrada o completada');
   }
 
@@ -81,7 +93,7 @@ export async function updateCampaignPrize(
   if (!existing) {
     throw new NotFoundError('Premio no encontrado');
   }
-  if (existing.campaign.status === 'CLOSED' || existing.campaign.status === 'COMPLETED') {
+  if (isCampaignEditLocked(existing.campaign.status)) {
     throw new ConflictError('No se pueden editar premios de una campaña cerrada o completada');
   }
 
@@ -121,7 +133,7 @@ export async function deleteCampaignPrize(id: string, actorId: string) {
     throw new NotFoundError('Premio no encontrado');
   }
 
-  if (existing.campaign.status === 'CLOSED' || existing.campaign.status === 'COMPLETED') {
+  if (isCampaignEditLocked(existing.campaign.status)) {
     throw new ConflictError('No se puede eliminar un premio de una campaña cerrada o completada');
   }
 
@@ -143,6 +155,32 @@ function assertPrizeDrawTimeReached(drawAt: Date | null): void {
   }
 }
 
+async function syncMultiPrizeCampaignStatus(
+  campaignId: string,
+  currentStatus: CampaignStatus,
+): Promise<void> {
+  const pendingPrizes = await prisma.campaignPrize.count({
+    where: { campaignId, winnerEvaluatedAt: null },
+  });
+
+  if (pendingPrizes === 0) {
+    if (currentStatus !== CampaignStatus.COMPLETED) {
+      await prisma.campaign.update({
+        where: { id: campaignId },
+        data: { status: CampaignStatus.COMPLETED },
+      });
+    }
+    return;
+  }
+
+  if (currentStatus === CampaignStatus.ACTIVE) {
+    await prisma.campaign.update({
+      where: { id: campaignId },
+      data: { status: CampaignStatus.CLOSED },
+    });
+  }
+}
+
 export async function evaluatePrizeWinner(
   prizeId: string,
   input: z.infer<typeof evaluatePrizeWinnerSchema>,
@@ -152,13 +190,19 @@ export async function evaluatePrizeWinner(
     where: { id: prizeId },
     include: {
       campaign: {
-        select: { id: true, title: true, totalFichas: true },
+        select: { id: true, title: true, totalFichas: true, status: true, drawMode: true },
       },
     },
   });
 
   if (!prize) {
     throw new NotFoundError('Premio o sorteo no encontrado');
+  }
+  if (prize.campaign.drawMode !== CampaignDrawMode.MULTI_PRIZE) {
+    throw new ConflictError('Esta campaña es de sorteo único; evaluá el ganador único global.');
+  }
+  if (isCampaignEvaluationClosed(prize.campaign.status)) {
+    throw new ConflictError('No se puede evaluar una campaña ya completada o cancelada');
   }
 
   assertPrizeDrawTimeReached(prize.drawAt);
@@ -187,7 +231,7 @@ export async function evaluatePrizeWinner(
     where: {
       campaignId: prize.campaignId,
       number: rawNumber,
-      status: 'CONFIRMED',
+      status: ParticipationStatus.CONFIRMED,
     },
     include: {
       order: {
@@ -231,6 +275,8 @@ export async function evaluatePrizeWinner(
       winnerNotes: notes,
     },
   });
+
+  await syncMultiPrizeCampaignStatus(prize.campaignId, prize.campaign.status);
 
   await recordAuditLog({
     actorId,
@@ -278,13 +324,19 @@ export async function drawRandomPrizeWinner(
     where: { id: prizeId },
     include: {
       campaign: {
-        select: { id: true, title: true, totalFichas: true },
+        select: { id: true, title: true, totalFichas: true, status: true, drawMode: true },
       },
     },
   });
 
   if (!prize) {
     throw new NotFoundError('Premio o sorteo no encontrado');
+  }
+  if (prize.campaign.drawMode !== CampaignDrawMode.MULTI_PRIZE) {
+    throw new ConflictError('Esta campaña es de sorteo único; evaluá el ganador único global.');
+  }
+  if (isCampaignEvaluationClosed(prize.campaign.status)) {
+    throw new ConflictError('No se puede evaluar una campaña ya completada o cancelada');
   }
 
   assertPrizeDrawTimeReached(prize.drawAt);
@@ -307,7 +359,7 @@ export async function drawRandomPrizeWinner(
   const eligibleParticipations = await prisma.participation.findMany({
     where: {
       campaignId: prize.campaignId,
-      status: 'CONFIRMED',
+      status: ParticipationStatus.CONFIRMED,
       ...(excludedOrderIds.length > 0 ? { orderId: { notIn: excludedOrderIds } } : {}),
     },
     include: {
@@ -346,6 +398,8 @@ export async function drawRandomPrizeWinner(
       winnerNotes: notes,
     },
   });
+
+  await syncMultiPrizeCampaignStatus(prize.campaignId, prize.campaign.status);
 
   await recordAuditLog({
     actorId,
@@ -402,6 +456,7 @@ export async function resetPrizeEvaluation(prizeId: string, actorId: string) {
       winningNumber: true,
       winningOrderId: true,
       winnerEvaluatedAt: true,
+      campaign: { select: { status: true } },
     },
   });
 
@@ -422,6 +477,13 @@ export async function resetPrizeEvaluation(prizeId: string, actorId: string) {
       winnerNotes: null,
     },
   });
+
+  if (prize.campaign.status === CampaignStatus.COMPLETED) {
+    await prisma.campaign.update({
+      where: { id: prize.campaignId },
+      data: { status: CampaignStatus.CLOSED },
+    });
+  }
 
   await recordAuditLog({
     actorId,

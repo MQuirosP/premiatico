@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { ApiError } from '@/lib/api';
+import { isCampaignReadOnly } from '@/lib/domain-constants';
 import { formatCRC } from '@/lib/utils';
 import {
   createAdminPrizes,
@@ -223,21 +224,36 @@ export function CampaignPrizesPanel({
     }
   };
 
-  const canDelete = campaignStatus !== 'CLOSED' && campaignStatus !== 'COMPLETED';
+  const canDelete = !isCampaignReadOnly(campaignStatus);
+  const evaluatedCount = prizes.filter((p) => Boolean(p.winnerEvaluatedAt)).length;
 
   return (
     <section className="rounded-2xl border bg-white p-5 sm:p-6 shadow-sm space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Award className="h-4 w-4 text-amber-500" />
-            Premios y sorteos individuales ({prizes.length})
-          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Award className="h-4 w-4 text-amber-500" />
+              Premios y sorteos individuales ({prizes.length})
+            </h2>
+            {prizes.length > 0 ? (
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                  evaluatedCount === prizes.length
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-amber-100 text-amber-800'
+                }`}
+              >
+                {evaluatedCount} de {prizes.length} evaluados
+              </span>
+            ) : null}
+          </div>
           <p className="text-xs text-slate-500">
             Creá uno o varios sorteos dentro de la campaña (ej. 6 de Nacional + 6 de Tiempos) y
             evaluá cada ganador por separado con números de <strong>{digits} dígitos</strong> (
             <span className="font-mono">{'0'.repeat(digits)}</span> –{' '}
-            <span className="font-mono">{maxNumberLabel}</span>).
+            <span className="font-mono">{maxNumberLabel}</span>). Al evaluar todos, la campaña se
+            marca como completada.
           </p>
         </div>
         {canDelete ? (

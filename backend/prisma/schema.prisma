@@ -20,6 +20,11 @@ enum CampaignStatus {
   CANCELLED
 }
 
+enum CampaignDrawMode {
+  SINGLE_WINNER
+  MULTI_PRIZE
+}
+
 enum LegalApprovalStatus {
   NOT_REQUIRED
   PENDING
@@ -103,6 +108,7 @@ model Campaign {
   maxNumberChanges       Int                 @default(5)
   enableInverseNumbers   Boolean             @default(false)
   themeColor             String              @default("classic")
+  drawMode               CampaignDrawMode    @default(SINGLE_WINNER)
   reservationMinutes     Int                 @default(15)
   paymentWindowMinutes   Int                 @default(60)
   reviewSlaHours         Int                 @default(24)

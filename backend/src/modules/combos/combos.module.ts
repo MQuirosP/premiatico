@@ -1,5 +1,6 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
+import { isCampaignEditLocked } from '../../core/domain-constants.js';
 import { ConflictError, NotFoundError, ValidationError } from '../../core/errors.js';
 import { prisma } from '../../core/prisma.js';
 import { requireAdminAuth } from '../../middlewares/authAdmin.js';
@@ -38,7 +39,7 @@ adminCombosRouter.post(
       const data = req.body as z.infer<typeof createComboSchema>;
       const campaign = await prisma.campaign.findUnique({ where: { id: data.campaignId } });
       if (!campaign) throw new NotFoundError('Campaña no encontrada');
-      if (campaign.status === 'CLOSED' || campaign.status === 'COMPLETED') {
+      if (isCampaignEditLocked(campaign.status)) {
         throw new ConflictError('No se pueden crear combos en una campaña cerrada o completada');
       }
 
@@ -104,7 +105,7 @@ adminCombosRouter.patch(
         include: { campaign: { select: { status: true } } },
       });
       if (!existing) throw new NotFoundError('Combo no encontrado');
-      if (existing.campaign.status === 'CLOSED' || existing.campaign.status === 'COMPLETED') {
+      if (isCampaignEditLocked(existing.campaign.status)) {
         throw new ConflictError('No se pueden editar combos de una campaña cerrada o completada');
       }
 
@@ -160,7 +161,7 @@ adminCombosRouter.delete(
         },
       });
       if (!existing) throw new NotFoundError('Combo no encontrado');
-      if (existing.campaign.status === 'CLOSED' || existing.campaign.status === 'COMPLETED') {
+      if (isCampaignEditLocked(existing.campaign.status)) {
         throw new ConflictError('No se pueden eliminar combos de una campaña cerrada o completada');
       }
 

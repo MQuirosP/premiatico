@@ -12,18 +12,19 @@ import { CampaignProgressBar } from '@/components/campaign-progress';
 import { FichasModal, type FichasModalEntry } from '@/components/fichas-modal';
 import { DetailSkeleton } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api';
+import {
+  CAMPAIGN_DRAW_MODE,
+  CAMPAIGN_STATUS,
+  DRAW_MODE_OPTIONS,
+  ORDER_STATUS_LABELS,
+  isCampaignReadOnly,
+  type OrderStatus,
+} from '@/lib/domain-constants';
 import { formatCRC } from '@/lib/utils';
 import { cancelAdminOrder, evaluateAdminCampaignWinner, getAdminCampaignDetail, updateAdminCampaign, uploadAdminCampaignCover, type CampaignWinnerResult } from '@/services/campaigns';
 import type { CampaignGalleryImage } from '@/types/campaign';
 
-const ORDER_STATUS_LABEL: Record<string, string> = {
-  PENDING_PAYMENT: 'Pendiente de pago',
-  UNDER_REVIEW: 'En revisión',
-  CONFIRMED: 'Confirmada',
-  REJECTED: 'Rechazada',
-  EXPIRED: 'Expirada',
-  CANCELLED: 'Cancelada',
-};
+const ORDER_STATUS_LABEL = ORDER_STATUS_LABELS as Record<string, string>;
 
 function CampaignDetailInner() {
   const searchParams = useSearchParams();
@@ -77,6 +78,14 @@ function CampaignDetailInner() {
 
   const updateThemeMutation = useMutation({
     mutationFn: (nextTheme: string) => updateAdminCampaign(id, { themeColor: nextTheme }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin-campaign-detail', id] });
+    },
+  });
+
+  const updateDrawModeMutation = useMutation({
+    mutationFn: (nextMode: 'SINGLE_WINNER' | 'MULTI_PRIZE') =>
+      updateAdminCampaign(id, { drawMode: nextMode }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin-campaign-detail', id] });
     },
@@ -297,6 +306,55 @@ function CampaignDetailInner() {
               />
             </div>
 
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold text-slate-800">
+                    Modalidad de sorteo y ganadores
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Elegí si la campaña tendrá un único ganador o varios premios/sorteos evaluados por separado.
+                  </p>
+                </div>
+                {updateDrawModeMutation.isPending ? (
+                  <span className="text-[11px] font-semibold text-blue-600">Guardando...</span>
+                ) : null}
+              </div>
+              {(() => {
+                const currentDrawMode = campaign.drawMode ?? CAMPAIGN_DRAW_MODE.SINGLE_WINNER;
+                const hasEvaluatedWinner =
+                  Boolean(activeWinnerResult) ||
+                  (campaign.prizes?.some((p) => Boolean(p.winnerEvaluatedAt)) ?? false);
+                const modeLocked =
+                  updateDrawModeMutation.isPending ||
+                  isCampaignReadOnly(campaign.status) ||
+                  hasEvaluatedWinner;
+                return (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {DRAW_MODE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        disabled={modeLocked}
+                        onClick={() => updateDrawModeMutation.mutate(opt.value)}
+                        aria-pressed={currentDrawMode === opt.value}
+                        className={`rounded-xl border p-3 text-left transition disabled:opacity-60 ${
+                          currentDrawMode === opt.value
+                            ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20'
+                            : 'border-slate-200 bg-white hover:border-blue-300'
+                        }`}
+                      >
+                        <p className="text-xs font-bold text-slate-900">{opt.title}</p>
+                        <p className="mt-0.5 text-[11px] text-slate-500">
+                          {opt.detailDescription}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
             <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">
               <CampaignImagesCarouselEditor
                 images={galleryImages}
@@ -319,15 +377,16 @@ function CampaignDetailInner() {
         </div>
       </section>
 
-      <CampaignPrizesPanel
-        campaignId={campaign.id}
-        campaignStatus={campaign.status}
-        digits={digits}
-        maxNumberLabel={maxNumberLabel}
-        prizes={campaign.prizes ?? []}
-      />
-
-      <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
+      {(campaign.drawMode ?? CAMPAIGN_DRAW_MODE.SINGLE_WINNER) === CAMPAIGN_DRAW_MODE.MULTI_PRIZE ? (
+        <CampaignPrizesPanel
+          campaignId={campaign.id}
+          campaignStatus={campaign.status}
+          digits={digits}
+          maxNumberLabel={maxNumberLabel}
+          prizes={campaign.prizes ?? []}
+        />
+      ) : (
+        <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -473,6 +532,7 @@ function CampaignDetailInner() {
           )
         ) : null}
       </section>
+      )}
 
       <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">

@@ -1,5 +1,12 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
+import {
+  CampaignStatus,
+  EXCLUDED_DASHBOARD_ORDER_STATUSES,
+  OrderStatus,
+  ParticipationStatus,
+  PaymentStatus,
+} from '../../core/domain-constants.js';
 import { prisma } from '../../core/prisma.js';
 import { requireAdminAuth } from '../../middlewares/authAdmin.js';
 import { cancelOrderTransactional } from '../orders/order-cancel.service.js';
@@ -29,26 +36,26 @@ adminDashboardRouter.get(
       pendingPayments,
       confirmedFichas,
     ] = await Promise.all([
-      prisma.campaign.count({ where: { status: 'ACTIVE' } }),
+      prisma.campaign.count({ where: { status: CampaignStatus.ACTIVE } }),
       prisma.order.count({
         where: {
           createdAt: { gte: startOfToday },
-          status: { notIn: ['CANCELLED', 'EXPIRED'] },
-          campaign: { status: 'ACTIVE' },
+          status: { notIn: EXCLUDED_DASHBOARD_ORDER_STATUSES },
+          campaign: { status: CampaignStatus.ACTIVE },
         },
       }),
       prisma.order.aggregate({
         where: {
-          status: 'CONFIRMED',
-          campaign: { status: 'ACTIVE' },
+          status: OrderStatus.CONFIRMED,
+          campaign: { status: CampaignStatus.ACTIVE },
         },
         _sum: { totalAmount: true },
       }),
-      prisma.payment.count({ where: { status: 'UNDER_REVIEW' } }),
+      prisma.payment.count({ where: { status: PaymentStatus.UNDER_REVIEW } }),
       prisma.participation.count({
         where: {
-          status: 'CONFIRMED',
-          campaign: { status: 'ACTIVE' },
+          status: ParticipationStatus.CONFIRMED,
+          campaign: { status: CampaignStatus.ACTIVE },
         },
       }),
     ]);
