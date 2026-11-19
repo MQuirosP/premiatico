@@ -16,6 +16,7 @@ import {
   listPublicCampaignsController,
   pauseCampaignController,
   publishCampaignController,
+  resetCampaignEvaluationController,
   updateCampaignController,
 } from './campaigns.controller.js';
 import {
@@ -101,6 +102,11 @@ adminCampaignsRouter.post(
   '/:id/evaluate-winner',
   validate({ params: campaignIdParamSchema, body: evaluateWinnerSchema }),
   evaluateCampaignWinnerController,
+);
+adminCampaignsRouter.post(
+  '/:id/reset-evaluation',
+  validate({ params: campaignIdParamSchema }),
+  resetCampaignEvaluationController,
 );
 adminCampaignsRouter.delete(
   '/:id',

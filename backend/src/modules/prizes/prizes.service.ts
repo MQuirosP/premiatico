@@ -4,6 +4,9 @@ import {
   CampaignDrawMode,
   CampaignStatus,
   ParticipationStatus,
+  PrizeAmountScope,
+  PrizeCategory,
+  PrizeDrawWeightMode,
   isCampaignEditLocked,
   isCampaignEvaluationClosed,
 } from '../../core/domain-constants.js';
@@ -12,12 +15,80 @@ import { prisma } from '../../core/prisma.js';
 import { recordAuditLog } from '../audit/audit.service.js';
 import { getCampaignNumberDigits } from '../fichas/fichas.service.js';
 import { sendPrizeWinnerEmail } from '../notifications/notifications.service.js';
+import {
+  buildCustomerAggregates,
+  getOrderIneligibilityReason,
+  getPrizeEligibilityPool,
+  type OrderForEligibility,
+  type PrizeEligibilityRules,
+} from './prize-eligibility.js';
 import type {
+  createDailyPrizeSeriesSchema,
   createPrizeSchema,
   drawRandomPrizeWinnerSchema,
   evaluatePrizeWinnerSchema,
   updatePrizeSchema,
 } from './prizes.schema.js';
+
+function resolvePrizeTypeForCampaign(
+  drawMode: CampaignDrawMode,
+  requested?: PrizeCategory,
+): PrizeCategory {
+  if (drawMode === CampaignDrawMode.SINGLE_WINNER) {
+    if (requested === PrizeCategory.MAIN) {
+      throw new ConflictError(
+        'En campañas de ganador único, los sorteos adicionales deben ser de tipo Sorteo Flash.',
+      );
+    }
+    return PrizeCategory.FLASH;
+  }
+  return requested ?? PrizeCategory.MAIN;
+}
+
+function buildEligibilityData(input: {
+  minOrderAmount?: number | null;
+  amountScope?: PrizeAmountScope;
+  minTickets?: number | null;
+  purchaseFrom?: string | null;
+  purchaseUntil?: string | null;
+  requiredComboId?: string | null;
+  orderChannel?: z.infer<typeof createPrizeSchema>['orderChannel'];
+  drawWeightMode?: PrizeDrawWeightMode;
+}) {
+  const purchaseFrom = input.purchaseFrom ? new Date(input.purchaseFrom) : null;
+  const purchaseUntil = input.purchaseUntil ? new Date(input.purchaseUntil) : null;
+  if (purchaseFrom && purchaseUntil && purchaseUntil <= purchaseFrom) {
+    throw new ValidationError('La fecha de cierre de la ventana de compra debe ser posterior al inicio.');
+  }
+
+  return {
+    minOrderAmount: input.minOrderAmount ?? null,
+    amountScope: input.amountScope ?? PrizeAmountScope.PER_ORDER,
+    minTickets: input.minTickets ?? null,
+    purchaseFrom,
+    purchaseUntil,
+    requiredComboId: input.requiredComboId?.trim() || null,
+    orderChannel: input.orderChannel ?? null,
+    drawWeightMode: input.drawWeightMode ?? PrizeDrawWeightMode.PER_TICKET,
+  };
+}
+
+async function getExcludedOrderIds(
+  campaignId: string,
+  currentPrizeId: string,
+  allowDuplicateOrder: boolean,
+): Promise<string[]> {
+  if (allowDuplicateOrder) return [];
+  const priorWins = await prisma.campaignPrize.findMany({
+    where: {
+      campaignId,
+      id: { not: currentPrizeId },
+      winningOrderId: { not: null },
+    },
+    select: { winningOrderId: true },
+  });
+  return priorWins.map((w) => w.winningOrderId).filter((id): id is string => Boolean(id));
+}
 
 export async function createCampaignPrizes(
   input: z.infer<typeof createPrizeSchema>,
@@ -30,15 +101,12 @@ export async function createCampaignPrizes(
   if (!campaign) {
     throw new NotFoundError('Campaña no encontrada');
   }
-  if (campaign.drawMode !== CampaignDrawMode.MULTI_PRIZE) {
-    throw new ConflictError(
-      'Esta campaña es de sorteo único; cambiá la modalidad a múltiples premios para agregar sorteos individuales.',
-    );
-  }
   if (isCampaignEditLocked(campaign.status)) {
     throw new ConflictError('No se pueden agregar premios a una campaña cerrada o completada');
   }
 
+  const prizeType = resolvePrizeTypeForCampaign(campaign.drawMode, input.prizeType);
+  const eligibilityData = buildEligibilityData(input);
   const quantity = input.quantity ?? 1;
   const startPosition = input.position > 0 ? input.position : campaign._count.prizes;
   const drawAtDate = input.drawAt ? new Date(input.drawAt) : null;
@@ -51,9 +119,11 @@ export async function createCampaignPrizes(
       const prize = await tx.campaignPrize.create({
         data: {
           campaignId: input.campaignId,
+          prizeType,
           name: prizeName,
           description: input.description,
           estimatedValue: input.estimatedValue ?? null,
+          ...eligibilityData,
           imageKey: input.imageKey ?? null,
           position: startPosition + i,
           drawAt: drawAtDate,
@@ -72,9 +142,89 @@ export async function createCampaignPrizes(
     entityId: created[0]!.id,
     metadata: {
       campaignId: input.campaignId,
+      prizeType,
       count: created.length,
       name: input.name,
       drawReference,
+    },
+  });
+
+  return created;
+}
+
+export async function createDailyPrizeSeries(
+  input: z.infer<typeof createDailyPrizeSeriesSchema>,
+  actorId: string,
+) {
+  const campaign = await prisma.campaign.findUnique({
+    where: { id: input.campaignId },
+    select: { id: true, status: true, drawMode: true, _count: { select: { prizes: true } } },
+  });
+  if (!campaign) {
+    throw new NotFoundError('Campaña no encontrada');
+  }
+  if (isCampaignEditLocked(campaign.status)) {
+    throw new ConflictError('No se pueden agregar premios a una campaña cerrada o completada');
+  }
+
+  const prizeType = resolvePrizeTypeForCampaign(campaign.drawMode, input.prizeType);
+  const eligibilityData = buildEligibilityData(input);
+
+  const startMs = new Date(`${input.startDate}T00:00:00-06:00`).getTime();
+  const endMs = new Date(`${input.endDate}T00:00:00-06:00`).getTime();
+  if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) {
+    throw new ValidationError('La fecha final debe ser igual o posterior a la fecha inicial');
+  }
+
+  const totalDays = Math.floor((endMs - startMs) / 86_400_000) + 1;
+  if (totalDays > 60) {
+    throw new ValidationError('Máximo 60 sorteos diarios por serie');
+  }
+
+  const drawReference = input.drawReference?.trim() || null;
+  const startPosition = campaign._count.prizes;
+
+  const created = await prisma.$transaction(async (tx) => {
+    const rows = [];
+    for (let i = 0; i < totalDays; i += 1) {
+      const dayUtc = new Date(startMs + i * 86_400_000);
+      // Reconstruir YYYY-MM-DD en CR (UTC-6)
+      const crDate = new Date(dayUtc.getTime() - 6 * 3600_000);
+      const yyyy = crDate.getUTCFullYear();
+      const mm = String(crDate.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(crDate.getUTCDate()).padStart(2, '0');
+      const drawAt = new Date(`${yyyy}-${mm}-${dd}T${input.drawTime}:00-06:00`);
+      const prize = await tx.campaignPrize.create({
+        data: {
+          campaignId: input.campaignId,
+          prizeType,
+          name: `${input.name} (${dd}/${mm})`,
+          description: input.description,
+          estimatedValue: input.estimatedValue ?? null,
+          ...eligibilityData,
+          position: startPosition + i,
+          drawAt,
+          drawReference,
+        },
+      });
+      rows.push(prize);
+    }
+    return rows;
+  });
+
+  await recordAuditLog({
+    actorId,
+    action: 'PRIZES_DAILY_SERIES_CREATED',
+    entityType: 'CampaignPrize',
+    entityId: created[0]!.id,
+    metadata: {
+      campaignId: input.campaignId,
+      prizeType,
+      count: created.length,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      drawTime: input.drawTime,
+      minOrderAmount: input.minOrderAmount ?? null,
     },
   });
 
@@ -103,6 +253,20 @@ export async function updateCampaignPrize(
       ...(input.name !== undefined ? { name: input.name } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
       ...(input.estimatedValue !== undefined ? { estimatedValue: input.estimatedValue } : {}),
+      ...(input.minOrderAmount !== undefined ? { minOrderAmount: input.minOrderAmount } : {}),
+      ...(input.amountScope !== undefined ? { amountScope: input.amountScope } : {}),
+      ...(input.minTickets !== undefined ? { minTickets: input.minTickets } : {}),
+      ...(input.purchaseFrom !== undefined
+        ? { purchaseFrom: input.purchaseFrom ? new Date(input.purchaseFrom) : null }
+        : {}),
+      ...(input.purchaseUntil !== undefined
+        ? { purchaseUntil: input.purchaseUntil ? new Date(input.purchaseUntil) : null }
+        : {}),
+      ...(input.requiredComboId !== undefined
+        ? { requiredComboId: input.requiredComboId?.trim() || null }
+        : {}),
+      ...(input.orderChannel !== undefined ? { orderChannel: input.orderChannel } : {}),
+      ...(input.drawWeightMode !== undefined ? { drawWeightMode: input.drawWeightMode } : {}),
       ...(input.imageKey !== undefined ? { imageKey: input.imageKey } : {}),
       ...(input.position !== undefined ? { position: input.position } : {}),
       ...(input.drawAt !== undefined
@@ -155,10 +319,34 @@ function assertPrizeDrawTimeReached(drawAt: Date | null): void {
   }
 }
 
-async function syncMultiPrizeCampaignStatus(
+function assertPrizeEvaluatable(prize: {
+  prizeType: PrizeCategory;
+  drawAt: Date | null;
+  campaign: { drawMode: CampaignDrawMode; status: CampaignStatus };
+}): void {
+  if (
+    prize.campaign.drawMode !== CampaignDrawMode.MULTI_PRIZE &&
+    prize.prizeType !== PrizeCategory.FLASH
+  ) {
+    throw new ConflictError('Esta campaña es de sorteo único; evaluá el ganador único global.');
+  }
+  if (isCampaignEvaluationClosed(prize.campaign.status)) {
+    throw new ConflictError('No se puede evaluar una campaña ya completada o cancelada');
+  }
+  assertPrizeDrawTimeReached(prize.drawAt);
+}
+
+async function syncCampaignStatusAfterPrizeEvaluation(
   campaignId: string,
+  drawMode: CampaignDrawMode,
   currentStatus: CampaignStatus,
+  campaignEndAt: Date,
 ): Promise<void> {
+  // En campañas SINGLE_WINNER los sorteos FLASH son dinámicas intermedias: nunca cierran la campaña principal.
+  if (drawMode !== CampaignDrawMode.MULTI_PRIZE) {
+    return;
+  }
+
   const pendingPrizes = await prisma.campaignPrize.count({
     where: { campaignId, winnerEvaluatedAt: null },
   });
@@ -173,12 +361,56 @@ async function syncMultiPrizeCampaignStatus(
     return;
   }
 
-  if (currentStatus === CampaignStatus.ACTIVE) {
+  // Si aún quedan premios pendientes y las ventas siguen abiertas (endAt > now),
+  // la campaña se mantiene ACTIVE para no interrumpir compras durante sorteos diarios.
+  if (currentStatus === CampaignStatus.ACTIVE && campaignEndAt <= new Date()) {
     await prisma.campaign.update({
       where: { id: campaignId },
       data: { status: CampaignStatus.CLOSED },
     });
   }
+}
+
+export async function getPrizeEligibleSummary(
+  prizeId: string,
+  allowDuplicateOrder = false,
+) {
+  const prize = await prisma.campaignPrize.findUnique({
+    where: { id: prizeId },
+    select: {
+      id: true,
+      campaignId: true,
+      minOrderAmount: true,
+      amountScope: true,
+      minTickets: true,
+      purchaseFrom: true,
+      purchaseUntil: true,
+      requiredComboId: true,
+      orderChannel: true,
+      drawWeightMode: true,
+    },
+  });
+
+  if (!prize) {
+    throw new NotFoundError('Premio o sorteo no encontrado');
+  }
+
+  const excludedOrderIds = await getExcludedOrderIds(
+    prize.campaignId,
+    prize.id,
+    allowDuplicateOrder,
+  );
+  const pool = await getPrizeEligibilityPool(prize, excludedOrderIds);
+
+  return {
+    prizeId: prize.id,
+    totalConfirmedCount: pool.totalConfirmedCount,
+    eligibleTicketsCount: pool.eligibleParticipations.length,
+    eligibleCustomersCount: pool.eligibleCustomers.length,
+    excludedCount: pool.excludedCount,
+    drawWeightMode: prize.drawWeightMode,
+    eligibleCustomers: pool.eligibleCustomers.slice(0, 100),
+  };
 }
 
 export async function evaluatePrizeWinner(
@@ -190,7 +422,14 @@ export async function evaluatePrizeWinner(
     where: { id: prizeId },
     include: {
       campaign: {
-        select: { id: true, title: true, totalFichas: true, status: true, drawMode: true },
+        select: {
+          id: true,
+          title: true,
+          totalFichas: true,
+          status: true,
+          drawMode: true,
+          endAt: true,
+        },
       },
     },
   });
@@ -198,14 +437,7 @@ export async function evaluatePrizeWinner(
   if (!prize) {
     throw new NotFoundError('Premio o sorteo no encontrado');
   }
-  if (prize.campaign.drawMode !== CampaignDrawMode.MULTI_PRIZE) {
-    throw new ConflictError('Esta campaña es de sorteo único; evaluá el ganador único global.');
-  }
-  if (isCampaignEvaluationClosed(prize.campaign.status)) {
-    throw new ConflictError('No se puede evaluar una campaña ya completada o cancelada');
-  }
-
-  assertPrizeDrawTimeReached(prize.drawAt);
+  assertPrizeEvaluatable(prize);
 
   const digits = getCampaignNumberDigits(prize.campaign.totalFichas);
   const rawNumber = input.winningNumber.trim();
@@ -238,27 +470,47 @@ export async function evaluatePrizeWinner(
         select: {
           id: true,
           publicReference: true,
+          customerId: true,
           totalAmount: true,
           confirmedAt: true,
-          customer: { select: { fullName: true, email: true, phone: true } },
-          items: { select: { comboNameSnapshot: true } },
+          createdAt: true,
+          channel: true,
+          customer: { select: { id: true, fullName: true, email: true, phone: true } },
+          items: {
+            select: { comboId: true, comboNameSnapshot: true, fichaQuantitySnapshot: true },
+          },
         },
       },
     },
   });
 
-  if (match?.order && !input.allowDuplicateOrder) {
-    const priorWin = await prisma.campaignPrize.findFirst({
-      where: {
-        campaignId: prize.campaignId,
-        id: { not: prize.id },
-        winningOrderId: match.order.id,
-      },
-      select: { name: true, winningNumber: true },
-    });
-    if (priorWin) {
+  if (match?.order) {
+    const excludedOrderIds = await getExcludedOrderIds(
+      prize.campaignId,
+      prize.id,
+      Boolean(input.allowDuplicateOrder),
+    );
+    const rules: PrizeEligibilityRules = prize;
+    const customerAggregates =
+      prize.amountScope === PrizeAmountScope.CUSTOMER_TOTAL
+        ? buildCustomerAggregates(
+            (await getPrizeEligibilityPool(rules, [])).eligibleParticipations
+              .map((p) => p.order)
+              .filter((o): o is OrderForEligibility => Boolean(o)),
+            rules,
+          )
+        : new Map();
+
+    const ineligibilityReason = getOrderIneligibilityReason(
+      match.order as OrderForEligibility,
+      rules,
+      customerAggregates,
+      new Set(excludedOrderIds),
+    );
+
+    if (ineligibilityReason) {
       throw new ConflictError(
-        `El pedido ${match.order.publicReference} ya resultó ganador en "${priorWin.name}" (número ${priorWin.winningNumber}). Marcá "Permitir ganador repetido" si las reglas de la campaña lo autorizan.`,
+        `El número ${rawNumber} (pedido ${match.order.publicReference}) no es elegible para este premio: ${ineligibilityReason}.`,
       );
     }
   }
@@ -276,7 +528,12 @@ export async function evaluatePrizeWinner(
     },
   });
 
-  await syncMultiPrizeCampaignStatus(prize.campaignId, prize.campaign.status);
+  await syncCampaignStatusAfterPrizeEvaluation(
+    prize.campaignId,
+    prize.campaign.drawMode,
+    prize.campaign.status,
+    prize.campaign.endAt,
+  );
 
   await recordAuditLog({
     actorId,
@@ -324,7 +581,14 @@ export async function drawRandomPrizeWinner(
     where: { id: prizeId },
     include: {
       campaign: {
-        select: { id: true, title: true, totalFichas: true, status: true, drawMode: true },
+        select: {
+          id: true,
+          title: true,
+          totalFichas: true,
+          status: true,
+          drawMode: true,
+          endAt: true,
+        },
       },
     },
   });
@@ -332,62 +596,27 @@ export async function drawRandomPrizeWinner(
   if (!prize) {
     throw new NotFoundError('Premio o sorteo no encontrado');
   }
-  if (prize.campaign.drawMode !== CampaignDrawMode.MULTI_PRIZE) {
-    throw new ConflictError('Esta campaña es de sorteo único; evaluá el ganador único global.');
-  }
-  if (isCampaignEvaluationClosed(prize.campaign.status)) {
-    throw new ConflictError('No se puede evaluar una campaña ya completada o cancelada');
-  }
+  assertPrizeEvaluatable(prize);
 
-  assertPrizeDrawTimeReached(prize.drawAt);
+  const excludedOrderIds = await getExcludedOrderIds(
+    prize.campaignId,
+    prize.id,
+    Boolean(input.allowDuplicateOrder),
+  );
+  const eligibilityPool = await getPrizeEligibilityPool(prize, excludedOrderIds);
 
-  let excludedOrderIds: string[] = [];
-  if (!input.allowDuplicateOrder) {
-    const priorWins = await prisma.campaignPrize.findMany({
-      where: {
-        campaignId: prize.campaignId,
-        id: { not: prize.id },
-        winningOrderId: { not: null },
-      },
-      select: { winningOrderId: true },
-    });
-    excludedOrderIds = priorWins
-      .map((w) => w.winningOrderId)
-      .filter((id): id is string => Boolean(id));
-  }
-
-  const eligibleParticipations = await prisma.participation.findMany({
-    where: {
-      campaignId: prize.campaignId,
-      status: ParticipationStatus.CONFIRMED,
-      ...(excludedOrderIds.length > 0 ? { orderId: { notIn: excludedOrderIds } } : {}),
-    },
-    include: {
-      order: {
-        select: {
-          id: true,
-          publicReference: true,
-          totalAmount: true,
-          confirmedAt: true,
-          customer: { select: { fullName: true, email: true, phone: true } },
-          items: { select: { comboNameSnapshot: true } },
-        },
-      },
-    },
-  });
-
-  if (eligibleParticipations.length === 0) {
+  if (eligibilityPool.drawPool.length === 0) {
     throw new ConflictError(
       excludedOrderIds.length > 0
-        ? 'No quedan fichas confirmadas elegibles sin haber ganado otro premio. Activá "Permitir ganador repetido" si aplica.'
-        : 'No hay fichas confirmadas en esta campaña para sortear.',
+        ? 'No quedan fichas ni participantes elegibles con los criterios configurados. Revisá las reglas o activá "Permitir ganador repetido" si aplica.'
+        : 'No hay fichas confirmadas que cumplan los criterios de elegibilidad para este sorteo.',
     );
   }
 
-  const selected = eligibleParticipations[crypto.randomInt(0, eligibleParticipations.length)]!;
+  const selected = eligibilityPool.drawPool[crypto.randomInt(0, eligibilityPool.drawPool.length)]!;
   const digits = getCampaignNumberDigits(prize.campaign.totalFichas);
   const evaluatedAt = new Date();
-  const notes = input.notes?.trim() || 'Sorteo aleatorio entre fichas confirmadas';
+  const notes = input.notes?.trim() || 'Sorteo aleatorio entre participantes elegibles';
 
   await prisma.campaignPrize.update({
     where: { id: prizeId },
@@ -399,7 +628,12 @@ export async function drawRandomPrizeWinner(
     },
   });
 
-  await syncMultiPrizeCampaignStatus(prize.campaignId, prize.campaign.status);
+  await syncCampaignStatusAfterPrizeEvaluation(
+    prize.campaignId,
+    prize.campaign.drawMode,
+    prize.campaign.status,
+    prize.campaign.endAt,
+  );
 
   await recordAuditLog({
     actorId,
@@ -409,9 +643,12 @@ export async function drawRandomPrizeWinner(
     metadata: {
       campaignId: prize.campaignId,
       prizeName: prize.name,
+      prizeType: prize.prizeType,
       drawReference: prize.drawReference,
       winningNumber: selected.number,
-      eligiblePoolSize: eligibleParticipations.length,
+      eligibleTicketsCount: eligibilityPool.eligibleParticipations.length,
+      eligibleCustomersCount: eligibilityPool.eligibleCustomers.length,
+      drawWeightMode: prize.drawWeightMode,
       orderReference: selected.order?.publicReference ?? null,
     },
   });
@@ -456,7 +693,7 @@ export async function resetPrizeEvaluation(prizeId: string, actorId: string) {
       winningNumber: true,
       winningOrderId: true,
       winnerEvaluatedAt: true,
-      campaign: { select: { status: true } },
+      campaign: { select: { status: true, drawMode: true } },
     },
   });
 
@@ -478,7 +715,10 @@ export async function resetPrizeEvaluation(prizeId: string, actorId: string) {
     },
   });
 
-  if (prize.campaign.status === CampaignStatus.COMPLETED) {
+  if (
+    prize.campaign.drawMode === CampaignDrawMode.MULTI_PRIZE &&
+    prize.campaign.status === CampaignStatus.COMPLETED
+  ) {
     await prisma.campaign.update({
       where: { id: prize.campaignId },
       data: { status: CampaignStatus.CLOSED },

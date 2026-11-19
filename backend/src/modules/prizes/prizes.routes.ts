@@ -3,6 +3,7 @@ import type { z } from 'zod';
 import { requireAdminAuth } from '../../middlewares/authAdmin.js';
 import { validate } from '../../middlewares/validate.js';
 import {
+  createDailyPrizeSeriesSchema,
   createPrizeSchema,
   drawRandomPrizeWinnerSchema,
   evaluatePrizeWinnerSchema,
@@ -11,9 +12,11 @@ import {
 } from './prizes.schema.js';
 import {
   createCampaignPrizes,
+  createDailyPrizeSeries,
   deleteCampaignPrize,
   drawRandomPrizeWinner,
   evaluatePrizeWinner,
+  getPrizeEligibleSummary,
   notifyPrizeWinnerByEmail,
   resetPrizeEvaluation,
   updateCampaignPrize,
@@ -32,6 +35,23 @@ adminPrizesRouter.post(
       res.status(201).json({
         success: true,
         data: { prize: prizes[0], prizes },
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+adminPrizesRouter.post(
+  '/batch-daily',
+  validate({ body: createDailyPrizeSeriesSchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = req.body as z.infer<typeof createDailyPrizeSeriesSchema>;
+      const prizes = await createDailyPrizeSeries(data, req.admin!.id);
+      res.status(201).json({
+        success: true,
+        data: { prizes, count: prizes.length },
       });
     } catch (error) {
       next(error);
@@ -60,6 +80,20 @@ adminPrizesRouter.delete(
     try {
       await deleteCampaignPrize(req.params.id, req.admin!.id);
       res.status(200).json({ success: true, data: { deleted: true } });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+adminPrizesRouter.get(
+  '/:id/eligible-summary',
+  validate({ params: prizeIdSchema }),
+  async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+    try {
+      const allowDuplicateOrder = req.query.allowDuplicateOrder === 'true';
+      const summary = await getPrizeEligibleSummary(req.params.id, allowDuplicateOrder);
+      res.status(200).json({ success: true, data: { summary } });
     } catch (error) {
       next(error);
     }

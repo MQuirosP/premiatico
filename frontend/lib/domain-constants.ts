@@ -55,6 +55,31 @@ export const DIGITAL_PASS_KIND = {
 } as const;
 export type DigitalPassKind = (typeof DIGITAL_PASS_KIND)[keyof typeof DIGITAL_PASS_KIND];
 
+export const PRIZE_CATEGORY = {
+  MAIN: 'MAIN',
+  FLASH: 'FLASH',
+} as const;
+export type PrizeCategory = (typeof PRIZE_CATEGORY)[keyof typeof PRIZE_CATEGORY];
+
+export const PRIZE_AMOUNT_SCOPE = {
+  PER_ORDER: 'PER_ORDER',
+  CUSTOMER_TOTAL: 'CUSTOMER_TOTAL',
+} as const;
+export type PrizeAmountScope = (typeof PRIZE_AMOUNT_SCOPE)[keyof typeof PRIZE_AMOUNT_SCOPE];
+
+export const PRIZE_DRAW_WEIGHT_MODE = {
+  PER_TICKET: 'PER_TICKET',
+  PER_CUSTOMER: 'PER_CUSTOMER',
+} as const;
+export type PrizeDrawWeightMode =
+  (typeof PRIZE_DRAW_WEIGHT_MODE)[keyof typeof PRIZE_DRAW_WEIGHT_MODE];
+
+export const ORDER_CHANNEL = {
+  WEB: 'WEB',
+  PARTNER: 'PARTNER',
+} as const;
+export type OrderChannel = (typeof ORDER_CHANNEL)[keyof typeof ORDER_CHANNEL];
+
 export const CAMPAIGN_STATUS_META: Record<CampaignStatus, { label: string; className: string }> = {
   DRAFT: { label: 'Borrador', className: 'bg-slate-100 text-slate-700' },
   ACTIVE: { label: 'Activa', className: 'bg-emerald-100 text-emerald-800' },

@@ -3,6 +3,7 @@
 import { Clock, Flame } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getCampaignTheme } from '@/lib/campaign-themes';
+import type { CampaignPrize } from '@/types/campaign';
 
 interface TimeLeft {
   days: number;
@@ -34,14 +35,25 @@ export function CampaignCountdown({
   drawAt,
   drawReference,
   themeColor,
+  countdownTitle,
+  prizes,
 }: {
   endAt: string;
   drawAt?: string | null;
   drawReference?: string | null;
   themeColor?: string | null;
+  countdownTitle?: string | null;
+  prizes?: CampaignPrize[];
 }) {
   const theme = getCampaignTheme(themeColor);
-  const targetAt = drawAt || endAt;
+  const nowMs = Date.now();
+  const nextUpcomingPrize = (prizes ?? [])
+    .filter((p) => !p.winnerEvaluatedAt && p.drawAt && new Date(p.drawAt).getTime() > nowMs)
+    .sort((a, b) => new Date(a.drawAt!).getTime() - new Date(b.drawAt!).getTime())[0];
+
+  const targetAt = nextUpcomingPrize?.drawAt || drawAt || endAt;
+  const effectiveDrawDate = nextUpcomingPrize?.drawAt || drawAt;
+  const effectiveDrawRef = nextUpcomingPrize?.drawReference || drawReference;
   const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(null);
 
   useEffect(() => {
@@ -76,6 +88,11 @@ export function CampaignCountdown({
             </span>
             {timeLeft?.expired ? (
               <span>Campaña finalizada</span>
+            ) : countdownTitle?.trim() ? (
+              <span className="inline-flex items-center gap-1">
+                <Flame className={`h-3.5 w-3.5 ${theme.countdownIconColor}`} />
+                {countdownTitle.trim()}
+              </span>
             ) : isUrgent ? (
               <span className="inline-flex items-center gap-1">
                 <Flame className={`h-3.5 w-3.5 ${theme.countdownIconColor}`} />
@@ -89,10 +106,15 @@ export function CampaignCountdown({
             )}
           </div>
 
-          {drawAt || drawReference ? (
+          {effectiveDrawDate || effectiveDrawRef ? (
             <p className={`text-xs ${theme.countdownSubText}`}>
-              {drawAt ? `Juega el ${new Date(drawAt).toLocaleDateString('es-CR')}` : 'Sorteo'}
-              {drawReference ? ` · ${drawReference}` : ''}
+              {effectiveDrawDate
+                ? `Juega el ${new Date(effectiveDrawDate).toLocaleString('es-CR', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}`
+                : 'Sorteo'}
+              {effectiveDrawRef ? ` · ${effectiveDrawRef}` : ''}
             </p>
           ) : null}
         </div>

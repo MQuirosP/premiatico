@@ -127,6 +127,8 @@ function CampaignDetailContent() {
                 drawAt={campaign.drawAt}
                 drawReference={campaign.drawReference}
                 themeColor={campaign.themeColor}
+                countdownTitle={campaign.countdownTitle}
+                prizes={campaign.prizes}
               />
 
               <CampaignProgressBar progress={campaign.progress} />

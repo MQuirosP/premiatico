@@ -25,6 +25,21 @@ enum CampaignDrawMode {
   MULTI_PRIZE
 }
 
+enum PrizeCategory {
+  MAIN
+  FLASH
+}
+
+enum PrizeAmountScope {
+  PER_ORDER
+  CUSTOMER_TOTAL
+}
+
+enum PrizeDrawWeightMode {
+  PER_TICKET
+  PER_CUSTOMER
+}
+
 enum LegalApprovalStatus {
   NOT_REQUIRED
   PENDING
@@ -108,6 +123,7 @@ model Campaign {
   maxNumberChanges       Int                 @default(5)
   enableInverseNumbers   Boolean             @default(false)
   themeColor             String              @default("classic")
+  countdownTitle         String?
   drawMode               CampaignDrawMode    @default(SINGLE_WINNER)
   reservationMinutes     Int                 @default(15)
   paymentWindowMinutes   Int                 @default(60)
@@ -148,16 +164,25 @@ model CampaignImage {
 }
 
 model CampaignPrize {
-  id                String    @id @default(cuid())
+  id                String              @id @default(cuid())
   campaignId        String
+  prizeType         PrizeCategory       @default(MAIN)
   name              String
   description       String
   estimatedValue    Int?
+  minOrderAmount    Int?
+  amountScope       PrizeAmountScope    @default(PER_ORDER)
+  minTickets        Int?
+  purchaseFrom      DateTime?
+  purchaseUntil     DateTime?
+  requiredComboId   String?
+  orderChannel      OrderChannel?
+  drawWeightMode    PrizeDrawWeightMode @default(PER_TICKET)
   imageKey          String?
-  position          Int       @default(0)
+  position          Int                 @default(0)
   drawAt            DateTime?
   drawReference     String?
-  winningNumber     String?   @db.VarChar(5)
+  winningNumber     String?             @db.VarChar(5)
   winningOrderId    String?
   winnerEvaluatedAt DateTime?
   winnerNotes       String?

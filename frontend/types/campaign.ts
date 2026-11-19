@@ -3,9 +3,22 @@ import type {
   CampaignStatus,
   DigitalPassKind,
   LegalApprovalStatus,
+  OrderChannel,
+  PrizeAmountScope,
+  PrizeCategory,
+  PrizeDrawWeightMode,
 } from '@/lib/domain-constants';
 
-export type { CampaignDrawMode, CampaignStatus, DigitalPassKind, LegalApprovalStatus };
+export type {
+  CampaignDrawMode,
+  CampaignStatus,
+  DigitalPassKind,
+  LegalApprovalStatus,
+  OrderChannel,
+  PrizeAmountScope,
+  PrizeCategory,
+  PrizeDrawWeightMode,
+};
 
 export interface CampaignProgress {
   totalFichas: number;
@@ -18,9 +31,18 @@ export interface CampaignProgress {
 export interface CampaignPrize {
   id: string;
   campaignId: string;
+  prizeType?: PrizeCategory;
   name: string;
   description: string;
   estimatedValue: number | null;
+  minOrderAmount?: number | null;
+  amountScope?: PrizeAmountScope;
+  minTickets?: number | null;
+  purchaseFrom?: string | null;
+  purchaseUntil?: string | null;
+  requiredComboId?: string | null;
+  orderChannel?: OrderChannel | null;
+  drawWeightMode?: PrizeDrawWeightMode;
   imageKey: string | null;
   position: number;
   drawAt?: string | null;
@@ -77,6 +99,7 @@ export interface PublicCampaign {
   maxNumberChanges: number;
   enableInverseNumbers: boolean;
   themeColor?: string;
+  countdownTitle?: string | null;
   drawMode?: CampaignDrawMode;
   reservationMinutes: number;
   terms: string;

@@ -14,71 +14,156 @@ import {
   Share2,
   Trash2,
   Trophy,
+  Users,
 } from 'lucide-react';
 import { useState } from 'react';
 import { ApiError } from '@/lib/api';
-import { isCampaignReadOnly } from '@/lib/domain-constants';
+import {
+  CAMPAIGN_DRAW_MODE,
+  ORDER_CHANNEL,
+  PRIZE_AMOUNT_SCOPE,
+  PRIZE_CATEGORY,
+  PRIZE_DRAW_WEIGHT_MODE,
+  isCampaignReadOnly,
+  type CampaignDrawMode,
+  type OrderChannel,
+  type PrizeAmountScope,
+  type PrizeDrawWeightMode,
+} from '@/lib/domain-constants';
 import { formatCRC } from '@/lib/utils';
 import {
+  createAdminDailyPrizeSeries,
   createAdminPrizes,
   deleteAdminPrize,
   drawRandomAdminPrizeWinner,
   evaluateAdminPrizeWinner,
+  getAdminPrizeEligibleSummary,
   notifyAdminPrizeWinnerEmail,
   resetAdminPrizeEvaluation,
   type AdminCampaignPrize,
+  type PrizeEligibleSummary,
 } from '@/services/campaigns';
+
+const PRIZE_CREATE_MODE = {
+  SINGLE: 'SINGLE',
+  DAILY_SERIES: 'DAILY_SERIES',
+} as const;
+
+type PrizeCreateMode = (typeof PRIZE_CREATE_MODE)[keyof typeof PRIZE_CREATE_MODE];
 
 interface CampaignPrizesPanelProps {
   campaignId: string;
   campaignStatus: string;
+  drawMode?: CampaignDrawMode;
   digits: number;
   maxNumberLabel: string;
   prizes: AdminCampaignPrize[];
+  combos?: Array<{ id: string; name: string }>;
 }
 
 export function CampaignPrizesPanel({
   campaignId,
   campaignStatus,
+  drawMode = CAMPAIGN_DRAW_MODE.MULTI_PRIZE,
   digits,
   maxNumberLabel,
   prizes,
+  combos = [],
 }: CampaignPrizesPanelProps) {
+  const isSingleWinnerCampaign = drawMode === CAMPAIGN_DRAW_MODE.SINGLE_WINNER;
   const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
+  const [createMode, setCreateMode] = useState<PrizeCreateMode>(PRIZE_CREATE_MODE.SINGLE);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [estimatedValue, setEstimatedValue] = useState('');
+  const [minOrderAmount, setMinOrderAmount] = useState('');
+  const [amountScope, setAmountScope] = useState<PrizeAmountScope>(PRIZE_AMOUNT_SCOPE.PER_ORDER);
+  const [minTickets, setMinTickets] = useState('');
+  const [purchaseFrom, setPurchaseFrom] = useState('');
+  const [purchaseUntil, setPurchaseUntil] = useState('');
+  const [requiredComboId, setRequiredComboId] = useState('');
+  const [orderChannel, setOrderChannel] = useState<OrderChannel | ''>('');
+  const [drawWeightMode, setDrawWeightMode] = useState<PrizeDrawWeightMode>(
+    PRIZE_DRAW_WEIGHT_MODE.PER_TICKET,
+  );
+  const [showAdvancedRules, setShowAdvancedRules] = useState(false);
   const [drawReference, setDrawReference] = useState('');
   const [drawAt, setDrawAt] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [drawTime, setDrawTime] = useState('19:30');
 
   const [activePrizeId, setActivePrizeId] = useState<string | null>(null);
   const [winningNumber, setWinningNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [allowDuplicateOrder, setAllowDuplicateOrder] = useState(false);
+  const [eligiblePreview, setEligiblePreview] = useState<PrizeEligibleSummary | null>(null);
 
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ['admin-campaign-detail', campaignId] });
 
+  const resetPrizeForm = () => {
+    setShowAddForm(false);
+    setName('');
+    setDescription('');
+    setEstimatedValue('');
+    setMinOrderAmount('');
+    setAmountScope(PRIZE_AMOUNT_SCOPE.PER_ORDER);
+    setMinTickets('');
+    setPurchaseFrom('');
+    setPurchaseUntil('');
+    setRequiredComboId('');
+    setOrderChannel('');
+    setDrawWeightMode(PRIZE_DRAW_WEIGHT_MODE.PER_TICKET);
+    setShowAdvancedRules(false);
+    setDrawReference('');
+    setDrawAt('');
+    setQuantity(1);
+    setStartDate('');
+    setEndDate('');
+    setDrawTime('19:30');
+    setErrorMsg(null);
+  };
+
+  const previewEligibleMutation = useMutation({
+    mutationFn: (payload: { prizeId: string; allowDuplicateOrder: boolean }) =>
+      getAdminPrizeEligibleSummary(payload.prizeId, payload.allowDuplicateOrder),
+    onSuccess: (summary) => {
+      setEligiblePreview(summary);
+      setErrorMsg(null);
+    },
+    onError: (err) => {
+      setErrorMsg(
+        err instanceof ApiError ? err.message : 'No se pudo calcular la lista de elegibles',
+      );
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: createAdminPrizes,
     onSuccess: () => {
-      setShowAddForm(false);
-      setName('');
-      setDescription('');
-      setEstimatedValue('');
-      setDrawReference('');
-      setDrawAt('');
-      setQuantity(1);
-      setErrorMsg(null);
+      resetPrizeForm();
       void refresh();
     },
     onError: (err) => {
       setErrorMsg(err instanceof ApiError ? err.message : 'No se pudieron crear los premios');
+    },
+  });
+
+  const createDailySeriesMutation = useMutation({
+    mutationFn: createAdminDailyPrizeSeries,
+    onSuccess: (res) => {
+      resetPrizeForm();
+      setStatusMsg(`Se creó la serie diaria con ${res.count} premios.`);
+      void refresh();
+    },
+    onError: (err) => {
+      setErrorMsg(err instanceof ApiError ? err.message : 'No se pudo crear la serie diaria');
     },
   });
 
@@ -270,7 +355,9 @@ export function CampaignPrizesPanel({
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Award className="h-4 w-4 text-amber-500" />
-              Premios y sorteos individuales ({prizes.length})
+              {isSingleWinnerCampaign
+                ? `Sorteos Flash / Dinámicas (${prizes.length})`
+                : `Premios y sorteos individuales (${prizes.length})`}
             </h2>
             {prizes.length > 0 ? (
               <span
@@ -285,11 +372,21 @@ export function CampaignPrizesPanel({
             ) : null}
           </div>
           <p className="text-xs text-slate-500">
-            Creá uno o varios sorteos dentro de la campaña (ej. 6 de Nacional + 6 de Tiempos) y
-            evaluá cada ganador por separado con números de <strong>{digits} dígitos</strong> (
-            <span className="font-mono">{'0'.repeat(digits)}</span> –{' '}
-            <span className="font-mono">{maxNumberLabel}</span>). Al evaluar todos, la campaña se
-            marca como completada.
+            {isSingleWinnerCampaign ? (
+              <>
+                Agregá sorteos flash o dinámicas paralelas (por monto mínimo, acumulado, ventana de
+                compra o combo) sin cerrar ni afectar el sorteo principal de{' '}
+                <strong>{digits} dígitos</strong>.
+              </>
+            ) : (
+              <>
+                Creá uno o varios sorteos dentro de la campaña (ej. 6 de Nacional + 6 de Tiempos) y
+                evaluá cada ganador por separado con números de <strong>{digits} dígitos</strong> (
+                <span className="font-mono">{'0'.repeat(digits)}</span> –{' '}
+                <span className="font-mono">{maxNumberLabel}</span>). Al evaluar todos, la campaña
+                se marca como completada.
+              </>
+            )}
           </p>
         </div>
         {canDelete ? (
@@ -299,7 +396,7 @@ export function CampaignPrizesPanel({
             className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-700 whitespace-nowrap"
           >
             <Plus className="h-3.5 w-3.5" />
-            Agregar premios / sorteos
+            {isSingleWinnerCampaign ? 'Agregar sorteo flash' : 'Agregar premios / sorteos'}
           </button>
         ) : null}
       </div>
@@ -320,18 +417,79 @@ export function CampaignPrizesPanel({
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            const parsedMinOrderAmount = minOrderAmount ? Number(minOrderAmount) : null;
+            const parsedEstimatedValue = estimatedValue ? Number(estimatedValue) : null;
+            const eligibilityPayload = {
+              prizeType: isSingleWinnerCampaign ? PRIZE_CATEGORY.FLASH : PRIZE_CATEGORY.MAIN,
+              minOrderAmount: parsedMinOrderAmount,
+              amountScope,
+              minTickets: minTickets ? Number(minTickets) : null,
+              purchaseFrom: purchaseFrom ? new Date(purchaseFrom).toISOString() : null,
+              purchaseUntil: purchaseUntil ? new Date(purchaseUntil).toISOString() : null,
+              requiredComboId: requiredComboId || null,
+              orderChannel: orderChannel || null,
+              drawWeightMode,
+            };
+
+            if (createMode === PRIZE_CREATE_MODE.DAILY_SERIES) {
+              createDailySeriesMutation.mutate({
+                campaignId,
+                name,
+                description,
+                estimatedValue: parsedEstimatedValue,
+                drawReference: drawReference.trim() || null,
+                startDate,
+                endDate,
+                drawTime,
+                ...eligibilityPayload,
+              });
+              return;
+            }
+
             createMutation.mutate({
               campaignId,
               name,
               description,
-              estimatedValue: estimatedValue ? Number(estimatedValue) : null,
+              estimatedValue: parsedEstimatedValue,
               drawReference: drawReference.trim() || null,
               drawAt: drawAt ? new Date(drawAt).toISOString() : null,
               quantity,
+              ...eligibilityPayload,
             });
           }}
           className="rounded-xl border bg-slate-50 p-4 space-y-3"
         >
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setCreateMode(PRIZE_CREATE_MODE.SINGLE)}
+                className={`rounded-md px-3 py-1 font-semibold transition ${
+                  createMode === PRIZE_CREATE_MODE.SINGLE
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Premio individual / lote
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreateMode(PRIZE_CREATE_MODE.DAILY_SERIES)}
+                className={`rounded-md px-3 py-1 font-semibold transition ${
+                  createMode === PRIZE_CREATE_MODE.DAILY_SERIES
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Serie diaria por fechas
+              </button>
+            </div>
+            {createMode === PRIZE_CREATE_MODE.DAILY_SERIES ? (
+              <span className="text-[11px] text-slate-500">
+                Crea 1 premio por cada día del rango (máx. 60 días), numerado automáticamente.
+              </span>
+            ) : null}
+          </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">
@@ -356,17 +514,73 @@ export function CampaignPrizesPanel({
                 className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Fecha / hora del sorteo
-              </label>
-              <input
-                type="datetime-local"
-                value={drawAt}
-                onChange={(e) => setDrawAt(e.target.value)}
-                className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
-              />
-            </div>
+            {createMode === PRIZE_CREATE_MODE.SINGLE ? (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Fecha / hora del sorteo
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={drawAt}
+                    onChange={(e) => setDrawAt(e.target.value)}
+                    className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Cantidad a crear (lote)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={quantity}
+                    onChange={(e) => setQuantity(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
+                    className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Fecha inicio
+                  </label>
+                  <input
+                    required
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Fecha fin
+                  </label>
+                  <input
+                    required
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Hora del sorteo (CR)
+                  </label>
+                  <input
+                    required
+                    type="time"
+                    value={drawTime}
+                    onChange={(e) => setDrawTime(e.target.value)}
+                    className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+              </>
+            )}
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">
                 Monto / valor estimado (CRC)
@@ -376,20 +590,20 @@ export function CampaignPrizesPanel({
                 min={0}
                 value={estimatedValue}
                 onChange={(e) => setEstimatedValue(e.target.value)}
-                placeholder="3000000"
+                placeholder="2000000"
                 className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Cantidad a crear (lote)
+                Compra mínima para participar (CRC, opcional)
               </label>
               <input
                 type="number"
-                min={1}
-                max={50}
-                value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
+                min={0}
+                value={minOrderAmount}
+                onChange={(e) => setMinOrderAmount(e.target.value)}
+                placeholder="Ej. 8000 (vacío = cualquier monto)"
                 className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
               />
             </div>
@@ -402,9 +616,125 @@ export function CampaignPrizesPanel({
                 minLength={5}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ej. ₡3,000,000 en efectivo con la Lotería Nacional"
+                placeholder="Ej. ₡2,000,000 en efectivo con Tica Noche"
                 className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
               />
+            </div>
+
+            <div className="sm:col-span-2 lg:col-span-3">
+              <button
+                type="button"
+                onClick={() => setShowAdvancedRules((v) => !v)}
+                className="text-xs font-semibold text-blue-700 hover:underline"
+              >
+                {showAdvancedRules
+                  ? '− Ocultar criterios avanzados de elegibilidad'
+                  : '+ Configurar criterios avanzados (acumulado, ventana de compra, combo, peso)'}
+              </button>
+              {showAdvancedRules ? (
+                <div className="mt-2.5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 rounded-lg border border-slate-200 bg-white p-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Alcance del monto / fichas mínimas
+                    </label>
+                    <select
+                      value={amountScope}
+                      onChange={(e) => setAmountScope(e.target.value as PrizeAmountScope)}
+                      className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                    >
+                      <option value={PRIZE_AMOUNT_SCOPE.PER_ORDER}>Por pedido individual</option>
+                      <option value={PRIZE_AMOUNT_SCOPE.CUSTOMER_TOTAL}>
+                        Acumulado por cliente en la campaña
+                      </option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Mínimo de fichas (opcional)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={minTickets}
+                      onChange={(e) => setMinTickets(e.target.value)}
+                      placeholder="Ej. 4"
+                      className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Peso en tómbola aleatoria
+                    </label>
+                    <select
+                      value={drawWeightMode}
+                      onChange={(e) => setDrawWeightMode(e.target.value as PrizeDrawWeightMode)}
+                      className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                    >
+                      <option value={PRIZE_DRAW_WEIGHT_MODE.PER_TICKET}>
+                        1 oportunidad por ficha
+                      </option>
+                      <option value={PRIZE_DRAW_WEIGHT_MODE.PER_CUSTOMER}>
+                        1 oportunidad por cliente único
+                      </option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Compras confirmadas desde (opcional)
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={purchaseFrom}
+                      onChange={(e) => setPurchaseFrom(e.target.value)}
+                      className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Compras confirmadas hasta (opcional)
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={purchaseUntil}
+                      onChange={(e) => setPurchaseUntil(e.target.value)}
+                      className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Canal de compra (opcional)
+                    </label>
+                    <select
+                      value={orderChannel}
+                      onChange={(e) => setOrderChannel(e.target.value as OrderChannel | '')}
+                      className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="">Todos los canales</option>
+                      <option value={ORDER_CHANNEL.WEB}>Solo Web</option>
+                      <option value={ORDER_CHANNEL.PARTNER}>Solo Vendedores / POS</option>
+                    </select>
+                  </div>
+                  {combos.length > 0 ? (
+                    <div className="sm:col-span-2 lg:col-span-3">
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">
+                        Combo específico requerido (opcional)
+                      </label>
+                      <select
+                        value={requiredComboId}
+                        onChange={(e) => setRequiredComboId(e.target.value)}
+                        className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                      >
+                        <option value="">Cualquier combo</option>
+                        {combos.map((combo) => (
+                          <option key={combo.id} value={combo.id}>
+                            {combo.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -417,14 +747,16 @@ export function CampaignPrizesPanel({
             </button>
             <button
               type="submit"
-              disabled={createMutation.isPending}
+              disabled={createMutation.isPending || createDailySeriesMutation.isPending}
               className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
             >
-              {createMutation.isPending
+              {createMutation.isPending || createDailySeriesMutation.isPending
                 ? 'Creando...'
-                : quantity > 1
-                  ? `Crear ${quantity} premios`
-                  : 'Guardar premio'}
+                : createMode === PRIZE_CREATE_MODE.DAILY_SERIES
+                  ? 'Crear serie diaria'
+                  : quantity > 1
+                    ? `Crear ${quantity} premios`
+                    : 'Guardar premio'}
             </button>
           </div>
         </form>
@@ -479,6 +811,34 @@ export function CampaignPrizesPanel({
                     {prize.estimatedValue ? (
                       <span className="font-semibold text-emerald-700">
                         {formatCRC(prize.estimatedValue)}
+                      </span>
+                    ) : null}
+                    {prize.minOrderAmount && prize.minOrderAmount > 0 ? (
+                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 font-semibold text-indigo-700">
+                        Mín. {formatCRC(prize.minOrderAmount)}
+                        {prize.amountScope === PRIZE_AMOUNT_SCOPE.CUSTOMER_TOTAL
+                          ? ' (acum.)'
+                          : ''}
+                      </span>
+                    ) : null}
+                    {prize.prizeType === PRIZE_CATEGORY.FLASH ? (
+                      <span className="rounded-full bg-purple-50 px-2 py-0.5 font-semibold text-purple-700">
+                        Flash
+                      </span>
+                    ) : null}
+                    {prize.minTickets && prize.minTickets > 0 ? (
+                      <span className="rounded-full bg-sky-50 px-2 py-0.5 font-semibold text-sky-700">
+                        Mín. {prize.minTickets} fichas
+                      </span>
+                    ) : null}
+                    {prize.drawWeightMode === PRIZE_DRAW_WEIGHT_MODE.PER_CUSTOMER ? (
+                      <span className="rounded-full bg-teal-50 px-2 py-0.5 font-semibold text-teal-700">
+                        1x cliente
+                      </span>
+                    ) : null}
+                    {prize.purchaseFrom || prize.purchaseUntil ? (
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-800">
+                        Ventana de compra
                       </span>
                     ) : null}
                   </div>
@@ -739,7 +1099,28 @@ export function CampaignPrizesPanel({
                           <RotateCcw className="h-3.5 w-3.5" />
                           {resetMutation.isPending ? 'Revirtiendo...' : 'Revertir evaluación'}
                         </button>
-                      ) : null}
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={
+                            previewEligibleMutation.isPending &&
+                            previewEligibleMutation.variables?.prizeId === prize.id
+                          }
+                          onClick={() =>
+                            previewEligibleMutation.mutate({
+                              prizeId: prize.id,
+                              allowDuplicateOrder,
+                            })
+                          }
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                        >
+                          <Users className="h-3.5 w-3.5" />
+                          {previewEligibleMutation.isPending &&
+                          previewEligibleMutation.variables?.prizeId === prize.id
+                            ? 'Calculando...'
+                            : 'Ver elegibles'}
+                        </button>
+                      )}
                     </div>
                     {canDelete && !isEvaluated ? (
                       <button
@@ -754,6 +1135,65 @@ export function CampaignPrizesPanel({
                     ) : null}
                   </div>
                 )}
+
+                {eligiblePreview && eligiblePreview.prizeId === prize.id ? (
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 text-xs space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-slate-800">
+                        Elegibles para este sorteo
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEligiblePreview(null)}
+                        className="text-[11px] font-medium text-slate-500 hover:text-slate-800"
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-md bg-slate-50 p-1.5">
+                        <span className="block text-[10px] text-slate-500">Fichas elegibles</span>
+                        <span className="font-bold text-slate-900">
+                          {eligiblePreview.eligibleTicketsCount}
+                        </span>
+                      </div>
+                      <div className="rounded-md bg-slate-50 p-1.5">
+                        <span className="block text-[10px] text-slate-500">Clientes únicos</span>
+                        <span className="font-bold text-emerald-700">
+                          {eligiblePreview.eligibleCustomersCount}
+                        </span>
+                      </div>
+                      <div className="rounded-md bg-slate-50 p-1.5">
+                        <span className="block text-[10px] text-slate-500">Excluidas</span>
+                        <span className="font-bold text-slate-600">
+                          {eligiblePreview.excludedCount}
+                        </span>
+                      </div>
+                    </div>
+                    {eligiblePreview.eligibleCustomers.length > 0 ? (
+                      <div className="max-h-32 overflow-y-auto divide-y divide-slate-100 rounded border border-slate-100">
+                        {eligiblePreview.eligibleCustomers.map((c) => (
+                          <div
+                            key={c.customerId}
+                            className="flex items-center justify-between px-2 py-1 text-[11px]"
+                          >
+                            <span className="font-medium text-slate-700 truncate">
+                              {c.customerName} ({c.phone})
+                            </span>
+                            <span className="shrink-0 text-slate-500">
+                              {c.ticketCount} {c.ticketCount === 1 ? 'ficha' : 'fichas'} ·{' '}
+                              {formatCRC(c.totalAmount)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-amber-700">
+                        Ningún participante cumple los criterios configurados todavía.
+                      </p>
+                    )}
+                  </div>
+                ) : null}
               </div>
             );
           })}

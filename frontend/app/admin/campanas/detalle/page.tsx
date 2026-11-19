@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Award, Calendar, CheckCircle2, ExternalLink, Eye, ShieldCheck, Ticket, Trophy, Users, XCircle } from 'lucide-react';
+import { ArrowLeft, Award, Calendar, CheckCircle2, ExternalLink, Eye, Loader2, Pencil, RotateCcw, ShieldCheck, Ticket, Trophy, Users, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -23,10 +23,18 @@ import {
   type OrderStatus,
 } from '@/lib/domain-constants';
 import { formatCRC } from '@/lib/utils';
-import { cancelAdminOrder, evaluateAdminCampaignWinner, getAdminCampaignDetail, updateAdminCampaign, uploadAdminCampaignCover, type CampaignWinnerResult } from '@/services/campaigns';
+import { cancelAdminOrder, evaluateAdminCampaignWinner, getAdminCampaignDetail, resetAdminCampaignEvaluation, updateAdminCampaign, uploadAdminCampaignCover, type CampaignWinnerResult } from '@/services/campaigns';
 import type { CampaignGalleryImage } from '@/types/campaign';
 
 const ORDER_STATUS_LABEL = ORDER_STATUS_LABELS as Record<string, string>;
+
+function toLocalDateTimeInput(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 function CampaignDetailInner() {
   const searchParams = useSearchParams();
@@ -64,9 +72,27 @@ function CampaignDetailInner() {
       setEvalError(null);
       setLatestResult(result);
       void queryClient.invalidateQueries({ queryKey: ['admin-campaign-detail', id] });
+      void queryClient.invalidateQueries({ queryKey: ['admin-campaigns'] });
     },
     onError: (err) => {
       setEvalError(err instanceof ApiError ? err.message : 'No se pudo evaluar el número ganador');
+    },
+  });
+
+  const resetEvaluationMutation = useMutation({
+    mutationFn: () => resetAdminCampaignEvaluation(id),
+    onSuccess: () => {
+      setEvalError(null);
+      setLatestResult(null);
+      setWinningNumber('');
+      setWinnerNotes('');
+      void queryClient.invalidateQueries({ queryKey: ['admin-campaign-detail', id] });
+      void queryClient.invalidateQueries({ queryKey: ['admin-campaigns'] });
+    },
+    onError: (err) => {
+      setEvalError(
+        err instanceof ApiError ? err.message : 'No se pudo revertir la evaluación de la campaña',
+      );
     },
   });
 
@@ -94,6 +120,16 @@ function CampaignDetailInner() {
   });
 
   const [galleryImages, setGalleryImages] = useState<CampaignGalleryImage[]>([]);
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editTerms, setEditTerms] = useState('');
+  const [editEndAt, setEditEndAt] = useState('');
+  const [editDrawAt, setEditDrawAt] = useState('');
+  const [editDrawReference, setEditDrawReference] = useState('');
+  const [editCountdownTitle, setEditCountdownTitle] = useState('');
+  const [editInfoError, setEditInfoError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!campaign) return;
@@ -125,6 +161,31 @@ function CampaignDetailInner() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin-campaign-detail', id] });
       void queryClient.invalidateQueries({ queryKey: ['admin-campaigns'] });
+    },
+  });
+
+  const updateInfoMutation = useMutation({
+    mutationFn: () =>
+      updateAdminCampaign(id, {
+        title: editTitle.trim(),
+        category: editCategory.trim(),
+        description: editDescription.trim(),
+        terms: editTerms.trim() || undefined,
+        endAt: editEndAt ? new Date(editEndAt).toISOString() : undefined,
+        drawAt: editDrawAt ? new Date(editDrawAt).toISOString() : null,
+        drawReference: editDrawReference.trim() || null,
+        countdownTitle: editCountdownTitle.trim() || null,
+      }),
+    onSuccess: () => {
+      setEditingInfo(false);
+      setEditInfoError(null);
+      void queryClient.invalidateQueries({ queryKey: ['admin-campaign-detail', id] });
+      void queryClient.invalidateQueries({ queryKey: ['admin-campaigns'] });
+    },
+    onError: (err) => {
+      setEditInfoError(
+        err instanceof ApiError ? err.message : 'No se pudieron guardar los cambios',
+      );
     },
   });
 
@@ -209,47 +270,213 @@ function CampaignDetailInner() {
           const statusBadge = getCampaignStatusBadge(campaign.status);
           const legalBadge = getLegalStatusBadge(campaign.legalApprovalStatus);
           return (
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold text-slate-900">{campaign.title}</h1>
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadge.className}`}
-              >
-                {statusBadge.label}
-              </span>
-              <span
-                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${legalBadge.className}`}
-              >
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Legal: {legalBadge.label}
-                {campaign.legalApprovalReference ? ` (${campaign.legalApprovalReference})` : ''}
-              </span>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-bold text-slate-900">{campaign.title}</h1>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadge.className}`}
+                >
+                  {statusBadge.label}
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${legalBadge.className}`}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Legal: {legalBadge.label}
+                  {campaign.legalApprovalReference ? ` (${campaign.legalApprovalReference})` : ''}
+                </span>
+              </div>
+              {!isCampaignReadOnly(campaign.status) && !editingInfo ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditTitle(campaign.title);
+                    setEditCategory(campaign.category);
+                    setEditDescription(campaign.description);
+                    setEditTerms(campaign.terms ?? '');
+                    setEditEndAt(toLocalDateTimeInput(campaign.endAt));
+                    setEditDrawAt(toLocalDateTimeInput(campaign.drawAt));
+                    setEditDrawReference(campaign.drawReference ?? '');
+                    setEditCountdownTitle(campaign.countdownTitle ?? '');
+                    setEditInfoError(null);
+                    setEditingInfo(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Editar información y fechas
+                </button>
+              ) : null}
             </div>
           );
         })()}
 
-        <p className="text-sm text-slate-600 whitespace-pre-line">{campaign.description}</p>
+        {editingInfo ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              updateInfoMutation.mutate();
+            }}
+            className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-4"
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Título de la campaña
+                </label>
+                <input
+                  required
+                  minLength={3}
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Categoría
+                </label>
+                <input
+                  required
+                  minLength={2}
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Título personalizado del contador (opcional)
+                </label>
+                <input
+                  maxLength={120}
+                  value={editCountdownTitle}
+                  onChange={(e) => setEditCountdownTitle(e.target.value)}
+                  placeholder="Ej. 2 PALITOS CIERRA EN..."
+                  className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Sorteo de referencia
+                </label>
+                <input
+                  value={editDrawReference}
+                  onChange={(e) => setEditDrawReference(e.target.value)}
+                  placeholder="Ej. Lotería Nacional JPS"
+                  className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Cierre de ventas
+                </label>
+                <input
+                  required
+                  type="datetime-local"
+                  value={editEndAt}
+                  onChange={(e) => setEditEndAt(e.target.value)}
+                  className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Fecha y hora del sorteo
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editDrawAt}
+                  onChange={(e) => setEditDrawAt(e.target.value)}
+                  className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Descripción
+                </label>
+                <textarea
+                  required
+                  minLength={10}
+                  rows={4}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Términos y condiciones
+                </label>
+                <textarea
+                  rows={3}
+                  value={editTerms}
+                  onChange={(e) => setEditTerms(e.target.value)}
+                  className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
 
-        <div className="grid gap-3 sm:grid-cols-3 text-xs text-slate-600">
-          <div className="rounded-lg bg-slate-50 p-3">
-            <span className="block text-[11px] uppercase text-slate-400">Cierre de ventas</span>
-            <span className="mt-0.5 inline-flex items-center gap-1 font-semibold text-slate-800">
-              <Calendar className="h-3.5 w-3.5" />
-              {new Date(campaign.endAt).toLocaleString('es-CR')}
-            </span>
-          </div>
-          <div className="rounded-lg bg-slate-50 p-3">
-            <span className="block text-[11px] uppercase text-slate-400">Fecha de sorteo</span>
-            <span className="mt-0.5 block font-semibold text-slate-800">
-              {campaign.drawAt ? new Date(campaign.drawAt).toLocaleString('es-CR') : 'Sin definir'}
-            </span>
-          </div>
-          <div className="rounded-lg bg-slate-50 p-3">
-            <span className="block text-[11px] uppercase text-slate-400">Sorteo</span>
-            <span className="mt-0.5 block font-semibold text-slate-800">
-              {campaign.drawReference || 'No especificado'}
-            </span>
-          </div>
-        </div>
+            {editInfoError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {editInfoError}
+              </div>
+            ) : null}
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingInfo(false);
+                  setEditInfoError(null);
+                }}
+                className="rounded-lg border bg-white px-3 py-1.5 text-xs font-medium text-slate-600"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={updateInfoMutation.isPending}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {updateInfoMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Guardar cambios
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <p className="text-sm text-slate-600 whitespace-pre-line">{campaign.description}</p>
+
+            {campaign.countdownTitle ? (
+              <p className="text-xs font-medium text-slate-500">
+                Título del contador:{' '}
+                <span className="font-semibold text-slate-800">{campaign.countdownTitle}</span>
+              </p>
+            ) : null}
+
+            <div className="grid gap-3 sm:grid-cols-3 text-xs text-slate-600">
+              <div className="rounded-lg bg-slate-50 p-3">
+                <span className="block text-[11px] uppercase text-slate-400">Cierre de ventas</span>
+                <span className="mt-0.5 inline-flex items-center gap-1 font-semibold text-slate-800">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {new Date(campaign.endAt).toLocaleString('es-CR')}
+                </span>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-3">
+                <span className="block text-[11px] uppercase text-slate-400">Fecha de sorteo</span>
+                <span className="mt-0.5 block font-semibold text-slate-800">
+                  {campaign.drawAt ? new Date(campaign.drawAt).toLocaleString('es-CR') : 'Sin definir'}
+                </span>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-3">
+                <span className="block text-[11px] uppercase text-slate-400">Sorteo</span>
+                <span className="mt-0.5 block font-semibold text-slate-800">
+                  {campaign.drawReference || 'No especificado'}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
 
         <CampaignProgressBar progress={campaign.progress} showAvailable />
       </section>
@@ -370,76 +597,129 @@ function CampaignDetailInner() {
         <CampaignPrizesPanel
           campaignId={campaign.id}
           campaignStatus={campaign.status}
+          drawMode={campaign.drawMode ?? CAMPAIGN_DRAW_MODE.MULTI_PRIZE}
           digits={digits}
           maxNumberLabel={maxNumberLabel}
           prizes={campaign.prizes ?? []}
+          combos={combos}
         />
       ) : (
+        <>
         <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-amber-500" />
-              Evaluación de sorteo y ganador
-            </h2>
-            <p className="text-xs text-slate-500">
-              Esta campaña usa números de <strong>{digits} dígitos</strong> (rango{' '}
-              <span className="font-mono">{'0'.repeat(digits)}</span> –{' '}
-              <span className="font-mono">{maxNumberLabel}</span>). Digitá el número favorecido para
-              identificar al ganador automáticamente.
-            </p>
-          </div>
-        </div>
+        {(() => {
+          const targetDrawDate = new Date(campaign.drawAt ?? campaign.endAt);
+          const drawTimePending = !activeWinnerResult && targetDrawDate > new Date();
+          return (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <Trophy className="h-4 w-4 text-amber-500" />
+                    Evaluación de sorteo y ganador
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Esta campaña usa números de <strong>{digits} dígitos</strong> (rango{' '}
+                    <span className="font-mono">{'0'.repeat(digits)}</span> –{' '}
+                    <span className="font-mono">{maxNumberLabel}</span>). Digitá el número favorecido para
+                    identificar al ganador automáticamente.
+                  </p>
+                </div>
+                {activeWinnerResult ? (
+                  <button
+                    type="button"
+                    disabled={resetEvaluationMutation.isPending}
+                    onClick={() => resetEvaluationMutation.mutate()}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 active:scale-95 transition"
+                  >
+                    {resetEvaluationMutation.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    )}
+                    {resetEvaluationMutation.isPending ? 'Revirtiendo...' : 'Revertir evaluación'}
+                  </button>
+                ) : null}
+              </div>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setEvalError(null);
-            evaluateMutation.mutate({
-              winningNumber,
-              notes: winnerNotes.trim() || undefined,
-            });
-          }}
-          className="grid gap-3 sm:grid-cols-[180px_1fr_auto] items-end"
-        >
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              Número ganador ({digits} dígitos)
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              required
-              minLength={digits}
-              maxLength={digits}
-              value={winningNumber}
-              onChange={(e) => setWinningNumber(e.target.value.replace(/\D/g, '').slice(0, digits))}
-              placeholder={'0'.repeat(digits)}
-              className="w-full rounded-lg border px-3 py-2 font-mono text-base font-bold tracking-widest text-slate-900"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              Nota / referencia del sorteo (opcional)
-            </label>
-            <input
-              type="text"
-              maxLength={500}
-              value={winnerNotes}
-              onChange={(e) => setWinnerNotes(e.target.value)}
-              placeholder="Ej. Sorteo JPS #4821 — Premio mayor"
-              className="w-full rounded-lg border px-3 py-2 text-sm"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={evaluateMutation.isPending || winningNumber.length !== digits}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            <Award className="h-4 w-4" />
-            {evaluateMutation.isPending ? 'Evaluando...' : 'Evaluar ganador'}
-          </button>
-        </form>
+              {drawTimePending ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-xs text-amber-900">
+                  Este sorteo está programado para el{' '}
+                  <strong>
+                    {targetDrawDate.toLocaleString('es-CR', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })}
+                  </strong>{' '}
+                  y aún no se puede evaluar.
+                </div>
+              ) : null}
+
+              {!activeWinnerResult ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    setEvalError(null);
+                    evaluateMutation.mutate({
+                      winningNumber,
+                      notes: winnerNotes.trim() || undefined,
+                    });
+                  }}
+                  className="grid gap-3 sm:grid-cols-[180px_1fr_auto] items-end"
+                >
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Número ganador ({digits} dígitos)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      required
+                      disabled={drawTimePending}
+                      minLength={digits}
+                      maxLength={digits}
+                      value={winningNumber}
+                      onChange={(e) =>
+                        setWinningNumber(e.target.value.replace(/\D/g, '').slice(0, digits))
+                      }
+                      placeholder={'0'.repeat(digits)}
+                      className="w-full rounded-lg border px-3 py-2 font-mono text-base font-bold tracking-widest text-slate-900 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Nota / referencia del sorteo (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={500}
+                      disabled={drawTimePending}
+                      value={winnerNotes}
+                      onChange={(e) => setWinnerNotes(e.target.value)}
+                      placeholder="Ej. Sorteo JPS #4821 — Premio mayor"
+                      className="w-full rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={
+                      drawTimePending ||
+                      evaluateMutation.isPending ||
+                      winningNumber.length !== digits
+                    }
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 active:scale-95 transition"
+                  >
+                    {evaluateMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Award className="h-4 w-4" />
+                    )}
+                    {evaluateMutation.isPending ? 'Evaluando...' : 'Evaluar ganador'}
+                  </button>
+                </form>
+              ) : null}
+            </>
+          );
+        })()}
 
         {evalError ? (
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -521,6 +801,16 @@ function CampaignDetailInner() {
           )
         ) : null}
       </section>
+      <CampaignPrizesPanel
+        campaignId={campaign.id}
+        campaignStatus={campaign.status}
+        drawMode={CAMPAIGN_DRAW_MODE.SINGLE_WINNER}
+        digits={digits}
+        maxNumberLabel={maxNumberLabel}
+        prizes={campaign.prizes ?? []}
+        combos={combos}
+      />
+      </>
       )}
 
       <section className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">

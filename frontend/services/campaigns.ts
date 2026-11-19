@@ -1,8 +1,14 @@
 import { apiRequest } from '@/lib/api';
 import type {
   AdminCampaign,
+  CampaignDrawMode,
   CampaignPrize,
   DigitalPass,
+  LegalApprovalStatus,
+  OrderChannel,
+  PrizeAmountScope,
+  PrizeCategory,
+  PrizeDrawWeightMode,
   PublicCampaign,
 } from '@/types/campaign';
 
@@ -134,6 +140,7 @@ export async function createAdminCampaign(payload: {
   legalApprovalReference?: string;
   terms: string;
   coverImageKey?: string | null;
+  countdownTitle?: string | null;
 }): Promise<AdminCampaign> {
   const res = await apiRequest<{ campaign: AdminCampaign }>('/admin/campaigns', {
     method: 'POST',
@@ -145,7 +152,12 @@ export async function createAdminCampaign(payload: {
 export async function updateAdminCampaign(
   id: string,
   payload: {
-    legalApprovalStatus?: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+    title?: string;
+    description?: string;
+    category?: string;
+    endAt?: string;
+    terms?: string;
+    legalApprovalStatus?: LegalApprovalStatus;
     legalApprovalReference?: string | null;
     requiresLegalApproval?: boolean;
     drawAt?: string | null;
@@ -155,7 +167,8 @@ export async function updateAdminCampaign(
     enableInverseNumbers?: boolean;
     maxNumberChanges?: number;
     themeColor?: string;
-    drawMode?: 'SINGLE_WINNER' | 'MULTI_PRIZE';
+    countdownTitle?: string | null;
+    drawMode?: CampaignDrawMode;
   },
 ): Promise<AdminCampaign> {
   const res = await apiRequest<{ campaign: AdminCampaign }>(`/admin/campaigns/${id}`, {
@@ -320,20 +333,87 @@ export async function evaluateAdminCampaignWinner(
   return res.winnerResult;
 }
 
-export async function createAdminPrizes(payload: {
-  campaignId: string;
-  name: string;
-  description: string;
-  estimatedValue?: number | null;
-  drawAt?: string | null;
-  drawReference?: string | null;
-  quantity?: number;
-}): Promise<AdminCampaignPrize[]> {
+export async function resetAdminCampaignEvaluation(
+  id: string,
+): Promise<{ reset: boolean; status: string }> {
+  return apiRequest<{ reset: boolean; status: string }>(
+    `/admin/campaigns/${encodeURIComponent(id)}/reset-evaluation`,
+    { method: 'POST' },
+  );
+}
+
+export interface PrizeEligibilityPayload {
+  prizeType?: PrizeCategory;
+  minOrderAmount?: number | null;
+  amountScope?: PrizeAmountScope;
+  minTickets?: number | null;
+  purchaseFrom?: string | null;
+  purchaseUntil?: string | null;
+  requiredComboId?: string | null;
+  orderChannel?: OrderChannel | null;
+  drawWeightMode?: PrizeDrawWeightMode;
+}
+
+export interface PrizeEligibleSummary {
+  prizeId: string;
+  totalConfirmedCount: number;
+  eligibleTicketsCount: number;
+  eligibleCustomersCount: number;
+  excludedCount: number;
+  drawWeightMode: PrizeDrawWeightMode;
+  eligibleCustomers: Array<{
+    customerId: string;
+    customerName: string;
+    phone: string;
+    ticketCount: number;
+    totalAmount: number;
+  }>;
+}
+
+export async function createAdminPrizes(
+  payload: PrizeEligibilityPayload & {
+    campaignId: string;
+    name: string;
+    description: string;
+    estimatedValue?: number | null;
+    drawAt?: string | null;
+    drawReference?: string | null;
+    quantity?: number;
+  },
+): Promise<AdminCampaignPrize[]> {
   const res = await apiRequest<{ prizes: AdminCampaignPrize[] }>('/admin/prizes', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
   return res.prizes;
+}
+
+export async function createAdminDailyPrizeSeries(
+  payload: PrizeEligibilityPayload & {
+    campaignId: string;
+    name: string;
+    description: string;
+    estimatedValue?: number | null;
+    drawReference?: string | null;
+    startDate: string;
+    endDate: string;
+    drawTime: string;
+  },
+): Promise<{ prizes: AdminCampaignPrize[]; count: number }> {
+  return apiRequest<{ prizes: AdminCampaignPrize[]; count: number }>('/admin/prizes/batch-daily', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getAdminPrizeEligibleSummary(
+  prizeId: string,
+  allowDuplicateOrder = false,
+): Promise<PrizeEligibleSummary> {
+  const res = await apiRequest<{ summary: PrizeEligibleSummary }>(
+    `/admin/prizes/${encodeURIComponent(prizeId)}/eligible-summary?allowDuplicateOrder=${allowDuplicateOrder ? 'true' : 'false'}`,
+  );
+  return res.summary;
 }
 
 export async function deleteAdminPrize(id: string): Promise<{ deleted: boolean }> {

@@ -162,9 +162,15 @@ export async function listPublicCampaigns() {
         select: {
           id: true,
           campaignId: true,
+          prizeType: true,
           name: true,
           description: true,
           estimatedValue: true,
+          minOrderAmount: true,
+          amountScope: true,
+          minTickets: true,
+          purchaseFrom: true,
+          purchaseUntil: true,
           imageKey: true,
           position: true,
           drawAt: true,
@@ -204,9 +210,15 @@ export async function getPublicCampaignBySlug(slug: string) {
         select: {
           id: true,
           campaignId: true,
+          prizeType: true,
           name: true,
           description: true,
           estimatedValue: true,
+          minOrderAmount: true,
+          amountScope: true,
+          minTickets: true,
+          purchaseFrom: true,
+          purchaseUntil: true,
           imageKey: true,
           position: true,
           drawAt: true,
@@ -457,6 +469,7 @@ export async function createCampaign(input: CreateCampaignInput, actorId: string
       maxNumberChanges: input.maxNumberChanges,
       enableInverseNumbers: input.enableInverseNumbers,
       themeColor: input.themeColor,
+      countdownTitle: input.countdownTitle?.trim() || null,
       drawMode: input.drawMode,
       reservationMinutes: input.reservationMinutes,
       paymentWindowMinutes: input.paymentWindowMinutes,
@@ -755,6 +768,21 @@ export async function deleteCampaign(id: string, actorId: string) {
   return { deleted: true };
 }
 
+function assertCampaignDrawTimeReached(drawAt: Date | null, endAt: Date): void {
+  const now = new Date();
+  const target = drawAt ?? endAt;
+  if (target > now) {
+    const formatted = new Intl.DateTimeFormat('es-CR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'America/Costa_Rica',
+    }).format(target);
+    throw new ConflictError(
+      `Este sorteo está programado para el ${formatted} y aún no se puede evaluar.`,
+    );
+  }
+}
+
 export async function evaluateCampaignWinner(
   id: string,
   input: EvaluateWinnerInput,
@@ -762,7 +790,15 @@ export async function evaluateCampaignWinner(
 ) {
   const campaign = await prisma.campaign.findUnique({
     where: { id },
-    select: { id: true, title: true, totalFichas: true, status: true, drawMode: true },
+    select: {
+      id: true,
+      title: true,
+      totalFichas: true,
+      status: true,
+      drawMode: true,
+      drawAt: true,
+      endAt: true,
+    },
   });
 
   if (!campaign) {
@@ -778,6 +814,8 @@ export async function evaluateCampaignWinner(
   if (isCampaignEvaluationClosed(campaign.status)) {
     throw new ConflictError('No se puede evaluar una campaña ya completada o cancelada');
   }
+
+  assertCampaignDrawTimeReached(campaign.drawAt, campaign.endAt);
 
   const digits = getCampaignNumberDigits(campaign.totalFichas);
   const rawNumber = input.winningNumber.trim();
@@ -858,4 +896,65 @@ export async function evaluateCampaignWinner(
         }
       : null,
   };
+}
+
+export async function resetCampaignWinnerEvaluation(id: string, actorId: string) {
+  const campaign = await prisma.campaign.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      drawMode: true,
+      endAt: true,
+      winningNumber: true,
+      winningOrderId: true,
+      winnerEvaluatedAt: true,
+    },
+  });
+
+  if (!campaign) {
+    throw new NotFoundError('Campaña no encontrada');
+  }
+
+  if (campaign.drawMode !== CampaignDrawMode.SINGLE_WINNER) {
+    throw new ConflictError('Esta campaña usa múltiples premios; revertí cada premio individualmente.');
+  }
+
+  if (!campaign.winnerEvaluatedAt && !campaign.winningNumber && !campaign.winningOrderId) {
+    throw new ConflictError('Esta campaña aún no tiene una evaluación de ganador registrada');
+  }
+
+  const nextStatus =
+    campaign.status === CampaignStatus.COMPLETED
+      ? campaign.endAt > new Date()
+        ? CampaignStatus.ACTIVE
+        : CampaignStatus.CLOSED
+      : campaign.status;
+
+  await prisma.campaign.update({
+    where: { id },
+    data: {
+      winningNumber: null,
+      winningOrderId: null,
+      winnerEvaluatedAt: null,
+      winnerNotes: null,
+      status: nextStatus,
+    },
+  });
+
+  await recordAuditLog({
+    actorId,
+    action: 'CAMPAIGN_EVALUATION_RESET',
+    entityType: 'Campaign',
+    entityId: id,
+    metadata: {
+      previousWinningNumber: campaign.winningNumber,
+      previousWinningOrderId: campaign.winningOrderId,
+      previousEvaluatedAt: campaign.winnerEvaluatedAt?.toISOString() ?? null,
+      restoredStatus: nextStatus,
+    },
+  });
+
+  return { reset: true, status: nextStatus };
 }

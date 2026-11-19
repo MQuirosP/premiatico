@@ -15,6 +15,7 @@ import {
   listPublicCampaigns,
   pauseCampaign,
   publishCampaign,
+  resetCampaignWinnerEvaluation,
   updateCampaign,
 } from './campaigns.service.js';
 
@@ -160,6 +161,19 @@ export async function evaluateCampaignWinnerController(
       req.admin!.id,
     );
     res.status(200).json({ success: true, data: { winnerResult: result } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function resetCampaignEvaluationController(
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await resetCampaignWinnerEvaluation(req.params.id, req.admin!.id);
+    res.status(200).json({ success: true, data: result });
   } catch (error) {
     next(error);
   }

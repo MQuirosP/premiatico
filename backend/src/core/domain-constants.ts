@@ -8,6 +8,9 @@ import {
   ParticipationStatus,
   PaymentMethod,
   PaymentStatus,
+  PrizeAmountScope,
+  PrizeCategory,
+  PrizeDrawWeightMode,
   ReservationStatus,
 } from '@prisma/client';
 import { z } from 'zod';
@@ -22,6 +25,9 @@ export {
   ParticipationStatus,
   PaymentMethod,
   PaymentStatus,
+  PrizeAmountScope,
+  PrizeCategory,
+  PrizeDrawWeightMode,
   ReservationStatus,
 };
 
@@ -29,6 +35,10 @@ export const campaignStatusSchema = z.nativeEnum(CampaignStatus);
 export const campaignDrawModeSchema = z.nativeEnum(CampaignDrawMode);
 export const legalApprovalStatusSchema = z.nativeEnum(LegalApprovalStatus);
 export const digitalPassKindSchema = z.nativeEnum(DigitalPassKind);
+export const prizeCategorySchema = z.nativeEnum(PrizeCategory);
+export const prizeAmountScopeSchema = z.nativeEnum(PrizeAmountScope);
+export const prizeDrawWeightModeSchema = z.nativeEnum(PrizeDrawWeightMode);
+export const orderChannelSchema = z.nativeEnum(OrderChannel);
 
 export const ACTIVE_PARTICIPATION_STATUSES: ParticipationStatus[] = [
   ParticipationStatus.RESERVED,

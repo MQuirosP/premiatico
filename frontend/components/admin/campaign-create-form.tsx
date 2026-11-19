@@ -30,6 +30,7 @@ export interface CampaignCreatePayload {
   maxNumberChanges: number;
   enableInverseNumbers: boolean;
   themeColor: CampaignThemeColor;
+  countdownTitle?: string | null;
   drawMode: CampaignDrawMode;
   requiresLegalApproval: boolean;
   legalApprovalStatus: LegalApprovalStatus;
@@ -58,6 +59,7 @@ export function CampaignCreateForm({
   const [maxNumberChanges, setMaxNumberChanges] = useState(5);
   const [enableInverseNumbers, setEnableInverseNumbers] = useState(false);
   const [themeColor, setThemeColor] = useState<CampaignThemeColor>('classic');
+  const [countdownTitle, setCountdownTitle] = useState('');
   const [drawMode, setDrawMode] = useState<CampaignDrawMode>(CAMPAIGN_DRAW_MODE.SINGLE_WINNER);
   const [endAt, setEndAt] = useState('');
   const [drawAt, setDrawAt] = useState('');
@@ -94,6 +96,7 @@ export function CampaignCreateForm({
           maxNumberChanges,
           enableInverseNumbers,
           themeColor,
+          countdownTitle: countdownTitle.trim() || null,
           drawMode,
           requiresLegalApproval: true,
           legalApprovalStatus: LEGAL_APPROVAL_STATUS.PENDING,
@@ -284,6 +287,18 @@ export function CampaignCreateForm({
             Paleta de color de la campaña (contador, combos, chip y botón)
           </label>
           <CampaignThemePicker value={themeColor} onChange={setThemeColor} />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 mb-1">
+            Título personalizado del contador (opcional)
+          </label>
+          <input
+            maxLength={120}
+            value={countdownTitle}
+            onChange={(e) => setCountdownTitle(e.target.value)}
+            placeholder="Ej. 2 PALITOS CIERRA EN... (vacío usa el texto por defecto)"
+            className="w-full rounded-lg border px-3 py-2 text-sm"
+          />
         </div>
         <CampaignImagesCarouselEditor
           images={galleryImages}
